@@ -63,7 +63,7 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
     super.dispose();
   }
 
-  List<Employee> get _employees => EmployeeStore.instance.employees
+  List<Employee> get _employees => EmployeeStore.instance.staffEmployees
       .where((employee) =>
           (_showInactive || employee.status == 'Active') &&
           (_department == null ||
@@ -118,13 +118,14 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
         }
         final employees = _employees;
         final today = AttendanceClock.key(AttendanceClock.today);
-        final todayDays = EmployeeStore.instance.employees
+        final todayDays = EmployeeStore.instance.staffEmployees
             .where((employee) => employee.status == 'Active')
             .map((employee) => store.dayFor(employee.id, today))
             .toList();
         final pending = store.allRequests
-            .where(
-                (request) => request.status == AttendanceRequestStatus.pending)
+            .where((request) =>
+                request.status == AttendanceRequestStatus.pending &&
+                EmployeeStore.instance.isStaffEmployee(request.employeeId))
             .toList();
         final requests = store.allRequests
             .where((request) =>
@@ -468,7 +469,7 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
               child: CupertinoButton(
                   padding: EdgeInsets.zero,
                   onPressed: () async {
-                    final departments = EmployeeStore.instance.employees
+                    final departments = EmployeeStore.instance.staffEmployees
                         .map((employee) =>
                             employee.department.split(' · ').first)
                         .toSet()

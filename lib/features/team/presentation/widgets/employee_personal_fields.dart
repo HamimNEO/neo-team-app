@@ -43,9 +43,13 @@ class EmployeePersonalDraft {
 class EmployeePersonalFields extends StatelessWidget {
   final EmployeePersonalDraft draft;
   final bool selfEdit;
+  final bool administrator;
 
   const EmployeePersonalFields(
-      {super.key, required this.draft, this.selfEdit = false});
+      {super.key,
+      required this.draft,
+      this.selfEdit = false,
+      this.administrator = false});
 
   Future<void> _pickBirthday(BuildContext context) async {
     final now = DateTime.now();
@@ -68,7 +72,11 @@ class EmployeePersonalFields extends StatelessWidget {
             hint: 'e.g. Hamim Leon',
             validator: requiredEmployeeField),
         EmployeeFormField(
-            label: selfEdit ? 'Work Email (managed by admin)' : 'Work Email *',
+            label: selfEdit
+                ? (administrator
+                    ? 'Work Email (read-only)'
+                    : 'Work Email (managed by admin)')
+                : 'Work Email *',
             controller: draft.email,
             hint: 'you@neonecy.com',
             readOnly: selfEdit,
@@ -80,33 +88,40 @@ class EmployeePersonalFields extends StatelessWidget {
             hint: '+880 1700-000000',
             keyboardType: TextInputType.phone,
             validator: employeePhoneValidator),
-        ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            title: const Text('Personal & emergency information',
-                style: TextStyle(fontSize: 14)),
-            initiallyExpanded: selfEdit,
-            maintainState: true,
-            children: [
-              EmployeeFormField(
-                  label: 'Date of Birth',
-                  controller: draft.dateOfBirth,
-                  hint: 'Select date',
-                  readOnly: true,
-                  onTap: () => _pickBirthday(context)),
-              EmployeeFormField(
-                  label: 'Address',
-                  controller: draft.address,
-                  hint: 'Present address',
-                  maxLines: 2),
-              EmployeeFormField(
-                  label: 'Emergency Contact Name',
-                  controller: draft.emergencyName),
-              EmployeeFormField(
-                  label: 'Emergency Contact Phone',
-                  controller: draft.emergencyPhone,
-                  keyboardType: TextInputType.phone,
-                  validator: employeePhoneValidator),
-            ]),
+        if (administrator)
+          EmployeeFormField(
+              label: 'Address',
+              controller: draft.address,
+              hint: 'Contact address',
+              maxLines: 2)
+        else
+          ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text('Personal & emergency information',
+                  style: TextStyle(fontSize: 14)),
+              initiallyExpanded: selfEdit,
+              maintainState: true,
+              children: [
+                EmployeeFormField(
+                    label: 'Date of Birth',
+                    controller: draft.dateOfBirth,
+                    hint: 'Select date',
+                    readOnly: true,
+                    onTap: () => _pickBirthday(context)),
+                EmployeeFormField(
+                    label: 'Address',
+                    controller: draft.address,
+                    hint: 'Present address',
+                    maxLines: 2),
+                EmployeeFormField(
+                    label: 'Emergency Contact Name',
+                    controller: draft.emergencyName),
+                EmployeeFormField(
+                    label: 'Emergency Contact Phone',
+                    controller: draft.emergencyPhone,
+                    keyboardType: TextInputType.phone,
+                    validator: employeePhoneValidator),
+              ]),
       ]);
 }

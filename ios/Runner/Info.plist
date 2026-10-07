@@ -55,9 +55,9 @@
 		<string>remote-notification</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>NEC TEAM uses your photo library to select employee profile pictures and task attachments.</string>
+	<string>NEC TEAM uses your photo library for profile pictures, task attachments, and photos in team messages.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>NEC TEAM uses your camera to take employee profile pictures and task attachment photos.</string>
+	<string>NEC TEAM uses your camera for profile pictures, task attachments, and photos in team messages.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>NEONECY TEAM needs access to your microphone when recording video attachments.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

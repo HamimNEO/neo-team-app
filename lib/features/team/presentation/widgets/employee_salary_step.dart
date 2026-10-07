@@ -418,8 +418,11 @@ class EmployeeSalaryStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     Text(
                       'Total Monthly Meal Cost',
@@ -504,7 +507,6 @@ class EmployeeSalaryStep extends StatelessWidget {
                     );
                   }).toList(),
                 ),
-
                 if (draft.isMealFree) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -575,13 +577,16 @@ class EmployeeSalaryStep extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: nec.brand.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: nec.brand.withValues(alpha: 0.2)),
+                      border:
+                          Border.all(color: nec.brand.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             Text(
                               'Cuts from Salary (${draft.mealCoPayPercent}%):',
@@ -602,8 +607,11 @@ class EmployeeSalaryStep extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             Text(
                               'Company Covers (${100 - draft.mealCoPayPercent}%):',

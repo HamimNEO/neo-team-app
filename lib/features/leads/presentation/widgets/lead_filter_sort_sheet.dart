@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/services/demo_session.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
@@ -134,10 +135,22 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
   void initState() {
     super.initState();
     _currentSort = widget.selectedSort;
+    DemoSession.instance.addListener(_sessionChanged);
+  }
+
+  void _sessionChanged() {
+    if (!mounted) return;
+    setState(() {
+      if (!DemoSession.instance.isAdmin) {
+        _selectedEmployees.clear();
+        if (_activeView == 'assigned') _activeView = 'main';
+      }
+    });
   }
 
   @override
   void dispose() {
+    DemoSession.instance.removeListener(_sessionChanged);
     _employeeSearchController.dispose();
     super.dispose();
   }
@@ -231,7 +244,8 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
   Widget _buildMainView(NecColors nec) {
     final filterCategories = [
       {'key': 'status', 'label': 'Status'},
-      {'key': 'assigned', 'label': 'Assigned Employee'},
+      if (DemoSession.instance.isAdmin)
+        {'key': 'assigned', 'label': 'Assigned Employee'},
       {'key': 'source', 'label': 'Lead Source'},
       {'key': 'type', 'label': 'Business Type'},
       {'key': 'priority', 'label': 'Priority'},
@@ -812,7 +826,9 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
                       case 'status':
                         return _buildStatusView(nec);
                       case 'assigned':
-                        return _buildAssignedView(nec);
+                        return DemoSession.instance.isAdmin
+                            ? _buildAssignedView(nec)
+                            : _buildMainView(nec);
                       case 'source':
                         return _buildSourceView(nec);
                       case 'type':

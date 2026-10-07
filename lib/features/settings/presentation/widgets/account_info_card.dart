@@ -15,6 +15,8 @@ class AccountInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
+    final statusColor =
+        status == 'Active' ? AppColors.success : nec.textTertiary;
 
     return Material(
       color: nec.surface,
@@ -28,7 +30,8 @@ class AccountInfoCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
+                Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -48,20 +51,21 @@ class AccountInfoCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
+                )),
+                const SizedBox(width: 12),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.15),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
-                    'Active',
+                  child: Text(
+                    status,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.success,
+                      color: statusColor,
                     ),
                   ),
                 ),

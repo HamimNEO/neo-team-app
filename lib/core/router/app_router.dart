@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'shell_safe_router.dart';
+import 'app_navigation.dart';
+import '../../features/messages/presentation/messages_screen.dart';
+import '../../features/messages/presentation/conversation_screen.dart';
 import '../services/demo_session.dart';
+import '../../features/team/data/employee_store.dart';
+import '../../features/settings/presentation/change_password_screen.dart';
+import '../../features/settings/presentation/employee_password_screen.dart';
 import '../services/staff_access_store.dart';
 import '../../features/settings/presentation/staff_access_screen.dart';
 
@@ -82,32 +89,146 @@ Page<dynamic> _buildPage(GoRouterState state, Widget child) {
   );
 }
 
-final GoRouter appRouter = GoRouter(
+String? _redirectLocation(String location) {
+  final uri = Uri.parse(location);
+  final path = uri.path;
+  if (path == '/stacked') {
+    final destination = uri.queryParameters['screen'];
+    if (destination == null || _stackedScreen(Uri.parse(destination)) == null) {
+      return '/access-denied';
+    }
+    final redirect = _redirectLocation(destination);
+    if (redirect == null) return null;
+    return _stackedScreen(Uri.parse(redirect)) == null
+        ? redirect
+        : Uri(path: '/stacked', queryParameters: {'screen': redirect})
+            .toString();
+  }
+  if (path == '/') return null;
+  const publicPaths = {
+    '/login',
+    '/forgot-password',
+    '/otp-verification',
+    '/set-password',
+    '/password-reset-success',
+  };
+  if (publicPaths.contains(path)) {
+    return path == '/login' && DemoSession.instance.signedIn ? '/home' : null;
+  }
+  if (!DemoSession.instance.signedIn) return '/login';
+  if (path.startsWith('/employee/') &&
+      path.endsWith('/password') &&
+      !DemoSession.instance.isAdmin) {
+    return '/access-denied';
+  }
+  if (path == '/employee/${DemoSession.instance.employeeId}') return '/profile';
+  if (DemoSession.instance.isAdmin) {
+    if (path == '/attendance') return '/attendance/admin';
+    if (path == '/meals') return '/meals/admin';
+    if (path.startsWith('/attendance/employee/') &&
+        !EmployeeStore.instance
+            .isStaffEmployee(Uri.parse(location).pathSegments.last)) {
+      return '/attendance/admin';
+    }
+  }
+  return StaffAccessStore.instance.canOpen(path) ? null : '/access-denied';
+}
+
+/// Root presentations reuse the same screens while retaining the page that
+/// opened them. The existing shell remains mounted underneath exactly once.
+Widget? _stackedScreen(Uri destination) {
+  final path = destination.path;
+  if (path.startsWith('/attendance/employee/')) {
+    return AttendanceScreen(
+        employeeId: destination.pathSegments.last,
+        initialMonth:
+            DateTime.tryParse(destination.queryParameters['month'] ?? ''));
+  }
+  if (path.startsWith('/audit-logs/')) {
+    return AuditDetailScreen(auditId: destination.pathSegments.last);
+  }
+  return switch (path) {
+    '/meals' => const MealScreen(),
+    '/meals/admin' => const MealScreen(administrator: true),
+    '/attendance' => const AttendanceScreen(),
+    '/attendance/admin' => const AttendanceAdminScreen(),
+    '/attendance/settings' => const AttendanceSettingsScreen(),
+    '/administration' => const AdministrationScreen(),
+    '/operations-settings' => const OperationsSettingsScreen(),
+    '/follow-up-visit-settings' => const FollowUpVisitSettingsScreen(),
+    '/task-settings' => const TaskSettingsScreen(),
+    '/issue-settings' => const IssueSettingsScreen(),
+    '/audit-logs' => const AuditLogsScreen(),
+    '/system-settings' => const SystemSettingsScreen(),
+    '/system-settings/organization' => const OrganizationInformationScreen(),
+    '/leads' =>
+      const _StackedTabScreen(title: 'Manage Leads', child: LeadsScreen()),
+    '/tasks' =>
+      const _StackedTabScreen(title: 'Manage Tasks', child: TasksScreen()),
+    '/home' => const _StackedTabScreen(title: 'Home', child: HomeScreen()),
+    '/more' => const _StackedTabScreen(title: 'More', child: MoreScreen()),
+    _ => null,
+  };
+}
+
+class _StackedTabScreen extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _StackedTabScreen({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+            title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            leading: BackButton(onPressed: () => context.popAppRoute())),
+        body: child,
+      );
+}
+
+final GoRouter appRouter = ShellSafeRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   refreshListenable:
       Listenable.merge([DemoSession.instance, StaffAccessStore.instance]),
-  redirect: (context, state) {
-    final path = state.uri.path;
-    if (path == '/') {
-      return null;
-    }
-    const publicPaths = {
-      '/login',
-      '/forgot-password',
-      '/otp-verification',
-      '/set-password',
-      '/password-reset-success'
-    };
-    if (publicPaths.contains(path)) {
-      return DemoSession.instance.signedIn ? '/home' : null;
-    }
-    if (!DemoSession.instance.signedIn) {
-      return '/login';
-    }
-    return StaffAccessStore.instance.canOpen(path) ? null : '/access-denied';
-  },
+  redirect: (context, state) => _redirectLocation(state.uri.toString()),
+  resolveLocation: (location) => _redirectLocation(location) ?? location,
   routes: [
+    GoRoute(
+      path: '/employee/:id/password',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(state,
+          EmployeePasswordScreen(employeeId: state.pathParameters['id'] ?? '')),
+    ),
+    GoRoute(
+      path: '/stacked',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+          state,
+          _stackedScreen(
+                  Uri.parse(state.uri.queryParameters['screen'] ?? '')) ??
+              const SizedBox.shrink()),
+    ),
+    GoRoute(
+      path: '/change-password',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) =>
+          _buildPage(state, const ChangePasswordScreen()),
+    ),
+    GoRoute(
+      path: '/messages',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) =>
+          _buildPage(state, const MessagesScreen()),
+    ),
+    GoRoute(
+      path: '/messages/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        ConversationScreen(employeeId: state.pathParameters['id'] ?? ''),
+      ),
+    ),
     GoRoute(
         path: '/staff-access',
         pageBuilder: (context, state) =>

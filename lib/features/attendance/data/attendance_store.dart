@@ -79,6 +79,10 @@ class AttendanceStore extends ChangeNotifier {
       throw const FormatException(
           'Use your signed-in account for this action.');
     }
+    if (DemoSession.instance.isAdmin && actorId == employeeId && !adminOnly) {
+      throw const FormatException(
+          'Use attendance management to manage staff attendance.');
+    }
     if (!DemoSession.instance.isAdmin &&
         !StaffAccessStore.instance.allows(StaffPermission.attendance)) {
       throw const FormatException(
@@ -695,6 +699,11 @@ class AttendanceStore extends ChangeNotifier {
           int overtimeMinutes = 0}) =>
       _commit(actorId ?? employeeId, employeeId, day, '${kind.label} requested',
           (state) {
+        if (DemoSession.instance.isAdmin ||
+            !EmployeeStore.instance.isStaffEmployee(employeeId)) {
+          throw const FormatException(
+              'Attendance requests are submitted by staff. Administrators review them in attendance management.');
+        }
         if (reason.trim().length < 5) {
           throw const FormatException(
               'Please provide a reason of at least 5 characters.');

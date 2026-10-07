@@ -1,3 +1,4 @@
+import '../../../core/router/app_navigation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -272,7 +273,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         setState(() {
                           item['isUnread'] = false;
                         });
-                        context.push(item['targetRoute'] as String);
+                        context.pushAppRoute(item['targetRoute'] as String);
                       },
                     ),
                     if (!isLast)

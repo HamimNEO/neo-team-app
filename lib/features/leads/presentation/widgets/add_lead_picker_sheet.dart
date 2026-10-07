@@ -141,13 +141,14 @@ class _AddLeadPickerSheetState extends State<AddLeadPickerSheet> {
                     children: List.generate(widget.options.length, (index) {
                       final item = widget.options[index];
                       final label = item['label'] as String;
+                      final value = item['value'] as String? ?? label;
                       final subtitle = item['subtitle'] as String?;
                       final icon = item['icon'] as IconData?;
                       final iconColor = item['color'] as Color?;
                       final emoji = item['emoji'] as String?;
                       final isSelected = widget.isMultiSelect
                           ? _multiSet.contains(label)
-                          : widget.selectedValue == label;
+                          : widget.selectedValue == value;
                       final isLast = index == widget.options.length - 1;
 
                       return Column(
@@ -163,7 +164,7 @@ class _AddLeadPickerSheetState extends State<AddLeadPickerSheet> {
                                   }
                                 });
                               } else {
-                                widget.onSelected(label);
+                                widget.onSelected(value);
                                 Navigator.pop(context);
                               }
                             },

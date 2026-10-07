@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/mock_audit_entries.dart';
 import 'widgets/audit_app_bar.dart';
@@ -30,7 +30,8 @@ class AuditDetailScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 17, color: nec.textPrimary),
                   ),
                   CupertinoButton(
-                    onPressed: () => context.go('/audit-logs'),
+                    onPressed: () =>
+                        context.popAppRoute(fallback: '/audit-logs'),
                     child: Text('View audit logs',
                         style: TextStyle(color: nec.brand)),
                   ),

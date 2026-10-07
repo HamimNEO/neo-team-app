@@ -7,7 +7,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_button.dart';
 import '../../../core/widgets/nec_toast.dart';
-import 'widgets/add_lead_picker_sheet.dart';
+import '../data/lead_store.dart';
+import '../../team/data/employee_store.dart';
+import 'widgets/lead_assignee_picker.dart';
 import 'widgets/lead_activity_tab.dart';
 import 'widgets/lead_more_tab.dart';
 import 'widgets/lead_overview_tab.dart';
@@ -28,55 +30,69 @@ class LeadDetailsScreen extends StatefulWidget {
 class _LeadDetailsScreenState extends State<LeadDetailsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late bool _isUnassigned;
-  String _assignedEmployee = 'Unassigned';
+  bool _reassigning = false;
+
+  bool get _isUnassigned {
+    final lead = LeadStore.instance.byId(widget.leadId);
+    return lead == null ||
+        (lead.assignedEmployeeId == null && lead.assignedTo == null);
+  }
+
+  String get _assignedEmployee {
+    final lead = LeadStore.instance.byId(widget.leadId);
+    return lead == null ? 'Unassigned' : LeadStore.instance.assigneeName(lead);
+  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _isUnassigned = widget.leadId == 'lead_3' || widget.leadId == 'lead_4';
+    LeadStore.instance.addListener(_refresh);
+    EmployeeStore.instance.addListener(_refresh);
   }
 
   @override
   void dispose() {
+    LeadStore.instance.removeListener(_refresh);
+    EmployeeStore.instance.removeListener(_refresh);
     _tabController.dispose();
     super.dispose();
   }
 
-  void _openAssignEmployeeSheet() {
-    if (!DemoSession.instance.isAdmin) {
-      return;
-    }
-    final employees = [
-      {'label': 'Shahina Akter'},
-      {'label': 'Rahul Mehta'},
-      {'label': 'Priya Das'},
-      {'label': 'Fahim Ahmed'},
-      {'label': 'Unassigned'},
-    ];
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => AddLeadPickerSheet(
-        title: 'Assign Lead To',
-        options: employees,
-        selectedValue: _assignedEmployee,
-        onSelected: (val) {
-          setState(() {
-            _assignedEmployee = val as String;
-            _isUnassigned = (val == 'Unassigned');
-          });
-          NecToast.show(
-            context,
-            message: 'Lead assigned to $_assignedEmployee',
-            type: NecToastType.success,
-          );
-        },
-      ),
-    );
+  Future<void> _openAssignEmployeeSheet() async {
+    if (_reassigning || !DemoSession.instance.isAdmin) return;
+    final actor = DemoSession.instance.employeeId;
+    _reassigning = true;
+    try {
+      final lead = LeadStore.instance.byId(widget.leadId);
+      final selected =
+          await chooseLeadAssignee(context, lead?.assignedEmployeeId);
+      if (!mounted ||
+          selected == null ||
+          !DemoSession.instance.isAdmin ||
+          DemoSession.instance.employeeId != actor) {
+        return;
+      }
+      await LeadStore.instance
+          .reassign(widget.leadId, selected.isEmpty ? null : selected);
+      if (mounted) {
+        NecToast.show(context, message: 'Lead assigned to $_assignedEmployee');
+      }
+    } catch (error) {
+      if (mounted) {
+        NecToast.show(context,
+            message: error is FormatException
+                ? error.message
+                : 'Unable to change this assignment. Please try again.',
+            type: NecToastType.error);
+      }
+    } finally {
+      _reassigning = false;
+    }
   }
 
   void _openActionSheet(String companyName) {
@@ -214,11 +230,8 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final companyName = (widget.leadId == 'lead_4')
-        ? 'Coral Reef Resort'
-        : (widget.leadId == 'lead_3'
-            ? 'Ocean Paradise Hotel'
-            : 'Sea Pearl Resort');
+    final companyName =
+        LeadStore.instance.byId(widget.leadId)?.company ?? 'Lead';
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -344,6 +357,8 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
                 children: [
                   LeadOverviewTab(
                     isUnassigned: _isUnassigned,
+                    assignedEmployee: _assignedEmployee,
+                    onChangeAssigned: _openAssignEmployeeSheet,
                     companyName: companyName,
                   ),
                   const LeadActivityTab(),

@@ -6,7 +6,8 @@ import '../../attendance/data/attendance_clock.dart';
 import 'package:intl/intl.dart';
 import 'widgets/role_workspace.dart';
 import '../../../core/widgets/section_header.dart';
-import '../../attendance/presentation/widgets/attendance_home_card.dart';
+import '../../attendance/presentation/widgets/attendance_admin_home_card.dart';
+import '../../meals/presentation/widgets/lunch_entry.dart';
 import 'widgets/home_greeting_bar.dart';
 import 'widgets/home_skeleton_loader.dart';
 import 'widgets/lead_snapshot_grid.dart';
@@ -58,8 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _isLoading
               ? SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  child: HomeSkeletonLoader(
-                      isAdmin: DemoSession.instance.isAdmin),
+                  child:
+                      HomeSkeletonLoader(isAdmin: DemoSession.instance.isAdmin),
                 )
               : CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -80,7 +81,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const SizedBox(height: 6),
-                                  const AttendanceHomeCard(),
+                                  const AttendanceAdminHomeCard(),
+                                  const SizedBox(height: 14),
+                                  const LunchEntry(administrator: true),
                                   const SizedBox(height: 14),
                                   SectionHeader(
                                     title: 'LEADS',

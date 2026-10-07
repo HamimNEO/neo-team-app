@@ -9,24 +9,27 @@ import '../../../../core/widgets/nec_avatar.dart';
 import '../../../../core/widgets/nec_button.dart';
 import '../../../../core/widgets/nec_toast.dart';
 import 'add_lead_picker_sheet.dart';
+import 'lead_assignee_picker.dart';
+import '../../../team/data/employee_store.dart';
 
 class AddLeadStep5 extends StatefulWidget {
   final TextEditingController notesController;
   final String? selectedSource;
-  final String? selectedEmployee;
+  final String? selectedEmployeeId;
   final String? selectedPriority;
   final String? attachedFileName;
   final ValueChanged<String> onSourceChanged;
-  final ValueChanged<String> onEmployeeChanged;
+  final ValueChanged<String?> onEmployeeChanged;
   final ValueChanged<String> onPriorityChanged;
   final ValueChanged<String?> onAttachmentChanged;
   final VoidCallback onSubmit;
+  final bool isSaving;
 
   const AddLeadStep5({
     super.key,
     required this.notesController,
     required this.selectedSource,
-    required this.selectedEmployee,
+    required this.selectedEmployeeId,
     required this.selectedPriority,
     required this.attachedFileName,
     required this.onSourceChanged,
@@ -34,6 +37,7 @@ class AddLeadStep5 extends StatefulWidget {
     required this.onPriorityChanged,
     required this.onAttachmentChanged,
     required this.onSubmit,
+    this.isSaving = false,
   });
 
   @override
@@ -67,34 +71,18 @@ class _AddLeadStep5State extends State<AddLeadStep5> {
     );
   }
 
-  void _openEmployeePicker(BuildContext context) {
-    if (!DemoSession.instance.isAdmin) {
-      NecToast.show(
-        context,
-        message: 'Only administrators can assign leads to other team members',
-        type: NecToastType.info,
-      );
+  Future<void> _openEmployeePicker(BuildContext context) async {
+    if (!DemoSession.instance.isAdmin) return;
+    final actor = DemoSession.instance.employeeId;
+    final selected =
+        await chooseLeadAssignee(context, widget.selectedEmployeeId);
+    if (!mounted ||
+        selected == null ||
+        !DemoSession.instance.isAdmin ||
+        DemoSession.instance.employeeId != actor) {
       return;
     }
-    final employees = [
-      {'label': 'Shahina Akter'},
-      {'label': 'Rahul Mehta'},
-      {'label': 'Priya Das'},
-      {'label': 'Fahim Ahmed'},
-      {'label': 'Unassigned'},
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => AddLeadPickerSheet(
-        title: 'Assigned Employee',
-        options: employees,
-        selectedValue: widget.selectedEmployee,
-        onSelected: (val) => widget.onEmployeeChanged(val as String),
-      ),
-    );
+    widget.onEmployeeChanged(selected.isEmpty ? null : selected);
   }
 
   void _openPriorityPicker(BuildContext context) {
@@ -253,57 +241,50 @@ class _AddLeadStep5State extends State<AddLeadStep5> {
                 ),
                 const SizedBox(height: 6),
                 GestureDetector(
-                  onTap: () => _openEmployeePicker(context),
-                  child: Row(
-                    children: [
-                      if (widget.selectedEmployee != null &&
-                          widget.selectedEmployee != 'Unassigned') ...[
-                        const NecAvatar(initials: 'SA', size: 22),
-                        const SizedBox(width: 8),
-                      ],
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Text(
-                                widget.selectedEmployee ?? 'Shahina Akter',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: nec.textPrimary,
-                                ),
-                              ),
-                              if (!DemoSession.instance.isAdmin) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: nec.brand.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'You',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: nec.brand,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          DemoSession.instance.isAdmin
-                              ? CupertinoIcons.chevron_right
-                              : CupertinoIcons.lock_fill,
-                          size: DemoSession.instance.isAdmin ? 16 : 13,
-                          color: nec.textTertiary,
-                        ),
-                      ],
+                  onTap: DemoSession.instance.isAdmin
+                      ? () => _openEmployeePicker(context)
+                      : null,
+                  child: Row(children: [
+                    NecAvatar(
+                      initials: EmployeeStore.instance
+                              .byId(widget.selectedEmployeeId ?? '')
+                              ?.avatarInitials ??
+                          '??',
+                      photoBase64: EmployeeStore.instance
+                          .byId(widget.selectedEmployeeId ?? '')
+                          ?.photoBase64,
+                      size: 22,
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(
+                      EmployeeStore.instance
+                              .byId(widget.selectedEmployeeId ?? '')
+                              ?.name ??
+                          'Unassigned',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: nec.textPrimary),
+                    )),
+                    const SizedBox(width: 8),
+                    Icon(
+                        DemoSession.instance.isAdmin
+                            ? CupertinoIcons.chevron_right
+                            : CupertinoIcons.lock_fill,
+                        size: 16,
+                        color: nec.textTertiary),
+                  ]),
+                ),
+                if (!DemoSession.instance.isAdmin) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                      'Automatically assigned to you. Only an admin can reassign this lead.',
+                      style: TextStyle(
+                          fontSize: 12, color: nec.textTertiary, height: 1.4)),
+                ],
                 const SizedBox(height: 12),
                 Divider(height: 1, color: nec.separator.withValues(alpha: 0.2)),
                 const SizedBox(height: 12),
@@ -453,7 +434,8 @@ class _AddLeadStep5State extends State<AddLeadStep5> {
           const SizedBox(height: 32),
           NecButton(
             label: 'Create Lead',
-            onPressed: widget.onSubmit,
+            onPressed: widget.isSaving ? null : widget.onSubmit,
+            loading: widget.isSaving,
             fullWidth: true,
           ),
         ],

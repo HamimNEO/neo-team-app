@@ -91,7 +91,9 @@ class SessionSection extends StatelessWidget {
         const SizedBox(height: 20),
         Center(
           child: Text(
-            'Account lifecycle is managed by your organization\nadministrator.',
+            DemoSession.instance.isAdmin
+                ? 'You manage organization settings and staff access.'
+                : 'Account lifecycle is managed by your organization\nadministrator.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,

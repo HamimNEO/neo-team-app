@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/demo_session.dart';
 import '../../../core/widgets/nec_avatar.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../attendance/data/attendance_clock.dart';
@@ -24,6 +25,8 @@ class MealScreen extends StatefulWidget {
 }
 
 class _MealScreenState extends State<MealScreen> {
+  bool get _administrator =>
+      widget.administrator || DemoSession.instance.isAdmin;
   late String _day;
   final _saving = <String>{};
   final _search = TextEditingController();
@@ -32,8 +35,8 @@ class _MealScreenState extends State<MealScreen> {
   @override
   void initState() {
     super.initState();
-    _day = AttendanceClock.key(AttendanceClock.today
-        .add(Duration(days: widget.administrator ? 0 : 1)));
+    _day = AttendanceClock.key(
+        AttendanceClock.today.add(Duration(days: _administrator ? 0 : 1)));
     _search.addListener(_refresh);
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _refresh());
   }
@@ -55,7 +58,7 @@ class _MealScreenState extends State<MealScreen> {
     if (_saving.contains(employee.id)) {
       return;
     }
-    final actor = widget.administrator
+    final actor = _administrator
         ? AttendanceStore.instance.administratorId
         : EmployeeStore.currentEmployeeId;
     if (actor == null) {
@@ -86,7 +89,7 @@ class _MealScreenState extends State<MealScreen> {
 
   Future<void> _pickDate() async {
     final date = await pickAttendanceDate(context, AttendanceClock.date(_day),
-        first: widget.administrator
+        first: _administrator
             ? AttendanceClock.date(
                 AttendanceStore.instance.policy.trackingStart)
             : AttendanceClock.today);
@@ -113,13 +116,13 @@ class _MealScreenState extends State<MealScreen> {
           final nec = Theme.of(context).extension<NecColors>()!;
           final store = MealStore.instance;
           final actor = AttendanceStore.instance.administratorId;
-          final employees = EmployeeStore.instance.employees
+          final employees = EmployeeStore.instance.staffEmployees
               .where((employee) => employee.status == 'Active')
               .toList();
           final error = store.loadError ?? AttendanceStore.instance.loadError;
           final own = EmployeeStore.instance.currentEmployee;
           final history =
-              store.historyFor(widget.administrator ? null : own.id, _day);
+              store.historyFor(_administrator ? null : own.id, _day);
           final needed = employees
               .where((employee) =>
                   store.statusFor(employee.id, _day) == LunchStatus.receiving)
@@ -130,8 +133,8 @@ class _MealScreenState extends State<MealScreen> {
               .length;
           return Scaffold(
             backgroundColor: nec.bg,
-            appBar: attendanceAppBar(context,
-                widget.administrator ? 'Lunch Management' : 'My Lunch'),
+            appBar: attendanceAppBar(
+                context, _administrator ? 'Lunch Management' : 'My Lunch'),
             body: SafeArea(
                 bottom: false,
                 child: SingleChildScrollView(
@@ -139,7 +142,7 @@ class _MealScreenState extends State<MealScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (widget.administrator && actor == null)
+                        if (_administrator && actor == null)
                           const AttendanceEmpty(
                               title: 'Administrator access required',
                               message:
@@ -195,7 +198,7 @@ class _MealScreenState extends State<MealScreen> {
                                     color: CupertinoColors.systemRed)),
                           ],
                           const SizedBox(height: 18),
-                          if (widget.administrator) ...[
+                          if (_administrator) ...[
                             AttendanceMetrics(items: [
                               (
                                 'Lunches needed',
@@ -267,7 +270,7 @@ class _MealScreenState extends State<MealScreen> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: AttendanceCard(
                                   child: Text(
-                                      '${widget.administrator ? '${EmployeeStore.instance.byId(change.employeeId)?.name ?? 'Employee'} · ' : ''}${change.takeLunch ? 'Lunch restored' : 'Lunch skipped'}\nChanged by ${EmployeeStore.instance.byId(change.actorId)?.name ?? 'Employee'} · ${AttendanceClock.dayLabel(AttendanceClock.key(AttendanceClock.wallTime(change.updatedAt)))} · ${AttendanceClock.time(change.updatedAt)}',
+                                      '${_administrator ? '${EmployeeStore.instance.byId(change.employeeId)?.name ?? 'Employee'} · ' : ''}${change.takeLunch ? 'Lunch restored' : 'Lunch skipped'}\nChanged by ${EmployeeStore.instance.byId(change.actorId)?.name ?? 'Employee'} · ${AttendanceClock.dayLabel(AttendanceClock.key(AttendanceClock.wallTime(change.updatedAt)))} · ${AttendanceClock.time(change.updatedAt)}',
                                       style: TextStyle(
                                           color: nec.textSecondary,
                                           fontSize: 12,
@@ -290,13 +293,13 @@ class _MealScreenState extends State<MealScreen> {
     final enabled = ready &&
         !busy &&
         status.available &&
-        store.canChange(_day, administrator: widget.administrator);
+        store.canChange(_day, administrator: _administrator);
     return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: AttendanceCard(
             padding: const EdgeInsets.all(14),
             child: Row(children: [
-              if (widget.administrator) ...[
+              if (_administrator) ...[
                 NecAvatar(
                     initials: employee.avatarInitials,
                     photoBase64: employee.photoBase64,
@@ -307,10 +310,7 @@ class _MealScreenState extends State<MealScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(
-                        widget.administrator
-                            ? employee.name
-                            : 'Take Office Lunch',
+                    Text(_administrator ? employee.name : 'Take Office Lunch',
                         style: TextStyle(
                             color: nec.textPrimary,
                             fontSize: 16,

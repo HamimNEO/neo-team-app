@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_toast.dart';
 import '../../domain/models/employee.dart';
+import 'employee_credentials_card.dart';
 
 class EmployeeMoreTab extends StatelessWidget {
   final Employee employee;
@@ -421,6 +422,8 @@ class EmployeeMoreTab extends StatelessWidget {
             ),
           ),
           _buildSectionHeader(context, 'ACCOUNT & SECURITY'),
+          EmployeeCredentialsCard(employee: employee),
+          const SizedBox(height: 12),
           Material(
             color: nec.surface,
             borderRadius: BorderRadius.circular(16),

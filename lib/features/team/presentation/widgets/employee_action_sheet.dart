@@ -1,6 +1,6 @@
+import '../../../../core/router/app_navigation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_toast.dart';
@@ -59,7 +59,7 @@ class EmployeeActionSheet extends StatelessWidget {
         'color': nec.brand,
         'onTap': () {
           Navigator.pop(context);
-          context.push('/attendance/employee/${employee.id}');
+          context.pushAppRoute('/attendance/employee/${employee.id}');
         },
       },
       {
@@ -67,7 +67,7 @@ class EmployeeActionSheet extends StatelessWidget {
         'color': nec.brand,
         'onTap': () {
           Navigator.pop(context);
-          context.push('/edit-employee/${employee.id}');
+          context.pushAppRoute('/edit-employee/${employee.id}');
         },
       },
       {

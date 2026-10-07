@@ -2,6 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/demo_session.dart';
+import '../data/lead_store.dart';
+import '../domain/models/lead.dart';
 import '../../../core/widgets/nec_toast.dart';
 import 'widgets/add_lead_step1.dart';
 import 'widgets/add_lead_step2.dart';
@@ -43,36 +46,39 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
 
   final _notesController = TextEditingController();
   String? _selectedSource;
-  String? _selectedEmployee = 'Shahina Akter';
+  String? _selectedEmployeeId;
+  Lead? _original;
+  bool _saving = false;
+  final _actor = DemoSession.instance.employeeId;
   String? _selectedPriority = 'Normal';
   String? _attachedFileName;
 
   @override
   void initState() {
     super.initState();
-    if (widget.leadId != null) {
-      _companyController.text = 'Sea Pearl Resort';
-      _selectedBusinessType = 'Resort';
-      _locationController.text = "Cox's Bazar";
-
-      _contactNameController.text = 'Abdul Karim';
-      _selectedRole = 'General Manager';
-      _phoneController.text = '+880 1711 234567';
-      _isWhatsAppSame = true;
-      _emailController.text = 'karim@seapearl.com';
-
-      _propertiesController.text = '1';
-      _roomsController.text = '120';
-      _selectedHms = 'IDS Next';
-
-      _selectedPlan = 'Enterprise';
-      _selectedServices = {'Hotel Management', 'Hotel Website', 'Guest App'};
-
-      _selectedSource = 'Referral';
-      _selectedEmployee = 'Shahina Akter';
-      _selectedPriority = 'Normal';
-      _notesController.text =
-          'Client requirements, context, special requests...';
+    _selectedEmployeeId = DemoSession.instance.employeeId;
+    _original =
+        widget.leadId == null ? null : LeadStore.instance.byId(widget.leadId!);
+    final lead = _original;
+    if (lead != null) {
+      _companyController.text = lead.company;
+      _selectedBusinessType = lead.type;
+      _locationController.text = lead.location;
+      _contactNameController.text = lead.contactName ?? '';
+      _selectedRole = lead.contactRole;
+      _phoneController.text = lead.phone ?? '';
+      _isWhatsAppSame = lead.isWhatsAppSame;
+      _emailController.text = lead.email ?? '';
+      _propertiesController.text = lead.totalProperties?.toString() ?? '';
+      _roomsController.text = lead.totalRooms?.toString() ?? '';
+      _selectedHms = lead.currentHms;
+      _selectedPlan = lead.interestedPlan;
+      _selectedServices = Set.of(lead.interestedServices);
+      _selectedSource = lead.source;
+      _selectedEmployeeId = lead.assignedEmployeeId;
+      _selectedPriority = lead.priority;
+      _notesController.text = lead.notes;
+      _attachedFileName = lead.attachmentName;
     }
   }
 
@@ -107,7 +113,8 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
     }
   }
 
-  void _submitLead() {
+  Future<void> _submitLead() async {
+    if (_saving) return;
     if (_companyController.text.trim().isEmpty) {
       NecToast.show(
         context,
@@ -117,20 +124,73 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
       return;
     }
 
-    context.pop();
-    NecToast.show(
-      context,
-      message: widget.leadId != null
-          ? 'Lead updated successfully'
-          : 'Lead created successfully',
-      type: NecToastType.success,
-    );
+    setState(() => _saving = true);
+    try {
+      if (!DemoSession.instance.signedIn ||
+          DemoSession.instance.employeeId != _actor) {
+        throw const FormatException('Sign in again before saving this lead.');
+      }
+      final employeeId = DemoSession.instance.isAdmin
+          ? _selectedEmployeeId
+          : _original?.assignedEmployeeId ?? DemoSession.instance.employeeId;
+      final lead = Lead(
+        id: _original?.id ?? 'lead_${DateTime.now().microsecondsSinceEpoch}',
+        company: _companyController.text.trim(),
+        type: _selectedBusinessType ?? 'Other',
+        location: _locationController.text.trim(),
+        status: _original?.status ?? 'New',
+        priority: _selectedPriority ?? 'Normal',
+        createdAt: _original?.createdAt ?? DateTime.now(),
+        assignedEmployeeId: employeeId,
+        contactName: _contactNameController.text.trim(),
+        contactRole: _selectedRole,
+        phone: _phoneController.text.trim(),
+        email: _emailController.text.trim(),
+        source: _selectedSource,
+        currentHms: _selectedHms,
+        totalProperties: int.tryParse(_propertiesController.text),
+        totalRooms: int.tryParse(_roomsController.text),
+        interestedPlan: _selectedPlan,
+        interestedServices: _selectedServices.toList(),
+        notes: _notesController.text.trim(),
+        attachmentName: _attachedFileName,
+        isWhatsAppSame: _isWhatsAppSame,
+        nextAction: _original?.nextAction,
+        nextActionNote: _original?.nextActionNote,
+        websiteStatus: _original?.websiteStatus,
+        scheduleNote: _original?.scheduleNote ?? 'New lead',
+        scheduleGroup: _original?.scheduleGroup ?? 'TODAY',
+        overdueSnapshot: _original?.overdueSnapshot,
+      );
+      await LeadStore.instance.save(lead);
+      if (!mounted) return;
+      NecToast.show(context,
+          message: widget.leadId == null
+              ? 'Lead created successfully'
+              : 'Lead updated successfully');
+      context.pop();
+    } catch (error) {
+      if (mounted) {
+        NecToast.show(context,
+            message: error is FormatException
+                ? error.message
+                : 'Unable to save this lead. Please try again.',
+            type: NecToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
     final isEditMode = widget.leadId != null;
+    if (isEditMode && _original == null) {
+      return Scaffold(
+          appBar: AppBar(title: const Text('Lead unavailable')),
+          body: const Center(child: Text('This lead could not be found.')));
+    }
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -145,7 +205,7 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
             children: [
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: _previousStep,
+                onPressed: _saving ? null : _previousStep,
                 child: Text(
                   _currentStep == 0 ? 'Cancel' : '< Back',
                   style: TextStyle(
@@ -168,7 +228,9 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
               ),
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: _currentStep == 4 ? _submitLead : _nextStep,
+                onPressed: _saving
+                    ? null
+                    : (_currentStep == 4 ? _submitLead : _nextStep),
                 child: Text(
                   _currentStep == 4 ? (isEditMode ? 'Save' : 'Create') : 'Next',
                   style: TextStyle(
@@ -277,7 +339,11 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
             AddLeadStep5(
               notesController: _notesController,
               selectedSource: _selectedSource,
-              selectedEmployee: _selectedEmployee,
+              selectedEmployeeId: DemoSession.instance.isAdmin
+                  ? _selectedEmployeeId
+                  : _original?.assignedEmployeeId ??
+                      DemoSession.instance.employeeId,
+              isSaving: _saving,
               selectedPriority: _selectedPriority,
               attachedFileName: _attachedFileName,
               onSourceChanged: (val) {
@@ -286,9 +352,8 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
                 });
               },
               onEmployeeChanged: (val) {
-                setState(() {
-                  _selectedEmployee = val;
-                });
+                if (!DemoSession.instance.isAdmin) return;
+                setState(() => _selectedEmployeeId = val);
               },
               onPriorityChanged: (val) {
                 setState(() {

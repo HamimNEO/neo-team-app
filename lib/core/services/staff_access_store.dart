@@ -23,7 +23,9 @@ enum StaffPermission {
 
   final String label;
   final String description;
+
   const StaffPermission(this.label, this.description);
+
   StaffPermission? get parent => switch (this) {
         createLead || editLead => leads,
         createTask || editTask => tasks,
@@ -37,6 +39,7 @@ enum StaffPermission {
 /// Saved permissions shared by all demo staff logins; admin always has access.
 class StaffAccessStore extends ChangeNotifier {
   StaffAccessStore._();
+
   static final instance = StaffAccessStore._();
   static const _key = 'nec_staff_access_v1';
   Map<StaffPermission, bool> _permissions = {
@@ -46,13 +49,17 @@ class StaffAccessStore extends ChangeNotifier {
   Future<void>? _loading;
   Future<void> _pending = Future<void>.value();
   String? loadError;
+
   bool enabled(StaffPermission permission) => _permissions[permission] ?? false;
+
   bool allows(StaffPermission permission) =>
       DemoSession.instance.signedIn &&
       (DemoSession.instance.isAdmin ||
           (enabled(permission) &&
               (permission.parent == null || enabled(permission.parent!))));
+
   Future<void> load() => _loading ??= _load();
+
   Future<void> _load() async {
     try {
       final raw = (await SharedPreferences.getInstance()).getString(_key);
@@ -149,7 +156,10 @@ class StaffAccessStore extends ChangeNotifier {
     if (path == '/activity') {
       return allows(StaffPermission.activity);
     }
-    if (path == '/employee/${DemoSession.instance.employeeId}') {
+    if (path == '/messages' || path.startsWith('/messages/')) {
+      return true;
+    }
+    if (path.startsWith('/employee/')) {
       return true;
     }
     return const {
@@ -159,6 +169,7 @@ class StaffAccessStore extends ChangeNotifier {
       '/edit-profile',
       '/settings',
       '/account-security',
+      '/change-password',
       '/appearance',
       '/permissions',
       '/about',

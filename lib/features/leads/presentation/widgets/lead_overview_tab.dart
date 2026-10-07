@@ -5,16 +5,19 @@ import '../../../../core/services/demo_session.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_toast.dart';
-import 'add_lead_picker_sheet.dart';
 
 class LeadOverviewTab extends StatefulWidget {
   final bool isUnassigned;
   final String companyName;
+  final String assignedEmployee;
+  final VoidCallback? onChangeAssigned;
 
   const LeadOverviewTab({
     super.key,
     this.isUnassigned = true,
     required this.companyName,
+    this.assignedEmployee = 'Unassigned',
+    this.onChangeAssigned,
   });
 
   @override
@@ -22,53 +25,12 @@ class LeadOverviewTab extends StatefulWidget {
 }
 
 class _LeadOverviewTabState extends State<LeadOverviewTab> {
-  late bool _unassigned;
-  String _assignedEmployee = 'Unassigned';
+  bool get _unassigned => widget.isUnassigned;
 
-  @override
-  void initState() {
-    super.initState();
-    _unassigned = widget.isUnassigned;
-  }
+  String get _assignedEmployee => widget.assignedEmployee;
 
   void _openChangeEmployeeSheet() {
-    if (!DemoSession.instance.isAdmin) {
-      NecToast.show(
-        context,
-        message: 'Only administrators can reassign leads to other team members',
-        type: NecToastType.info,
-      );
-      return;
-    }
-    final employees = [
-      {'label': 'Shahina Akter'},
-      {'label': 'Rahul Mehta'},
-      {'label': 'Priya Das'},
-      {'label': 'Fahim Ahmed'},
-      {'label': 'Unassigned'},
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => AddLeadPickerSheet(
-        title: 'Assigned Employee',
-        options: employees,
-        selectedValue: _assignedEmployee,
-        onSelected: (val) {
-          setState(() {
-            _assignedEmployee = val as String;
-            _unassigned = (val == 'Unassigned');
-          });
-          NecToast.show(
-            context,
-            message: 'Lead assigned to $_assignedEmployee',
-            type: NecToastType.success,
-          );
-        },
-      ),
-    );
+    if (DemoSession.instance.isAdmin) widget.onChangeAssigned?.call();
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {

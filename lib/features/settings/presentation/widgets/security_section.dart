@@ -33,7 +33,7 @@ class SecuritySection extends StatelessWidget {
           child: Column(
             children: [
               InkWell(
-                onTap: () => context.push('/forgot-password'),
+                onTap: () => context.push('/change-password'),
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

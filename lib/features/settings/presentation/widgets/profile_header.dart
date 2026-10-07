@@ -1,15 +1,21 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
 import '../../../team/domain/models/employee.dart';
+import '../../data/system_settings_store.dart';
 
 class ProfileHeader extends StatelessWidget {
   final Employee employee;
   final VoidCallback onEditTap;
+  final bool administrator;
 
   const ProfileHeader(
-      {super.key, required this.employee, required this.onEditTap});
+      {super.key,
+      required this.employee,
+      required this.onEditTap,
+      this.administrator = false});
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +58,10 @@ class ProfileHeader extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: nec.textSecondary, fontSize: 14)),
           const SizedBox(height: 4),
-          Text(employee.displayCode,
+          Text(
+              administrator
+                  ? SystemSettingsStore.instance.value.organizationName
+                  : employee.displayCode,
               style: TextStyle(color: nec.textTertiary, fontSize: 12)),
           const SizedBox(height: 10),
           Wrap(
@@ -68,15 +77,30 @@ class ProfileHeader extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w600)),
                 Text(
-                    '${employee.department.split(' · ').first} · ${employee.team}',
+                    administrator
+                        ? 'Administrator · Full access'
+                        : '${employee.department.split(' · ').first} · ${employee.team}',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: nec.textSecondary, fontSize: 13)),
               ]),
-          CupertinoButton(
+          Wrap(alignment: WrapAlignment.center, spacing: 24, children: [
+            CupertinoButton(
+                padding: const EdgeInsets.only(top: 12),
+                onPressed: onEditTap,
+                child: Text('Edit Profile',
+                    style: TextStyle(color: nec.brand, fontSize: 14))),
+            CupertinoButton(
               padding: const EdgeInsets.only(top: 12),
-              onPressed: onEditTap,
-              child: Text('Edit Profile',
-                  style: TextStyle(color: nec.brand, fontSize: 14))),
+              onPressed: () => context.push('/messages'),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(CupertinoIcons.chat_bubble_fill,
+                    color: nec.brand, size: 16),
+                const SizedBox(width: 6),
+                Text('Messages',
+                    style: TextStyle(color: nec.brand, fontSize: 14)),
+              ]),
+            ),
+          ]),
         ]));
   }
 }

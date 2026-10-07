@@ -44,8 +44,16 @@ class MealStore extends ChangeNotifier {
       .where((change) => change.employeeId == employeeId && change.day == day)
       .lastOrNull;
 
+  List<LunchPreference> changesByActor(String actorId) =>
+      DemoSession.instance.isAdmin
+          ? List.unmodifiable(_changes.where((change) =>
+              change.actorId == actorId &&
+              EmployeeStore.instance.isStaffEmployee(change.employeeId)))
+          : const [];
+
   List<LunchPreference> historyFor(String? employeeId, String day) => _changes
       .where((change) =>
+          EmployeeStore.instance.isStaffEmployee(change.employeeId) &&
           (employeeId == null || change.employeeId == employeeId) &&
           change.day == day)
       .toList()
@@ -56,6 +64,9 @@ class MealStore extends ChangeNotifier {
     final employee = EmployeeStore.instance.byId(employeeId);
     if (employee == null || employee.status != 'Active') {
       return LunchStatus.inactive;
+    }
+    if (!EmployeeStore.instance.isStaffEmployee(employeeId)) {
+      return LunchStatus.notIncluded;
     }
     final attendance = AttendanceStore.instance;
     if (attendance.leaveUnits(employeeId, day) >= 2) {
@@ -91,6 +102,10 @@ class MealStore extends ChangeNotifier {
       }
       final actor = EmployeeStore.instance.byId(actorId);
       final isAdmin = AttendanceStore.instance.isAdministrator(actorId);
+      if (!EmployeeStore.instance.isStaffEmployee(employeeId)) {
+        throw const FormatException(
+            'Office lunch preferences are available for staff accounts.');
+      }
       if (!DemoSession.instance.signedIn ||
           actorId != DemoSession.instance.employeeId ||
           !StaffAccessStore.instance.allows(StaffPermission.meals) ||

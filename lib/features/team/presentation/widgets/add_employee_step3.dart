@@ -6,6 +6,8 @@ import 'add_employee_picker_sheet.dart';
 import '../../domain/models/employee_salary.dart';
 import 'employee_details_section.dart';
 import 'employee_salary_summary.dart';
+import '../../../auth/domain/models/employee_login.dart';
+import '../../../auth/presentation/widgets/password_field.dart';
 
 class AddEmployeeStep3 extends StatelessWidget {
   final String selectedRole;
@@ -17,6 +19,10 @@ class AddEmployeeStep3 extends StatelessWidget {
   final VoidCallback onSubmit;
   final bool isLoading;
   final bool isEditMode;
+  final bool needsPassword;
+  final GlobalKey<FormState> credentialsFormKey;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
 
   const AddEmployeeStep3({
     super.key,
@@ -29,6 +35,10 @@ class AddEmployeeStep3 extends StatelessWidget {
     required this.onSubmit,
     required this.isLoading,
     this.isEditMode = false,
+    required this.needsPassword,
+    required this.credentialsFormKey,
+    required this.passwordController,
+    required this.confirmPasswordController,
   });
 
   void _showRolePicker(BuildContext context) {
@@ -90,141 +100,174 @@ class AddEmployeeStep3 extends StatelessWidget {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          EmployeeDetailsSection(title: 'Review employee', rows: [
-            ('Full Name', employeeName),
-            ('Work Email', employeeEmail),
-            ('Employee ID', employeeCode),
-          ]),
-          const SizedBox(height: 20),
-          if (salary != null) ...[
-            EmployeeSalarySummary(salary: salary!),
-            const SizedBox(height: 20),
-          ],
-          Text(
-            'Assign a system role. The selected role determines the default permissions. Custom permissions can be adjusted after creation.',
-            style: TextStyle(
-              fontSize: 14,
-              color: nec.textSecondary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'System Role',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: nec.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          InkWell(
-            onTap: () => _showRolePicker(context),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: nec.bg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: nec.separator, width: 1),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    selectedRole,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: nec.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Icon(
-                    CupertinoIcons.chevron_down,
-                    size: 16,
-                    color: nec.textTertiary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Material(
-            color: nec.surface,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Text(
-                    'DEFAULT ACCESS',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: nec.textSecondary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                _buildPermissionRow(
-                  context,
-                  'Leads',
-                  (selectedRole == 'Admin' || selectedRole == 'Administrator')
-                      ? 'Full Access'
-                      : (selectedRole == 'Manager'
-                          ? 'Manage Team'
-                          : 'View Assigned'),
-                ),
-                _buildPermissionRow(
-                  context,
-                  'Follow-ups',
-                  (selectedRole == 'Admin' || selectedRole == 'Administrator')
-                      ? 'Full Access'
-                      : (selectedRole == 'Manager' || selectedRole == 'Lead'
-                          ? 'Manage Team'
-                          : selectedRole == 'Viewer'
-                              ? 'Read Only'
-                              : 'Manage Assigned'),
-                ),
-                _buildPermissionRow(
-                  context,
-                  'Visits',
-                  (selectedRole == 'Admin' || selectedRole == 'Administrator')
-                      ? 'Full Access'
-                      : (selectedRole == 'Manager' || selectedRole == 'Lead'
-                          ? 'Manage Team'
-                          : selectedRole == 'Viewer'
-                              ? 'Read Only'
-                              : 'Manage Assigned'),
-                ),
-                _buildPermissionRow(
-                  context,
-                  'Team',
-                  (selectedRole == 'Admin' || selectedRole == 'Administrator')
-                      ? 'Full Access'
-                      : 'View',
-                  showDivider: false,
-                ),
+    return Form(
+        key: credentialsFormKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              EmployeeDetailsSection(title: 'Review employee', rows: [
+                ('Full Name', employeeName),
+                ('Work Email', employeeEmail),
+                ('Employee ID', employeeCode),
+              ]),
+              const SizedBox(height: 20),
+              if (salary != null) ...[
+                EmployeeSalarySummary(salary: salary!),
+                const SizedBox(height: 20),
               ],
-            ),
+              if (needsPassword) ...[
+                Text('Login Credentials',
+                    style: TextStyle(
+                        color: nec.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(
+                    'The work email is the login ID. Create a password to share with the employee; they can change it from their profile.',
+                    style: TextStyle(
+                        color: nec.textSecondary, fontSize: 13, height: 1.4)),
+                const SizedBox(height: 16),
+                PasswordField(
+                    label: 'Create Password *',
+                    controller: passwordController,
+                    validator: (value) =>
+                        EmployeeLogin.passwordError(value ?? '')),
+                PasswordField(
+                    label: 'Confirm Password *',
+                    controller: confirmPasswordController,
+                    validator: (value) => value == passwordController.text &&
+                            (value?.isNotEmpty ?? false)
+                        ? null
+                        : 'Passwords do not match.'),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                'Assign a system role. The selected role determines the default permissions. Custom permissions can be adjusted after creation.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: nec.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'System Role',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: nec.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: () => _showRolePicker(context),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: nec.bg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: nec.separator, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        selectedRole,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: nec.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Icon(
+                        CupertinoIcons.chevron_down,
+                        size: 16,
+                        color: nec.textTertiary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Material(
+                color: nec.surface,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                      child: Text(
+                        'DEFAULT ACCESS',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: nec.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    _buildPermissionRow(
+                      context,
+                      'Leads',
+                      (selectedRole == 'Admin' ||
+                              selectedRole == 'Administrator')
+                          ? 'Full Access'
+                          : (selectedRole == 'Manager'
+                              ? 'Manage Team'
+                              : 'View Assigned'),
+                    ),
+                    _buildPermissionRow(
+                      context,
+                      'Follow-ups',
+                      (selectedRole == 'Admin' ||
+                              selectedRole == 'Administrator')
+                          ? 'Full Access'
+                          : (selectedRole == 'Manager' || selectedRole == 'Lead'
+                              ? 'Manage Team'
+                              : selectedRole == 'Viewer'
+                                  ? 'Read Only'
+                                  : 'Manage Assigned'),
+                    ),
+                    _buildPermissionRow(
+                      context,
+                      'Visits',
+                      (selectedRole == 'Admin' ||
+                              selectedRole == 'Administrator')
+                          ? 'Full Access'
+                          : (selectedRole == 'Manager' || selectedRole == 'Lead'
+                              ? 'Manage Team'
+                              : selectedRole == 'Viewer'
+                                  ? 'Read Only'
+                                  : 'Manage Assigned'),
+                    ),
+                    _buildPermissionRow(
+                      context,
+                      'Team',
+                      (selectedRole == 'Admin' ||
+                              selectedRole == 'Administrator')
+                          ? 'Full Access'
+                          : 'View',
+                      showDivider: false,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              NecButton(
+                label: isEditMode ? 'Save Changes' : 'Add Employee',
+                onPressed: onSubmit,
+                fullWidth: true,
+                loading: isLoading,
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
-          const SizedBox(height: 32),
-          NecButton(
-            label: isEditMode ? 'Save Changes' : 'Add Employee',
-            onPressed: onSubmit,
-            fullWidth: true,
-            loading: isLoading,
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
+        ));
   }
 }

@@ -2,6 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/demo_session.dart';
+import '../../attendance/data/attendance_store.dart';
+import '../../leads/data/lead_store.dart';
+import '../../meals/data/meal_store.dart';
+import '../data/system_settings_store.dart';
+import 'widgets/admin_profile_tabs.dart';
 import 'widgets/profile_activity_tab.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/profile_more_tab.dart';
@@ -20,20 +26,47 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedTabIndex = 0;
+  late String _ownerId;
+  late bool _administrator;
 
   @override
   void initState() {
     super.initState();
+    _ownerId = DemoSession.instance.employeeId;
+    _administrator = DemoSession.instance.isAdmin;
     EmployeeStore.instance.addListener(_refresh);
+    SystemSettingsStore.instance.addListener(_refresh);
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    await SystemSettingsStore.instance.load();
+    if (DemoSession.instance.isAdmin) {
+      await Future.wait([
+        AttendanceStore.instance.load(),
+        MealStore.instance.load(),
+        LeadStore.instance.load(),
+      ]);
+    }
+    _refresh();
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      if (_ownerId != DemoSession.instance.employeeId ||
+          _administrator != DemoSession.instance.isAdmin) {
+        _selectedTabIndex = 0;
+        _ownerId = DemoSession.instance.employeeId;
+        _administrator = DemoSession.instance.isAdmin;
+      }
+    });
   }
 
   @override
   void dispose() {
     EmployeeStore.instance.removeListener(_refresh);
+    SystemSettingsStore.instance.removeListener(_refresh);
     super.dispose();
   }
 
@@ -41,6 +74,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
     final employee = EmployeeStore.instance.currentEmployee;
+    final administrator = DemoSession.instance.isAdmin;
+    final tabs = administrator
+        ? const ['Overview', 'Manage', 'Activity', 'More']
+        : const ['Overview', 'Salary', 'Work', 'Activity', 'More'];
+    final pages = administrator
+        ? <Widget>[
+            AdminProfileOverviewTab(employee: employee),
+            const AdminProfileManagementTab(),
+            AdminProfileActivityTab(employeeId: employee.id),
+            ProfileMoreTab(employee: employee),
+          ]
+        : <Widget>[
+            EmployeeDetailsTab(employee: employee),
+            EmployeeSalaryTab(employee: employee),
+            const ProfileWorkTab(),
+            const ProfileActivityTab(),
+            ProfileMoreTab(employee: employee),
+          ];
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -55,7 +106,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: () => context.pop(),
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/more'),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -79,6 +131,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: Text(
                   'My Profile',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: nec.textPrimary,
@@ -113,21 +167,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               ProfileHeader(
                   employee: employee,
+                  administrator: administrator,
                   onEditTap: () => context.push('/edit-profile')),
               ProfileTabBar(
-                tabs: const ['Overview', 'Salary', 'Work', 'Activity', 'More'],
+                tabs: tabs,
                 selectedIndex: _selectedTabIndex,
                 onTabSelected: (index) {
                   setState(() => _selectedTabIndex = index);
                 },
               ),
-              <Widget>[
-                EmployeeDetailsTab(employee: employee),
-                EmployeeSalaryTab(employee: employee),
-                const ProfileWorkTab(),
-                const ProfileActivityTab(),
-                ProfileMoreTab(employee: employee),
-              ][_selectedTabIndex],
+              pages[_selectedTabIndex < pages.length ? _selectedTabIndex : 0],
             ],
           ),
         ),

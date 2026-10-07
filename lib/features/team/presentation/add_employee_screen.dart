@@ -29,6 +29,12 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   bool _photoBusy = false;
   final _personalKey = GlobalKey<FormState>();
   final _salaryKey = GlobalKey<FormState>();
+  final _credentialsKey = GlobalKey<FormState>();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool get _needsPassword =>
+      _original == null || !EmployeeStore.instance.hasLogin(_original!.id);
   late final EmployeePersonalDraft _personal;
   late final EmployeeSalaryDraft _salary;
   Employee? _original;
@@ -149,6 +155,11 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   Future<void> _handleSubmit() async {
     if (_isLoading || _photoBusy) return;
+    FocusScope.of(context).unfocus();
+    if (_needsPassword &&
+        !(_credentialsKey.currentState?.validate() ?? false)) {
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final manager =
@@ -180,16 +191,20 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         salary: _salary.enabled ? _salary.buildSalary() : null,
         isMealFree: _salary.isMealFree,
         mealCoPayPercent: _salary.isMealFree ? 0 : _salary.mealCoPayPercent,
-        totalMealCost: EmployeeSalary.parseAmount(_salary.totalMealCost.text) ?? 300000,
+        totalMealCost:
+            EmployeeSalary.parseAmount(_salary.totalMealCost.text) ?? 300000,
         hasRotationalReserve: _salary.hasRotationalReserve,
         rotationalReserveAmount: _salary.hasRotationalReserve
-            ? (EmployeeSalary.parseAmount(_salary.rotationalReserveAmount.text) ?? 0)
+            ? (EmployeeSalary.parseAmount(
+                    _salary.rotationalReserveAmount.text) ??
+                0)
             : 0,
         activeLeadsCount: _original?.activeLeadsCount ?? 0,
         activeTasksCount: _original?.activeTasksCount ?? 0,
         directReports: _original?.directReports,
       );
-      await EmployeeStore.instance.save(employee);
+      await EmployeeStore.instance.save(employee,
+          initialPassword: _needsPassword ? _passwordController.text : null);
       if (!mounted) return;
       NecToast.show(context,
           message: widget.employeeId == null
@@ -214,6 +229,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   @override
   void dispose() {
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _personal.dispose();
     _salary.dispose();
     _employeeIdController.dispose();
@@ -286,7 +303,6 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        // Step Indicator Dots
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(4, (index) {
@@ -369,6 +385,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                         formKey: _salaryKey,
                         onContinue: _continueSalary),
                     AddEmployeeStep3(
+                      needsPassword: _needsPassword,
+                      credentialsFormKey: _credentialsKey,
+                      passwordController: _passwordController,
+                      confirmPasswordController: _confirmPasswordController,
                       employeeName: _personal.name.text.trim(),
                       employeeEmail: _personal.email.text.trim(),
                       employeeCode: _employeeIdController.text.trim(),

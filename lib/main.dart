@@ -13,6 +13,8 @@ import 'core/services/staff_access_store.dart';
 import 'features/team/data/employee_store.dart';
 import 'features/attendance/data/attendance_store.dart';
 import 'features/meals/data/meal_store.dart';
+import 'features/messages/data/message_store.dart';
+import 'features/leads/data/lead_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +47,8 @@ void main() async {
   await DemoSession.instance.load();
   await StaffAccessStore.instance.load();
   await EmployeeStore.instance.load();
+  await LeadStore.instance.load();
+  await MessageStore.instance.load();
   await AttendanceStore.instance.load();
   await MealStore.instance.load();
 

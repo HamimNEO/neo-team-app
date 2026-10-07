@@ -3,6 +3,7 @@ enum LunchStatus {
   skipped('Skipping lunch'),
   offDay('Day off'),
   leave('On leave'),
+  notIncluded('Not scheduled'),
   inactive('Inactive');
 
   final String label;

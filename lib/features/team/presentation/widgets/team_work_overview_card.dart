@@ -1,6 +1,6 @@
+import '../../../../core/router/app_navigation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -105,7 +105,7 @@ class TeamWorkOverviewCard extends StatelessWidget {
             title: 'Active Leads',
             valueText: '$activeLeads',
             valueColor: AppColors.brandLight,
-            onTap: () => context.push('/leads'),
+            onTap: () => context.pushAppRoute('/leads'),
           ),
           _buildRowItem(
             context: context,
@@ -114,7 +114,7 @@ class TeamWorkOverviewCard extends StatelessWidget {
             title: 'Follow-ups Due',
             valueText: '$followUpsDue',
             valueColor: AppColors.warning,
-            onTap: () => context.push('/follow-ups'),
+            onTap: () => context.pushAppRoute('/follow-ups'),
           ),
           _buildRowItem(
             context: context,
@@ -123,7 +123,7 @@ class TeamWorkOverviewCard extends StatelessWidget {
             title: 'Visits Today',
             valueText: '$visitsToday',
             valueColor: AppColors.leadVisit,
-            onTap: () => context.push('/visits'),
+            onTap: () => context.pushAppRoute('/visits'),
           ),
           _buildRowItem(
             context: context,

@@ -1,3 +1,4 @@
+import '../../../../core/router/app_navigation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -79,7 +80,7 @@ class EmployeeWorkTab extends StatelessWidget {
           SectionHeader(
             title: 'ASSIGNED LEADS',
             actionTitle: 'View All',
-            onActionTap: () => context.push('/leads'),
+            onActionTap: () => context.pushAppRoute('/leads'),
           ),
           const SizedBox(height: 10),
           Material(
@@ -104,7 +105,7 @@ class EmployeeWorkTab extends StatelessWidget {
           SectionHeader(
             title: 'FOLLOW-UPS',
             actionTitle: 'View All',
-            onActionTap: () => context.push('/follow-ups'),
+            onActionTap: () => context.pushAppRoute('/follow-ups'),
           ),
           const SizedBox(height: 10),
           Material(

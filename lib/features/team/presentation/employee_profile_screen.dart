@@ -13,6 +13,7 @@ import 'widgets/employee_details_tab.dart';
 import 'widgets/employee_salary_tab.dart';
 import 'widgets/employee_profile_header.dart';
 import 'widgets/employee_work_tab.dart';
+import 'widgets/employee_details_section.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
   final String employeeId;
@@ -61,6 +62,9 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           body: const Center(child: Text('This employee could not be found.')));
     }
 
+    final contactOnly = !DemoSession.instance.isAdmin &&
+        employee.id != DemoSession.instance.employeeId;
+
     return Scaffold(
       backgroundColor: nec.bg,
       appBar: AppBar(
@@ -74,7 +78,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             children: [
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: () => context.pop(),
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/messages'),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -108,17 +113,20 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   ),
                 ),
               ),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: DemoSession.instance.isAdmin
-                    ? () => _openActionSheet(context, employee)
-                    : null,
-                child: Icon(
-                  CupertinoIcons.ellipsis,
-                  size: 20,
-                  color: nec.brand,
+              if (contactOnly)
+                const SizedBox(width: 48)
+              else
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: DemoSession.instance.isAdmin
+                      ? () => _openActionSheet(context, employee)
+                      : null,
+                  child: Icon(
+                    CupertinoIcons.ellipsis,
+                    size: 20,
+                    color: nec.brand,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -135,20 +143,46 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           child: Column(
             children: [
               EmployeeProfileHeader(employee: employee),
-              ProfileTabBar(
-                selectedIndex: _selectedTabIndex,
-                tabs: const ['Overview', 'Salary', 'Work', 'Activity', 'More'],
-                onTabSelected: (index) {
-                  setState(() => _selectedTabIndex = index);
-                },
-              ),
-              <Widget>[
-                EmployeeDetailsTab(employee: employee),
-                EmployeeSalaryTab(employee: employee),
-                EmployeeWorkTab(employee: employee),
-                const EmployeeActivityTab(),
-                EmployeeMoreTab(employee: employee),
-              ][_selectedTabIndex],
+              if (contactOnly)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+                  child: EmployeeDetailsSection(
+                      title: 'Contact Information',
+                      rows: [
+                        ('Work Email', employee.email),
+                        (
+                          'Phone',
+                          employee.phone.isEmpty
+                              ? 'Not provided'
+                              : employee.phone
+                        ),
+                        ('Department', employee.department),
+                        ('Team', employee.team),
+                        ('System Role', employee.systemRole),
+                      ]),
+                )
+              else ...[
+                ProfileTabBar(
+                  selectedIndex: _selectedTabIndex,
+                  tabs: const [
+                    'Overview',
+                    'Salary',
+                    'Work',
+                    'Activity',
+                    'More'
+                  ],
+                  onTabSelected: (index) {
+                    setState(() => _selectedTabIndex = index);
+                  },
+                ),
+                <Widget>[
+                  EmployeeDetailsTab(employee: employee),
+                  EmployeeSalaryTab(employee: employee),
+                  EmployeeWorkTab(employee: employee),
+                  const EmployeeActivityTab(),
+                  EmployeeMoreTab(employee: employee),
+                ][_selectedTabIndex],
+              ],
             ],
           ),
         ),

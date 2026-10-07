@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/demo_session.dart';
+import 'attendance_admin_screen.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../settings/data/system_settings_store.dart';
 import '../../team/data/employee_store.dart';
@@ -59,11 +61,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _request(AttendanceRequestKind kind) async {
+    if (!_own || DemoSession.instance.isAdmin) return;
     final saved = await showAttendanceSheet<bool>(
         context,
         AttendanceRequestForm(
             employeeId: _employeeId,
-            actorId: _own ? null : AttendanceStore.instance.administratorId,
             day: kind == AttendanceRequestKind.correction
                 ? AttendanceStore.instance.activeRecord(_employeeId)?.day
                 : null,
@@ -82,6 +84,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         SystemSettingsStore.instance
       ]),
       builder: (context, _) {
+        if (DemoSession.instance.isAdmin &&
+            (_own || !EmployeeStore.instance.isStaffEmployee(_employeeId))) {
+          return const AttendanceAdminScreen();
+        }
         final nec = Theme.of(context).extension<NecColors>()!;
         final store = AttendanceStore.instance;
         final employee = EmployeeStore.instance.byId(_employeeId);
@@ -120,7 +126,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   style: TextStyle(
                                       color: nec.textTertiary, fontSize: 12)),
                             ])),
-                        if (_own)
+                        if (_own && !DemoSession.instance.isAdmin)
                           IconButton(
                               tooltip: 'New attendance request',
                               icon: Icon(CupertinoIcons.add_circled,
@@ -203,7 +209,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     const SizedBox(height: 18),
                                     const LunchEntry(),
                                   ],
-                                  const AttendanceHeading('Requests & actions'),
+                                  AttendanceHeading(DemoSession.instance.isAdmin
+                                      ? 'Manage attendance'
+                                      : 'Requests & actions'),
                                   _actions(nec),
                                   const AttendanceHeading('Leave balances'),
                                   ...store.policy.leaveTypes
@@ -314,34 +322,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget _actions(NecColors nec) => AttendanceCard(
       padding: EdgeInsets.zero,
       child: Column(children: [
-        for (var index = 0;
-            index < AttendanceRequestKind.values.length;
-            index++) ...[
-          if (index > 0) Divider(height: 1, color: nec.separator, indent: 16),
-          ListTile(
-              leading: Icon(
-                  [
-                    CupertinoIcons.calendar_badge_plus,
-                    CupertinoIcons.square_pencil,
-                    CupertinoIcons.arrow_2_squarepath,
-                    CupertinoIcons.clock
-                  ][index],
-                  color: nec.brand,
-                  size: 22),
-              title: Text(
-                  [
-                    'Request Leave',
-                    'Fix Attendance',
-                    'Swap an Off Day',
-                    'Request Overtime'
-                  ][index],
-                  style: TextStyle(color: nec.textPrimary, fontSize: 15)),
-              trailing: Icon(CupertinoIcons.chevron_right,
-                  color: nec.textTertiary, size: 14),
-              onTap: _own || AttendanceStore.instance.administratorId != null
-                  ? () => _request(AttendanceRequestKind.values[index])
-                  : null),
-        ],
+        if (_own && !DemoSession.instance.isAdmin)
+          for (var index = 0;
+              index < AttendanceRequestKind.values.length;
+              index++) ...[
+            if (index > 0) Divider(height: 1, color: nec.separator, indent: 16),
+            ListTile(
+                leading: Icon(
+                    [
+                      CupertinoIcons.calendar_badge_plus,
+                      CupertinoIcons.square_pencil,
+                      CupertinoIcons.arrow_2_squarepath,
+                      CupertinoIcons.clock
+                    ][index],
+                    color: nec.brand,
+                    size: 22),
+                title: Text(
+                    [
+                      'Request Leave',
+                      'Fix Attendance',
+                      'Swap an Off Day',
+                      'Request Overtime'
+                    ][index],
+                    style: TextStyle(color: nec.textPrimary, fontSize: 15)),
+                trailing: Icon(CupertinoIcons.chevron_right,
+                    color: nec.textTertiary, size: 14),
+                onTap: _own || AttendanceStore.instance.administratorId != null
+                    ? () => _request(AttendanceRequestKind.values[index])
+                    : null),
+          ],
         if (!_own && AttendanceStore.instance.administratorId != null) ...[
           Divider(height: 1, color: nec.separator, indent: 16),
           ListTile(

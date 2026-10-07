@@ -545,130 +545,147 @@ class _ExpenseCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: nec.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: nec.separator),
-      ),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
+        color: nec.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: nec.separator),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: expense.category.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(expense.category.icon,
-                      color: expense.category.color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        expense.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: nec.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Text(
-                            expense.category.label,
-                            style: TextStyle(
-                                fontSize: 11, color: nec.textTertiary),
-                          ),
-                          if (expense.vendor.isNotEmpty) ...[
-                            Text(' · ',
-                                style: TextStyle(color: nec.textTertiary)),
-                            Flexible(
-                              child: Text(
-                                expense.vendor,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 11, color: nec.textSecondary),
+                LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: expense.category.color
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(expense.category.icon,
+                                  color: expense.category.color, size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    expense.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: nec.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text.rich(
+                                    TextSpan(children: [
+                                      TextSpan(text: expense.category.label),
+                                      if (expense.vendor.isNotEmpty)
+                                        TextSpan(
+                                          text: ' · ${expense.vendor}',
+                                          style: TextStyle(
+                                              color: nec.textSecondary),
+                                        ),
+                                    ]),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontSize: 11, color: nec.textTertiary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                  maxWidth: constraints.maxWidth * .4),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    expense.formattedAmount,
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: nec.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: expense.status.color
+                                          .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      expense.status.label,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: expense.status.color,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
-                        ],
+                        )),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 56),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text.rich(
+                        TextSpan(children: [
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 3),
+                              child: Icon(CupertinoIcons.calendar,
+                                  size: 11, color: nec.textTertiary),
+                            ),
+                          ),
+                          TextSpan(
+                              text:
+                                  '${expense.date.day}/${expense.date.month}/${expense.date.year}'),
+                        ]),
+                        style: TextStyle(fontSize: 11, color: nec.textTertiary),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(CupertinoIcons.calendar,
-                              size: 11, color: nec.textTertiary),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${expense.date.day}/${expense.date.month}/${expense.date.year}',
-                            style: TextStyle(
-                                fontSize: 11, color: nec.textTertiary),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: nec.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: nec.separator),
-                            ),
-                            child: Text(
-                              expense.paymentMethod,
-                              style: TextStyle(
-                                  fontSize: 10, color: nec.textTertiary),
-                            ),
-                          ),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: nec.surfaceSecondary,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: nec.separator),
+                        ),
+                        child: Text(
+                          expense.paymentMethod,
+                          style:
+                              TextStyle(fontSize: 10, color: nec.textTertiary),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      expense.formattedAmount,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: nec.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: expense.status.color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        expense.status.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: expense.status.color,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

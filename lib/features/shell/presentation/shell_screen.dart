@@ -55,7 +55,7 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
     try {
       final rootNav = Navigator.of(context, rootNavigator: true);
       if (rootNav.canPop()) {
-        rootNav.pop();
+        await rootNav.maybePop();
         return true;
       }
 

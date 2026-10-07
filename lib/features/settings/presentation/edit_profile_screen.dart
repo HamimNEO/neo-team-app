@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/demo_session.dart';
 import '../../../core/widgets/nec_button.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../team/data/employee_store.dart';
@@ -18,6 +19,8 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late final EmployeePersonalDraft _draft;
+  late final String _ownerId;
+  late final bool _administrator;
   bool _saving = false;
   bool _saved = false;
   bool _photoBusy = false;
@@ -25,6 +28,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _ownerId = DemoSession.instance.employeeId;
+    _administrator = DemoSession.instance.isAdmin;
     _draft = EmployeePersonalDraft(EmployeeStore.instance.currentEmployee);
     _draft.name.addListener(_refresh);
   }
@@ -48,8 +53,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     setState(() => _saving = true);
     try {
-      final employee =
-          EmployeeStore.instance.currentEmployee.editPersonalDetails(
+      if (!DemoSession.instance.signedIn ||
+          DemoSession.instance.employeeId != _ownerId) {
+        throw const FormatException(
+            'Your account changed. Reopen Edit Profile to continue.');
+      }
+      final current = EmployeeStore.instance.byId(_ownerId);
+      if (current == null) {
+        throw const FormatException('This account is no longer available.');
+      }
+      final employee = current.editPersonalDetails(
         name: _draft.name.text.trim(),
         phone: _draft.phone.text.trim(),
         address: _draft.address.text.trim(),
@@ -64,10 +77,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _saved = true);
       await WidgetsBinding.instance.endOfFrame;
       if (mounted) context.pop();
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         NecToast.show(context,
-            message: 'Unable to save your profile. Please try again.',
+            message: error is FormatException
+                ? error.message.toString()
+                : 'Unable to save your profile. Please try again.',
             type: NecToastType.error);
       }
     } finally {
@@ -96,9 +111,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Text(' Back',
                         style: TextStyle(color: nec.brand, fontSize: 16))
                   ])),
-              title: const Text('Edit Profile',
+              title: Text(
+                  _administrator ? 'Edit Admin Profile' : 'Edit Profile',
                   maxLines: 1,
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w600)),
               bottom: PreferredSize(
                   preferredSize: const Size.fromHeight(1),
                   child: Divider(height: 1, color: nec.separator))),
@@ -118,10 +135,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             onBusyChanged: (busy) =>
                                 setState(() => _photoBusy = busy)),
                         const SizedBox(height: 20),
-                        EmployeePersonalFields(draft: _draft, selfEdit: true),
+                        EmployeePersonalFields(
+                            draft: _draft,
+                            selfEdit: true,
+                            administrator: _administrator),
                         const SizedBox(height: 12),
                         Text(
-                            'Employment, work email, role, and salary changes are managed by your administrator.',
+                            _administrator
+                                ? 'Update your photo, name and contact details here. Organization settings and staff access are available in Administration.'
+                                : 'Employment, work email, role, and salary changes are managed by your administrator.',
                             style: TextStyle(
                                 color: nec.textTertiary,
                                 fontSize: 12,

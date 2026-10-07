@@ -39,12 +39,12 @@ class NotificationService {
 
       await _setupLocalNotifications();
 
-      await _retrieveToken();
-
       _fcm.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         debugPrint('[FCM] Token refreshed: $newToken');
       });
+
+      await _retrieveToken();
 
       _setupMessageListeners();
     } catch (e, stack) {
@@ -108,6 +108,12 @@ class NotificationService {
   /// Fetch and print FCM device token
   Future<String?> _retrieveToken() async {
     try {
+      if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+        final apnsToken = await _fcm.getAPNSToken();
+        if (apnsToken == null) {
+          return null;
+        }
+      }
       _fcmToken = await _fcm.getToken();
       debugPrint('=============================================');
       debugPrint('[FCM] Device Token: $_fcmToken');

@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/demo_session.dart';
+import '../../team/data/employee_store.dart';
+import '../../team/domain/models/employee.dart';
+import '../data/lead_store.dart';
 import 'widgets/lead_card_item.dart';
 import 'widgets/lead_filter_sort_sheet.dart';
 import 'widgets/lead_metric_summary_row.dart';
@@ -21,6 +25,18 @@ class _LeadsScreenState extends State<LeadsScreen> {
   final _searchController = TextEditingController();
 
   final filterChips = ['All', 'Mine', 'New', 'Follow-up', 'More >'];
+
+  @override
+  void initState() {
+    super.initState();
+    LeadStore.instance.addListener(_refresh);
+    EmployeeStore.instance.addListener(_refresh);
+    LeadStore.instance.load().then((_) => _refresh());
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   void _openFilterSortSheet() {
     showModalBottomSheet(
@@ -61,6 +77,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
 
   @override
   void dispose() {
+    LeadStore.instance.removeListener(_refresh);
+    EmployeeStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
@@ -69,120 +87,28 @@ class _LeadsScreenState extends State<LeadsScreen> {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final allLeads = [
-      {
-        'id': 'lead_1',
-        'company': 'Sea Pearl Resort',
-        'subtitle': "Cox's Bazar · Resort",
-        'status': 'Follow-up',
-        'scheduleNote': 'Follow-up call · Tomorrow, 11:30 AM',
-        'isOverdue': false,
-        'assigneeInitials': 'SA',
-        'assigneeName': 'Shahina',
-        'isMine': true,
-        'isNew': false,
-        'isFollowUp': true,
-        'group': 'TOMORROW',
-      },
-      {
-        'id': 'lead_2',
-        'company': 'Blue Wave Resort',
-        'subtitle': "Cox's Bazar · Resort",
-        'status': 'Interested',
-        'scheduleNote': 'Follow-up · Today, 4:00 PM',
-        'isOverdue': false,
-        'assigneeInitials': 'SA',
-        'assigneeName': 'Shahina',
-        'isMine': true,
-        'isNew': false,
-        'isFollowUp': true,
-        'group': 'TODAY',
-      },
-      {
-        'id': 'lead_3',
-        'company': 'Ocean Paradise Hotel',
-        'subtitle': "Cox's Bazar · Hotel",
-        'status': 'New',
-        'scheduleNote': 'Just now',
-        'isOverdue': false,
-        'assigneeInitials': '??',
-        'assigneeName': 'Unassigned',
-        'isMine': false,
-        'isNew': true,
-        'isFollowUp': false,
-        'group': 'TODAY',
-      },
-      {
-        'id': 'lead_4',
-        'company': 'Hotel Sea Crown',
-        'subtitle': "Cox's Bazar · Hotel",
-        'status': 'Visit Scheduled',
-        'scheduleNote': 'Site visit · Today, 2:00 PM',
-        'isOverdue': false,
-        'assigneeInitials': 'RM',
-        'assigneeName': 'Rahul',
-        'isMine': false,
-        'isNew': false,
-        'isFollowUp': false,
-        'group': 'TODAY',
-      },
-      {
-        'id': 'lead_5',
-        'company': 'Royal Tulip Sea Pearl',
-        'subtitle': "Cox's Bazar · Hotel",
-        'status': 'Negotiation',
-        'scheduleNote': 'Contract review · Yesterday',
-        'isOverdue': false,
-        'assigneeInitials': 'SA',
-        'assigneeName': 'Shahina',
-        'isMine': true,
-        'isNew': false,
-        'isFollowUp': false,
-        'group': 'TODAY',
-      },
-      {
-        'id': 'lead_6',
-        'company': 'Long Beach Hotel',
-        'subtitle': "Cox's Bazar · Hotel",
-        'status': 'Follow-up',
-        'scheduleNote': 'Follow-up · 2h overdue',
-        'isOverdue': true,
-        'assigneeInitials': 'PD',
-        'assigneeName': 'Priya',
-        'isMine': false,
-        'isNew': false,
-        'isFollowUp': true,
-        'group': 'OVERDUE',
-      },
-      {
-        'id': 'lead_7',
-        'company': 'Seagull Hotel',
-        'subtitle': "Cox's Bazar · Hotel",
-        'status': 'Follow-up',
-        'scheduleNote': 'Callback · 4h overdue',
-        'isOverdue': true,
-        'assigneeInitials': 'PD',
-        'assigneeName': 'Priya',
-        'isMine': false,
-        'isNew': false,
-        'isFollowUp': true,
-        'group': 'OVERDUE',
-      },
-      {
-        'id': 'lead_8',
-        'company': 'Aqua Dream Resort',
-        'subtitle': "Cox's Bazar · Resort",
-        'status': 'Visit Scheduled',
-        'scheduleNote': 'Site visit · Tomorrow, 10:00 AM',
-        'isOverdue': false,
-        'assigneeInitials': 'SA',
-        'assigneeName': 'Shahina',
-        'isMine': true,
-        'isNew': false,
-        'isFollowUp': false,
-        'group': 'TOMORROW',
-      },
-    ];
+    final allLeads = LeadStore.instance.leads.map((lead) {
+      final assignee = LeadStore.instance.assigneeName(lead);
+      final employee =
+          EmployeeStore.instance.byId(lead.assignedEmployeeId ?? '');
+      return <String, dynamic>{
+        'id': lead.id,
+        'company': lead.company,
+        'subtitle': [lead.location, lead.type]
+            .where((part) => part.isNotEmpty)
+            .join(' · '),
+        'status': lead.status,
+        'scheduleNote': lead.scheduleNote,
+        'isOverdue': lead.isOverdue,
+        'assigneeName': assignee,
+        'assigneeInitials': employee?.avatarInitials ??
+            (assignee == 'Unassigned' ? '??' : Employee.initialsFor(assignee)),
+        'isMine': lead.assignedEmployeeId == DemoSession.instance.employeeId,
+        'isNew': lead.status == 'New',
+        'isFollowUp': ['Follow-up', 'Interested'].contains(lead.status),
+        'group': lead.scheduleGroup,
+      };
+    }).toList();
 
     final query = _searchController.text.trim().toLowerCase();
 

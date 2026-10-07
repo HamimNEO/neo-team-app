@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/router/app_navigation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -47,13 +48,7 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
             children: [
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  } else {
-                    context.pop();
-                  }
-                },
+                onPressed: () => context.popAppRoute(),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

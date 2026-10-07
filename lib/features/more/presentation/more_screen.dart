@@ -7,6 +7,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/settings_row.dart';
 import '../../../core/services/staff_access_store.dart';
+import '../../messages/data/message_store.dart';
+import '../../team/data/employee_store.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -63,7 +65,8 @@ class MoreScreen extends StatelessWidget {
                               child: Icon(
                                 DemoSession.instance.isAdmin
                                     ? CupertinoIcons.shield_fill
-                                    : CupertinoIcons.person_crop_circle_badge_checkmark,
+                                    : CupertinoIcons
+                                        .person_crop_circle_badge_checkmark,
                                 color: nec.brand,
                                 size: 22,
                               ),
@@ -115,16 +118,24 @@ class MoreScreen extends StatelessWidget {
                       SettingsRow(
                         icon: const Icon(CupertinoIcons.cart),
                         iconBg: const Color(0x2634C759),
-                        title: 'My Office Lunch',
-                        onTap: () => context.push('/meals'),
+                        title: DemoSession.instance.isAdmin
+                            ? 'Lunch Management'
+                            : 'My Office Lunch',
+                        onTap: () => context.push(DemoSession.instance.isAdmin
+                            ? '/meals/admin'
+                            : '/meals'),
                       ),
                     if (StaffAccessStore.instance.canOpen('/attendance'))
                       SettingsRow(
                         icon: const Icon(CupertinoIcons.clock),
                         iconBg: const Color(0x26007AFF),
                         iconColor: AppColors.brandLight,
-                        title: 'My Attendance',
-                        onTap: () => context.push('/attendance'),
+                        title: DemoSession.instance.isAdmin
+                            ? 'Attendance Management'
+                            : 'My Attendance',
+                        onTap: () => context.push(DemoSession.instance.isAdmin
+                            ? '/attendance/admin'
+                            : '/attendance'),
                       ),
                     if (StaffAccessStore.instance.canOpen('/follow-ups'))
                       SettingsRow(
@@ -167,6 +178,38 @@ class MoreScreen extends StatelessWidget {
                 GroupedSection(
                   title: 'Personal',
                   children: [
+                    AnimatedBuilder(
+                      animation: Listenable.merge([
+                        MessageStore.instance,
+                        DemoSession.instance,
+                        EmployeeStore.instance,
+                      ]),
+                      builder: (context, _) {
+                        final unread = MessageStore.instance.unreadCount;
+                        return SettingsRow(
+                          icon: const Icon(CupertinoIcons.chat_bubble_2_fill),
+                          iconBg: const Color(0x26007AFF),
+                          iconColor: AppColors.brandLight,
+                          title: 'Messages',
+                          subtitle: 'Chat with staff and admins',
+                          trailing: unread == 0
+                              ? null
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                      color: nec.brand,
+                                      borderRadius: BorderRadius.circular(12)),
+                                  child: Text(unread > 99 ? '99+' : '$unread',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                          onTap: () => context.push('/messages'),
+                        );
+                      },
+                    ),
                     SettingsRow(
                       icon: const Icon(Icons.notifications_outlined),
                       iconBg: const Color(0x26007AFF),

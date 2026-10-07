@@ -54,6 +54,9 @@ class Employee {
 
   String get role => systemRole;
 
+  bool get isAdministrator =>
+      systemRole == 'Admin' || systemRole == 'Administrator';
+
   const Employee({
     required this.id,
     required this.name,

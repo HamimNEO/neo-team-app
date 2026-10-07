@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/services/demo_session.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_toast.dart';
@@ -130,13 +132,11 @@ class EmployeeProfileHeader extends StatelessWidget {
               Column(
                 children: [
                   InkWell(
-                    onTap: () {
-                      NecToast.show(
-                        context,
-                        message: 'Emailing ${employee.email}...',
-                        type: NecToastType.success,
-                      );
-                    },
+                    onTap: () => context.push(
+                      employee.id == DemoSession.instance.employeeId
+                          ? '/messages'
+                          : '/messages/${employee.id}',
+                    ),
                     borderRadius: BorderRadius.circular(24),
                     child: Container(
                       width: 48,
@@ -154,7 +154,7 @@ class EmployeeProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Email',
+                    'Message',
                     style: TextStyle(
                       fontSize: 12,
                       color: nec.textSecondary,
