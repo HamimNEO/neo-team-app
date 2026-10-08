@@ -457,6 +457,142 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () => context.push('/about'),
                 ),
               ),
+              const SizedBox(height: 20),
+              _buildSectionHeader(nec, 'LEGAL & POLICIES'),
+              Material(
+                color: nec.surface,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        CupertinoIcons.shield_fill,
+                        color: nec.brand,
+                        size: 20,
+                      ),
+                      title: Text(
+                        'Privacy Policy',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: nec.textPrimary,
+                        ),
+                      ),
+                      trailing: Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: nec.textTertiary,
+                      ),
+                      onTap: () => context.push('/policy/privacy-policy'),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: nec.separator.withValues(alpha: 0.2),
+                      indent: 52,
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        CupertinoIcons.doc_text_fill,
+                        color: Color(0xFF5856D6),
+                        size: 20,
+                      ),
+                      title: Text(
+                        'Terms & Conditions',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: nec.textPrimary,
+                        ),
+                      ),
+                      trailing: Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: nec.textTertiary,
+                      ),
+                      onTap: () => context.push('/policy/terms-and-conditions'),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: nec.separator.withValues(alpha: 0.2),
+                      indent: 52,
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        CupertinoIcons.trash_fill,
+                        color: Color(0xFFFF3B30),
+                        size: 20,
+                      ),
+                      title: Text(
+                        'Account & Data Deletion',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: nec.textPrimary,
+                        ),
+                      ),
+                      trailing: Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: nec.textTertiary,
+                      ),
+                      onTap: () => context.push('/policy/data-deletion'),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: nec.separator.withValues(alpha: 0.2),
+                      indent: 52,
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        CupertinoIcons.chart_pie_fill,
+                        color: Color(0xFF34C759),
+                        size: 20,
+                      ),
+                      title: Text(
+                        'Data Collection',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: nec.textPrimary,
+                        ),
+                      ),
+                      trailing: Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: nec.textTertiary,
+                      ),
+                      onTap: () => context.push('/policy/data-collection'),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: nec.separator.withValues(alpha: 0.2),
+                      indent: 52,
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        CupertinoIcons.chat_bubble_2_fill,
+                        color: Color(0xFFFF9500),
+                        size: 20,
+                      ),
+                      title: Text(
+                        'Support & Contact',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: nec.textPrimary,
+                        ),
+                      ),
+                      trailing: Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: nec.textTertiary,
+                      ),
+                      onTap: () => context.push('/policy/support'),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
               Material(
                 color: nec.surface,

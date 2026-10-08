@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../core/services/permission_service.dart';
 import '../../../core/widgets/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -30,7 +29,6 @@ class _SplashScreenState extends State<SplashScreen>
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
 
     _ctrl.forward();
-    PermissionService.instance.requestInitialPermissions();
 
     Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) context.go('/login');

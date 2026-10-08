@@ -1,3 +1,4 @@
+import '../../features/legal/presentation/policy_viewer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'shell_safe_router.dart';
@@ -536,6 +537,56 @@ final GoRouter appRouter = ShellSafeRouter(
       path: '/new-role',
       parentNavigatorKey: _rootNavigatorKey,
       pageBuilder: (context, state) => _buildPage(state, const NewRoleScreen()),
+    ),
+    GoRoute(
+      path: '/policy/:slug',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        PolicyViewerScreen(
+          slug: state.pathParameters['slug'] ?? 'privacy-policy',
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/privacy-policy',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        const PolicyViewerScreen(slug: 'privacy-policy'),
+      ),
+    ),
+    GoRoute(
+      path: '/terms-and-conditions',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        const PolicyViewerScreen(slug: 'terms-and-conditions'),
+      ),
+    ),
+    GoRoute(
+      path: '/data-deletion',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        const PolicyViewerScreen(slug: 'data-deletion'),
+      ),
+    ),
+    GoRoute(
+      path: '/data-collection',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        const PolicyViewerScreen(slug: 'data-collection'),
+      ),
+    ),
+    GoRoute(
+      path: '/support',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        const PolicyViewerScreen(slug: 'support'),
+      ),
     ),
     GoRoute(
       path: '/about',

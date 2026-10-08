@@ -16,6 +16,7 @@ class PermissionStatusInfo {
   final Permission permission;
   final bool isGranted;
   final PermissionStatus status;
+  final bool usesSystemPicker;
 
   const PermissionStatusInfo({
     required this.type,
@@ -24,6 +25,7 @@ class PermissionStatusInfo {
     required this.permission,
     required this.isGranted,
     required this.status,
+    this.usesSystemPicker = false,
   });
 }
 
@@ -42,10 +44,8 @@ class PermissionService {
     try {
       await [
         Permission.notification,
-        Permission.locationWhenInUse,
         Permission.camera,
-        Permission.photos,
-        Permission.storage,
+        if (defaultTargetPlatform != TargetPlatform.android) Permission.photos,
       ].request();
     } catch (e) {
       debugPrint(
@@ -69,12 +69,13 @@ class PermissionService {
     final results = <AppPermissionType, PermissionStatusInfo>{};
 
     final definitions = [
-      (
-        AppPermissionType.location,
-        'Location Services',
-        'Used to verify site visits and map directions',
-        Permission.locationWhenInUse,
-      ),
+      if (defaultTargetPlatform != TargetPlatform.android)
+        (
+          AppPermissionType.location,
+          'Location Services',
+          'Used to verify site visits and map directions',
+          Permission.locationWhenInUse,
+        ),
       (
         AppPermissionType.camera,
         'Camera Access',
@@ -102,16 +103,14 @@ class PermissionService {
     ];
 
     for (final def in definitions) {
+      final usesSystemPicker =
+          defaultTargetPlatform == TargetPlatform.android &&
+              (def.$1 == AppPermissionType.gallery ||
+                  def.$1 == AppPermissionType.files);
       PermissionStatus status;
       try {
-        status = await def.$4.status;
-        if (def.$1 == AppPermissionType.gallery &&
-            defaultTargetPlatform == TargetPlatform.android) {
-          if (!status.isGranted) {
-            final storageStatus = await Permission.storage.status;
-            if (storageStatus.isGranted) status = PermissionStatus.granted;
-          }
-        }
+        status =
+            usesSystemPicker ? PermissionStatus.granted : await def.$4.status;
       } catch (_) {
         status = PermissionStatus.denied;
       }
@@ -119,10 +118,13 @@ class PermissionService {
       results[def.$1] = PermissionStatusInfo(
         type: def.$1,
         title: def.$2,
-        subtitle: def.$3,
+        subtitle: usesSystemPicker
+            ? 'Only the ${def.$1 == AppPermissionType.gallery ? "photos" : "files"} you select are accessible'
+            : def.$3,
         permission: def.$4,
         isGranted: status.isGranted || status.isLimited,
         status: status,
+        usesSystemPicker: usesSystemPicker,
       );
     }
 

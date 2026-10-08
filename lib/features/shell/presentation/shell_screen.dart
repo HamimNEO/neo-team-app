@@ -6,6 +6,7 @@ import 'widgets/exit_confirmation_dialog.dart';
 import 'widgets/nav_tab_item.dart';
 import 'widgets/quick_create_sheet.dart';
 import '../../../core/services/demo_session.dart';
+import '../../../core/services/internet_service.dart';
 import '../../../core/services/staff_access_store.dart';
 
 class ShellScreen extends StatefulWidget {
@@ -49,6 +50,7 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
 
   Future<bool> _handleBackPress() async {
     if (!mounted) return false;
+    if (!InternetService.instance.isConnected) return true;
     if (_isHandlingBack) return true;
     _isHandlingBack = true;
 

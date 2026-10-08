@@ -1,7 +1,7 @@
 name: neonecy_team_app
 description: NEONECY TEAM APP — Premium CRM for NEONECY
 publish_to: 'none'
-version: 1.0.2
+version: 1.0.2+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -28,6 +28,8 @@ dependencies:
   flutter_local_notifications: ^22.3.1
   permission_handler: ^11.3.1
   url_launcher: ^6.3.3
+  internet_connection_checker_plus: ^3.1.2
+  lottie: ^3.6.1
 
 dev_dependencies:
   flutter_test:
@@ -38,5 +40,7 @@ flutter:
   uses-material-design: true
   assets:
     - .env
-    - assets/logos/
-    - assets/others/
+    - assets/logos/NEC app icon — Rounded — 512 × 512.png
+    - assets/logos/NEC app icon — Rounded — 1024 × 1024.png
+    - assets/others/login-banner.png
+    - assets/others/Free no internet Animation  new.json

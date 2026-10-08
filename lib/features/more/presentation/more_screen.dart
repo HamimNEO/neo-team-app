@@ -1,3 +1,4 @@
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
@@ -304,6 +305,68 @@ class MoreScreen extends StatelessWidget {
                         onTap: () => context.push('/my-access'),
                         showSeparator: false,
                       ),
+                  ],
+                ),
+                GroupedSection(
+                  title: 'Information & Support',
+                  children: [
+                    SettingsRow(
+                      icon: const Icon(CupertinoIcons.shield_fill),
+                      iconBg: const Color(0x26007AFF),
+                      iconColor: AppColors.brandLight,
+                      title: 'Privacy Policy',
+                      subtitle: 'How information is handled in NEC TEAM',
+                      onTap: () => context.push('/policy/privacy-policy'),
+                    ),
+                    SettingsRow(
+                      icon: const Icon(CupertinoIcons.doc_text_fill),
+                      iconBg: const Color(0x265856D6),
+                      iconColor: const Color(0xFF5856D6),
+                      title: 'Terms & Conditions',
+                      subtitle: 'Ground rules and testing terms',
+                      onTap: () => context.push('/policy/terms-and-conditions'),
+                    ),
+                    SettingsRow(
+                      icon: const Icon(CupertinoIcons.trash_fill),
+                      iconBg: const Color(0x26FF3B30),
+                      iconColor: const Color(0xFFFF3B30),
+                      title: 'Account & Data Deletion',
+                      subtitle: 'Local removal & email deletion request',
+                      onTap: () => context.push('/policy/data-deletion'),
+                    ),
+                    SettingsRow(
+                      icon: const Icon(CupertinoIcons.chart_pie_fill),
+                      iconBg: const Color(0x2634C759),
+                      iconColor: const Color(0xFF34C759),
+                      title: 'Data Collection',
+                      subtitle: 'Summary of data categories & permissions',
+                      onTap: () => context.push('/policy/data-collection'),
+                    ),
+                    SettingsRow(
+                      icon: const Icon(CupertinoIcons.chat_bubble_2_fill),
+                      iconBg: const Color(0x26FF9500),
+                      iconColor: const Color(0xFFFF9500),
+                      title: 'Support & Contact',
+                      subtitle: 'Direct help and inquiry channels',
+                      onTap: () => context.push('/policy/support'),
+                    ),
+                    SettingsRow(
+                      icon: const Icon(CupertinoIcons.globe),
+                      iconBg: const Color(0x26007AFF),
+                      iconColor: AppColors.brandLight,
+                      title: 'Company Website',
+                      subtitle: 'Visit neonecy.com',
+                      trailing:
+                          const Icon(CupertinoIcons.arrow_up_right, size: 14),
+                      onTap: () async {
+                        final uri = Uri.parse('https://neonecy.com/');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      showSeparator: false,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),

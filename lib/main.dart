@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -6,6 +8,7 @@ import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/services/firebase_service.dart';
 import 'core/services/package_service.dart';
+import 'core/widgets/internet_guard.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/services/demo_session.dart';
@@ -52,8 +55,6 @@ void main() async {
   await AttendanceStore.instance.load();
   await MealStore.instance.load();
 
-  await FirebaseService.instance.initialize();
-
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
@@ -77,6 +78,12 @@ class NecTeamApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       routerConfig: appRouter,
+      builder: (context, child) => InternetGuard(
+        onFirstConnection: () {
+          unawaited(FirebaseService.instance.initialize());
+        },
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

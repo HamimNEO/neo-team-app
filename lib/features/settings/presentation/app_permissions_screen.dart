@@ -218,7 +218,7 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'NEC TEAM requests native permissions for field visits, attachments, and real-time updates. You can toggle them directly here or via your device settings.',
+                                  'Manage camera and notification access here or in your device settings. Photos and documents are accessed when you select them.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: nec.textSecondary,
@@ -315,9 +315,11 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
                                                       BorderRadius.circular(6),
                                                 ),
                                                 child: Text(
-                                                  info.isGranted
-                                                      ? 'Allowed'
-                                                      : 'Off',
+                                                  info.usesSystemPicker
+                                                      ? 'Selected only'
+                                                      : info.isGranted
+                                                          ? 'Allowed'
+                                                          : 'Off',
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w600,
@@ -341,11 +343,15 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
                                       ),
                                     ),
                                     const SizedBox(width: 10),
-                                    Switch.adaptive(
-                                      value: info.isGranted,
-                                      activeTrackColor: AppColors.success,
-                                      onChanged: (_) => _handleToggle(info),
-                                    ),
+                                    if (info.usesSystemPicker)
+                                      Icon(CupertinoIcons.checkmark_shield,
+                                          size: 24, color: nec.brand)
+                                    else
+                                      Switch.adaptive(
+                                        value: info.isGranted,
+                                        activeTrackColor: AppColors.success,
+                                        onChanged: (_) => _handleToggle(info),
+                                      ),
                                   ],
                                 ),
                               ),
