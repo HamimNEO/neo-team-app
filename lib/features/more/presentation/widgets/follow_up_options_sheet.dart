@@ -1,3 +1,4 @@
+import '../../../tasks/data/work_item_store.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/services/staff_access_store.dart';
 import 'package:go_router/go_router.dart';
@@ -8,12 +9,14 @@ import 'complete_follow_up_sheet.dart';
 import 'reschedule_follow_up_sheet.dart';
 
 class FollowUpOptionsSheet extends StatelessWidget {
+  final String? followUpId;
   final String leadId;
   final String leadName;
   final String currentSchedule;
 
   const FollowUpOptionsSheet({
     super.key,
+    this.followUpId,
     required this.leadId,
     required this.leadName,
     required this.currentSchedule,
@@ -25,7 +28,12 @@ class FollowUpOptionsSheet extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => CompleteFollowUpSheet(leadName: leadName),
+      builder: (_) => CompleteFollowUpSheet(
+          leadName: leadName,
+          onSave: followUpId == null
+              ? null
+              : (result) =>
+                  WorkItemStore.instance.completeFollowUp(followUpId!, result)),
     );
   }
 
@@ -36,6 +44,10 @@ class FollowUpOptionsSheet extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => RescheduleFollowUpSheet(
+        onSave: followUpId == null
+            ? null
+            : (date, time) => WorkItemStore.instance
+                .rescheduleFollowUp(followUpId!, date, time),
         currentSchedule: currentSchedule,
         leadName: leadName,
       ),

@@ -65,6 +65,8 @@ class SettingsRow extends StatelessWidget {
                       if (subtitle != null)
                         Text(
                           subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 13,
                             color: nec.textTertiary,

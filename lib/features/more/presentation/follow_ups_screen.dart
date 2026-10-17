@@ -5,10 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_toast.dart';
-import '../data/mock_follow_ups.dart';
+import '../data/work_queue_mapper.dart';
 import '../domain/models/follow_up.dart';
 import 'widgets/add_follow_up_sheet.dart';
 import 'widgets/follow_up_card_item.dart';
+import '../../tasks/data/work_item_store.dart';
 
 class FollowUpsScreen extends StatefulWidget {
   const FollowUpsScreen({super.key});
@@ -23,19 +24,30 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
 
-  late List<FollowUp> _followUps;
+  List<FollowUp> _followUps = [];
 
   @override
   void initState() {
     super.initState();
-    _followUps = List.from(mockFollowUps);
+    WorkItemStore.instance.addListener(_refresh);
+    WorkItemStore.instance.load();
+    _refresh();
     _searchController.addListener(() {
       setState(() {});
     });
   }
 
+  void _refresh() {
+    if (mounted) {
+      setState(() => _followUps = WorkItemStore.instance.followUps
+          .map(WorkQueueMapper.followUp)
+          .toList());
+    }
+  }
+
   @override
   void dispose() {
+    WorkItemStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
@@ -52,22 +64,26 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
     );
     if (result != null) {
       setState(() {
-        _followUps.insert(0, result);
+        _followUps = WorkItemStore.instance.followUps
+            .map(WorkQueueMapper.followUp)
+            .toList();
       });
     }
   }
 
-  void _toggleComplete(FollowUp item) {
-    setState(() {
-      item.isCompleted = true;
-      item.statusGroup = 'Completed Today';
-      item.resultTag = 'Interested';
-    });
-    NecToast.show(
-      context,
-      message: 'Follow-up marked as completed',
-      type: NecToastType.success,
-    );
+  Future<void> _toggleComplete(FollowUp item) async {
+    try {
+      await WorkItemStore.instance.completeFollowUp(item.id, 'Completed');
+      if (mounted) {
+        NecToast.show(context,
+            message: 'Follow-up completed', type: NecToastType.success);
+      }
+    } catch (error) {
+      if (mounted) {
+        NecToast.show(context,
+            message: WorkItemStore.messageFor(error), type: NecToastType.error);
+      }
+    }
   }
 
   List<FollowUp> _getFilteredFollowUps() {
@@ -79,7 +95,9 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
         }
       } else if (_selectedTab == 'Upcoming') {
         if (item.isCompleted) return false;
-        if (item.statusGroup != 'Tomorrow' && item.statusGroup != 'This Week') {
+        if (item.statusGroup != 'Tomorrow' &&
+            item.statusGroup != 'This Week' &&
+            item.statusGroup != 'Unscheduled') {
           return false;
         }
       } else if (_selectedTab == 'Completed') {
@@ -114,7 +132,9 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
     final upcomingCount = _followUps
         .where((f) =>
             !f.isCompleted &&
-            (f.statusGroup == 'Tomorrow' || f.statusGroup == 'This Week'))
+            (f.statusGroup == 'Tomorrow' ||
+                f.statusGroup == 'This Week' ||
+                f.statusGroup == 'Unscheduled'))
         .length;
     final doneCount = _followUps.where((f) => f.isCompleted).length;
 
@@ -481,6 +501,8 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
       'Today',
       'Tomorrow',
       'This Week',
+      'Unscheduled',
+      'Done',
       'Completed Today',
       'Yesterday',
     ];

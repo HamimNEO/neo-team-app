@@ -7,6 +7,8 @@ import 'package:neonecy_team_app/features/shell/presentation/shell_screen.dart';
 import 'package:neonecy_team_app/features/shell/presentation/widgets/curved_bottom_navigation_bar.dart';
 import 'package:neonecy_team_app/features/shell/presentation/widgets/nav_tab_item.dart';
 import 'package:neonecy_team_app/features/shell/presentation/widgets/quick_create_sheet.dart';
+import 'package:neonecy_team_app/features/auth/presentation/controllers/auth_session.dart';
+import 'support/auth_fixture.dart';
 
 Future<GoRouter> pumpShell(
   WidgetTester tester, {
@@ -57,6 +59,9 @@ Future<GoRouter> pumpShell(
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(signInWidgetAdmin);
+  tearDown(() => AuthSession.instance.signOut());
   testWidgets('tabs change routes and keep the raised icon above their label',
       (tester) async {
     final router = await pumpShell(tester);
@@ -67,7 +72,7 @@ void main() {
       ('More', '/more', CupertinoIcons.ellipsis_circle_fill),
     ];
     for (final destination in destinations) {
-      await tester.tap(find.text(destination.$1));
+      await tester.tap(find.widgetWithText(NavTabItem, destination.$1));
       await tester.pumpAndSettle();
       expect(router.routeInformationProvider.value.uri.path, destination.$2);
       final icon = tester.getCenter(find.byIcon(destination.$3));
@@ -117,7 +122,7 @@ void main() {
           hasTapAction: true),
     );
     semantics.dispose();
-    await tester.tap(find.text('Tasks'));
+    await tester.tap(find.widgetWithText(NavTabItem, 'Tasks'));
     await tester.pumpAndSettle();
     expect(find.text('/tasks'), findsOneWidget);
     expect(tester.takeException(), isNull);

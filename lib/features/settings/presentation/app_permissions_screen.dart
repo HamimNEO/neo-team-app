@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/permission_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -45,6 +46,7 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
         _isLoading = false;
       });
     }
+    NotificationService.instance.refreshRegistration().ignore();
   }
 
   Future<void> _handleToggle(PermissionStatusInfo info) async {
@@ -332,11 +334,21 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
                                             ],
                                           ),
                                           const SizedBox(height: 3),
-                                          Text(
-                                            info.subtitle,
-                                            style: TextStyle(
-                                              fontSize: 12.5,
-                                              color: nec.textTertiary,
+                                          ValueListenableBuilder<String>(
+                                            valueListenable: NotificationService
+                                                .instance.status,
+                                            builder: (context, status, child) =>
+                                                Text(
+                                              info.type ==
+                                                          AppPermissionType
+                                                              .notification &&
+                                                      info.isGranted
+                                                  ? status
+                                                  : info.subtitle,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                color: nec.textTertiary,
+                                              ),
                                             ),
                                           ),
                                         ],

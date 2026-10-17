@@ -1,18 +1,22 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
+
+import '../../../../core/widgets/nec_badge.dart';
 
 class LeadCardItem extends StatelessWidget {
   final String company;
   final String subtitle;
   final String status;
-  final Color statusColor;
+  final Color? statusColor;
   final String? scheduleNote;
   final bool isOverdue;
   final String assigneeInitials;
   final String assigneeName;
+  final String? photoBase64, photoUrl, avatarAsset;
+  final String? phone;
+  final VoidCallback? onCall;
   final VoidCallback onTap;
 
   const LeadCardItem({
@@ -20,11 +24,16 @@ class LeadCardItem extends StatelessWidget {
     required this.company,
     required this.subtitle,
     required this.status,
-    required this.statusColor,
+    this.statusColor,
     this.scheduleNote,
     this.isOverdue = false,
     required this.assigneeInitials,
     required this.assigneeName,
+    this.photoBase64,
+    this.photoUrl,
+    this.avatarAsset,
+    this.phone,
+    this.onCall,
     required this.onTap,
   });
 
@@ -53,36 +62,7 @@ class LeadCardItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        status,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                LeadStatusBadge(status: status, small: true),
               ],
             ),
             const SizedBox(height: 2),
@@ -93,27 +73,11 @@ class LeadCardItem extends StatelessWidget {
                 color: nec.textTertiary,
               ),
             ),
-            if (scheduleNote != null) ...[
+            if (scheduleNote != null && scheduleNote!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(
-                    isOverdue
-                        ? CupertinoIcons.exclamationmark_triangle
-                        : CupertinoIcons.clock,
-                    size: 14,
-                    color: isOverdue ? AppColors.error : nec.textTertiary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    scheduleNote!,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: isOverdue ? FontWeight.w600 : FontWeight.w400,
-                      color: isOverdue ? AppColors.error : nec.textSecondary,
-                    ),
-                  ),
-                ],
+              LeadStatusBadge(
+                status: isOverdue ? '$scheduleNote · Overdue' : scheduleNote!,
+                small: true,
               ),
             ],
             const SizedBox(height: 12),
@@ -122,6 +86,9 @@ class LeadCardItem extends StatelessWidget {
                 if (assigneeInitials != '??')
                   NecAvatar(
                     initials: assigneeInitials,
+                    photoBase64: photoBase64,
+                    photoUrl: photoUrl,
+                    assetPath: avatarAsset,
                     size: 22,
                   )
                 else
@@ -139,14 +106,49 @@ class LeadCardItem extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(width: 8),
-                Text(
-                  assigneeName,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    color: nec.textSecondary,
+                Expanded(
+                  child: Text(
+                    assigneeName,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: nec.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (phone != null && phone!.trim().isNotEmpty && onCall != null)
+                  GestureDetector(
+                    onTap: onCall,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.phone_fill,
+                            size: 12,
+                            color: Color(0xFF34C759),
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Call',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF34C759),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],

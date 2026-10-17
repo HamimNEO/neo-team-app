@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../services/app_haptics.dart';
 
 enum NecButtonVariant { primary, secondary, tertiary, destructive, ghost }
 
@@ -65,7 +66,12 @@ class NecButton extends StatelessWidget {
         height: h[size],
         width: fullWidth ? double.infinity : null,
         child: TextButton(
-            onPressed: dis ? null : onPressed,
+            onPressed: dis
+                ? null
+                : () {
+                    AppHaptics.lightImpact();
+                    onPressed?.call();
+                  },
             style: TextButton.styleFrom(
                 backgroundColor: bg,
                 padding: EdgeInsets.symmetric(horizontal: px[size]!),
@@ -78,13 +84,24 @@ class NecButton extends StatelessWidget {
                     child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation(fg)))
-                : Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (icon != null) ...[icon!, const SizedBox(width: 8)],
-                    Text(label,
-                        style: TextStyle(
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
                             fontSize: fs[size],
                             fontWeight: FontWeight.w600,
-                            color: fg)),
-                  ])));
+                            color: fg,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )));
   }
 }

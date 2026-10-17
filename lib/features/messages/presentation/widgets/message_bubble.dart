@@ -14,6 +14,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback onReply;
   final VoidCallback onOpenReply;
   final ValueChanged<String> onReact;
+  final String? replySenderName;
 
   const MessageBubble(
       {super.key,
@@ -22,7 +23,8 @@ class MessageBubble extends StatelessWidget {
       required this.onActions,
       required this.onReply,
       required this.onOpenReply,
-      required this.onReact});
+      required this.onReact,
+      this.replySenderName});
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +41,9 @@ class MessageBubble extends StatelessWidget {
         ? ''
         : quote.senderId == DemoSession.instance.employeeId
             ? 'You'
-            : EmployeeStore.instance.byId(quote.senderId)?.name ?? 'Teammate';
+            : replySenderName ??
+                EmployeeStore.instance.byId(quote.senderId)?.name ??
+                'Teammate';
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
@@ -150,8 +154,12 @@ class MessageBubble extends StatelessWidget {
                                           fontSize: 14,
                                           fontStyle: FontStyle.italic))),
                             ])
-                          else if (message.text.isNotEmpty)
-                            Text(message.text,
+                          else if (_cleanBubbleText(
+                                  message.text, message.attachments.isNotEmpty)
+                              .isNotEmpty)
+                            Text(
+                                _cleanBubbleText(message.text,
+                                    message.attachments.isNotEmpty),
                                 style: TextStyle(
                                     color: foreground,
                                     fontSize: 15,
@@ -212,5 +220,26 @@ class MessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _cleanBubbleText(String raw, bool hasAttachments) {
+    var cleaned = raw
+        .replaceAll(
+            RegExp(r'\s*\[\d{1,2}:\d{2}(\s*(?:AM|PM|am|pm))?\]',
+                caseSensitive: false),
+            '')
+        .trim();
+    if (hasAttachments) {
+      if (cleaned.toLowerCase() == '[attachment]' ||
+          cleaned.toLowerCase() == 'sent an attachment') {
+        return '';
+      }
+      cleaned = cleaned
+          .replaceAll(RegExp(r'\[attachment\]', caseSensitive: false), '')
+          .trim();
+    } else if (cleaned.toLowerCase() == '[attachment]') {
+      return 'Sent an attachment';
+    }
+    return cleaned;
   }
 }

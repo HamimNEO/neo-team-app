@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/demo_session.dart';
+import '../../../core/services/phone_service.dart';
 import '../../../core/services/staff_access_store.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -49,6 +50,8 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
     _tabController = TabController(length: 4, vsync: this);
     LeadStore.instance.addListener(_refresh);
     EmployeeStore.instance.addListener(_refresh);
+    EmployeeStore.instance.load();
+    LeadStore.instance.fetchDetails(widget.leadId, force: true);
   }
 
   @override
@@ -199,7 +202,7 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
         content: const Padding(
           padding: EdgeInsets.only(top: 8.0),
           child: Text(
-            'This lead and its history will be permanently deleted.',
+            'The CRM backend does not allow deleting lead records permanently (API 405 Method Not Allowed).\n\nWould you like to mark this lead as "Lost" instead?',
           ),
         ),
         actions: [
@@ -210,16 +213,19 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              context.pop();
-              NecToast.show(
-                context,
-                message: '$companyName deleted',
-                type: NecToastType.info,
-              );
+              await LeadStore.instance.updateStatus(widget.leadId, 'Lost');
+              if (mounted) {
+                context.pop();
+                NecToast.show(
+                  context,
+                  message: '$companyName marked as Lost',
+                  type: NecToastType.info,
+                );
+              }
             },
-            child: const Text('Delete'),
+            child: const Text('Mark as Lost'),
           ),
         ],
       ),
@@ -230,8 +236,16 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final companyName =
-        LeadStore.instance.byId(widget.leadId)?.company ?? 'Lead';
+    final lead = LeadStore.instance.byId(widget.leadId);
+    final companyName = lead?.company ?? 'Lead';
+    final details = LeadStore.instance.getDetails(widget.leadId);
+    final work = details?['work'] as Map? ?? {};
+    final followups = (work['followups'] as List? ?? []);
+    final visits = (work['visits'] as List? ?? []);
+    final tasks = (work['tasks'] as List? ?? []);
+    final pendingCount = followups.length +
+        visits.length +
+        tasks.where((t) => t['status']?.toString() != 'completed').length;
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -239,61 +253,69 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
         backgroundColor: nec.bg,
         elevation: 0,
         automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        toolbarHeight: 52,
+        leadingWidth: 76,
+        titleSpacing: 8,
+        centerTitle: true,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 12, right: 4),
+          onPressed: () => context.pop(),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => context.pop(),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.arrow_back_ios,
-                      size: 16,
-                      color: nec.brand,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Back',
-                      style: TextStyle(
-                        color: nec.brand,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+              Icon(
+                CupertinoIcons.chevron_left,
+                size: 16,
+                color: nec.brand,
               ),
-              Expanded(
+              const SizedBox(width: 2),
+              Flexible(
                 child: Text(
-                  companyName,
-                  textAlign: TextAlign.center,
+                  'Back',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: nec.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
+                    color: nec.brand,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                ),
-              ),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: DemoSession.instance.isAdmin ||
-                        StaffAccessStore.instance
-                            .allows(StaffPermission.editLead)
-                    ? () => _openActionSheet(companyName)
-                    : null,
-                child: Icon(
-                  CupertinoIcons.ellipsis,
-                  size: 20,
-                  color: nec.brand,
                 ),
               ),
             ],
           ),
         ),
+        title: Tooltip(
+          message: companyName,
+          child: Text(
+            companyName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: nec.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        actions: [
+          if (lead?.phone != null && lead!.phone!.trim().isNotEmpty)
+            IconButton(
+              tooltip: 'Call contact',
+              onPressed: () => PhoneService.call(context, lead.phone!),
+              icon: const Icon(CupertinoIcons.phone_fill, size: 18),
+              color: AppColors.success,
+            ),
+          IconButton(
+            tooltip: 'Lead actions',
+            onPressed: DemoSession.instance.isAdmin ||
+                    StaffAccessStore.instance.allows(StaffPermission.editLead)
+                ? () => _openActionSheet(companyName)
+                : null,
+            icon: const Icon(CupertinoIcons.ellipsis, size: 20),
+            color: nec.brand,
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -315,39 +337,42 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
                 indicatorWeight: 2,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                 labelStyle: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 tabs: [
-                  const Tab(text: 'Overview'),
-                  const Tab(text: 'Activity'),
+                  const Tab(text: 'Overview', height: 44),
+                  const Tab(text: 'Activity', height: 44),
                   Tab(
+                    height: 44,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('Work'),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: nec.brand,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Text(
-                            '2',
-                            style: TextStyle(
-                              fontSize: 10,
-                              height: 1.0,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                        if (pendingCount > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: nec.brand,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '$pendingCount',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                height: 1.0,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
-                  const Tab(text: 'More'),
+                  const Tab(text: 'More', height: 44),
                 ],
               ),
             ),
@@ -356,14 +381,31 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
                 controller: _tabController,
                 children: [
                   LeadOverviewTab(
+                    lead: lead,
+                    details: details,
                     isUnassigned: _isUnassigned,
                     assignedEmployee: _assignedEmployee,
                     onChangeAssigned: _openAssignEmployeeSheet,
                     companyName: companyName,
+                    location: lead?.location,
+                    leadType: lead?.type,
+                    latitude: lead?.latitude,
+                    longitude: lead?.longitude,
                   ),
-                  const LeadActivityTab(),
-                  const LeadWorkTab(),
-                  LeadMoreTab(leadId: widget.leadId),
+                  LeadActivityTab(
+                    leadId: widget.leadId,
+                    activities: (details?['activity'] as List? ?? []),
+                  ),
+                  LeadWorkTab(
+                    leadId: widget.leadId,
+                    work: Map<String, dynamic>.from(work),
+                  ),
+                  LeadMoreTab(
+                    leadId: widget.leadId,
+                    notes: (details?['notes'] as List? ?? []),
+                    attachments: (details?['attachments'] as List? ?? []),
+                    activities: (details?['activity'] as List? ?? []),
+                  ),
                 ],
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/app_haptics.dart';
 import '../../../../core/services/demo_session.dart';
 import '../../../../core/services/staff_access_store.dart';
 import '../../../more/presentation/widgets/add_follow_up_sheet.dart';
@@ -135,6 +136,7 @@ class QuickCreateSheet extends StatelessWidget {
                       color: nec.textTertiary,
                     ),
                     onTap: () {
+                      AppHaptics.lightImpact();
                       Navigator.pop(context);
                       if (action.$3 == 'Add Lead') {
                         context.push('/add-lead');

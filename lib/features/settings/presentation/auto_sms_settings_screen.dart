@@ -69,17 +69,21 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
     }
 
     setState(() => _isSendingTest = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-
-    _store.recordSimulatedDispatch();
-    setState(() => _isSendingTest = false);
-
-    NecToast.show(
-      context,
-      message: 'Simulated Auto-SMS sent successfully to $phone',
-      type: NecToastType.success,
-    );
+    try {
+      final message = await _store.sendTestSms(phone);
+      if (!mounted) return;
+      NecToast.show(context, message: message, type: NecToastType.success);
+    } catch (error) {
+      if (mounted) {
+        NecToast.show(context,
+            message: error is FormatException
+                ? error.message
+                : 'Unable to send test SMS.',
+            type: NecToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _isSendingTest = false);
+    }
   }
 
   @override
@@ -111,17 +115,21 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
         animation: _store,
         builder: (context, _) {
           final isEnabled = _store.isAutoSmsEnabled;
-          final previewText = _store.formatTemplate(
-            clientName: 'Ocean Blue Hotel',
-            date: 'Today',
-            time: '4:00 PM',
-            purpose: 'Contract Finalization',
-            repName: 'Shahina Akter',
-          );
+          final previewText = _store.preview.isEmpty
+              ? 'The server preview will appear after the template is saved.'
+              : _store.preview;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
             children: [
+              if (_store.loading || _store.saving)
+                const LinearProgressIndicator(minHeight: 2),
+              if (_store.error != null) ...[
+                Text(_store.error!, style: const TextStyle(color: Colors.red)),
+                TextButton(
+                    onPressed: () => _store.load(force: true),
+                    child: const Text('Retry')),
+              ],
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -208,9 +216,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    isEnabled
-                                        ? 'Active (Simulated Mode)'
-                                        : 'Inactive / Paused',
+                                    isEnabled ? 'Active' : 'Inactive / Paused',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -242,7 +248,9 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                             ],
                           ),
                           child: Text(
-                            '${_store.totalDispatched} Sent',
+                            _store.totalDispatched == null
+                                ? 'Auto-SMS'
+                                : '${_store.totalDispatched} Sent',
                             style: const TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
@@ -267,7 +275,9 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => _store.toggleAutoSms(!isEnabled),
+                  onTap: !_store.ready || _store.saving
+                      ? null
+                      : () => _store.toggleAutoSms(!isEnabled),
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -336,7 +346,9 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                         ),
                         Switch.adaptive(
                           value: isEnabled,
-                          onChanged: (val) => _store.toggleAutoSms(val),
+                          onChanged: !_store.ready || _store.saving
+                              ? null
+                              : (val) => _store.toggleAutoSms(val),
                           activeTrackColor: const Color(0xFF6355F6),
                           activeThumbColor: Colors.white,
                         ),
@@ -585,7 +597,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                                         size: 11, color: Color(0xFF6355F6)),
                                     SizedBox(width: 4),
                                     Text(
-                                      'Alpha Sender',
+                                      'SMS',
                                       style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
@@ -860,7 +872,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Simulated Delivery',
+                            'SMS Preview',
                             style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w500,
@@ -878,7 +890,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                 ),
               ),
               const SizedBox(height: 22),
-              _sectionHeader(nec, 'SIMULATION & TEST DISPATCH'),
+              _sectionHeader(nec, 'TEST DISPATCH'),
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -899,7 +911,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Simulate Auto-SMS Dispatch',
+                      'Send a Test SMS',
                       style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w700,
@@ -907,7 +919,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Test the auto SMS engine by sending a live simulated alert to any mobile number.',
+                      'Test the auto SMS engine by sending a test SMS to any mobile number.',
                       style: TextStyle(
                           fontSize: 12, height: 1.4, color: nec.textSecondary),
                     ),
@@ -959,7 +971,9 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton(
-                          onPressed: _isSendingTest ? null : _sendTestSms,
+                          onPressed: _isSendingTest || !_store.ready
+                              ? null
+                              : _sendTestSms,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,

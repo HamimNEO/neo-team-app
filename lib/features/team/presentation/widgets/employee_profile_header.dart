@@ -19,148 +19,319 @@ class EmployeeProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
+    final isActive = employee.status.toLowerCase() == 'active';
+    final description =
+        '${employee.department.split(' · ').first} · ${employee.team}';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          NecAvatar(
-              initials: employee.avatarInitials,
-              photoBase64: employee.photoBase64,
-              size: 84,
-              backgroundColor: nec.brand),
-          const SizedBox(height: 14),
-          Text(
-            employee.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: nec.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            employee.designation,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: nec.textSecondary,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            employee.displayCode,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: nec.textTertiary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                width: 18,
+                height: 2.5,
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  employee.status,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.success,
-                  ),
+                  color: const Color(0xFF00C7BE),
+                  borderRadius: BorderRadius.circular(1.5),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                '${employee.department.split(' · ').first} · ${employee.team}',
+                'NEC TEAM',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: nec.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: nec.textTertiary,
+                  letterSpacing: 0.8,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  InkWell(
-                    onTap: () {
+                  Container(
+                    width: 132,
+                    height: 132,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: nec.brand.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: NecAvatar(
+                      initials: employee.avatarInitials,
+                      photoBase64: employee.photoBase64,
+                      photoUrl: employee.photoUrl,
+                      assetPath: employee.avatarAsset,
+                      backgroundColor: nec.brand,
+                      size: 128,
+                    ),
+                  ),
+                  Positioned(
+                    right: 6,
+                    bottom: 6,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? CupertinoColors.systemGreen
+                            : CupertinoColors.systemRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: nec.bg, width: 3),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      employee.name,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: nec.textPrimary,
+                        letterSpacing: -0.5,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (employee.designation.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: nec.brand.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              employee.designation,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: nec.brand,
+                              ),
+                            ),
+                          ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: employee.isProbation
+                                ? (employee.isProbationCompleted
+                                    ? const Color(0xFF10B981)
+                                        .withValues(alpha: 0.12)
+                                    : const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.14))
+                                : const Color(0xFF10B981)
+                                    .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                employee.isProbation
+                                    ? (employee.isProbationCompleted
+                                        ? CupertinoIcons.checkmark_shield_fill
+                                        : CupertinoIcons.timer)
+                                    : CupertinoIcons.checkmark_shield_fill,
+                                size: 12,
+                                color: employee.isProbation
+                                    ? (employee.isProbationCompleted
+                                        ? const Color(0xFF059669)
+                                        : const Color(0xFFD97706))
+                                    : const Color(0xFF059669),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                employee.isProbation
+                                    ? (employee.isProbationCompleted
+                                        ? 'Probation Ended'
+                                        : 'Probation (${employee.probationRemainingDays}d left)')
+                                    : 'Permanent',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: employee.isProbation
+                                      ? (employee.isProbationCompleted
+                                          ? const Color(0xFF059669)
+                                          : const Color(0xFFD97706))
+                                      : const Color(0xFF059669),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (employee.displayCode.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        employee.displayCode,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: nec.textTertiary,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Divider(
+              height: 1,
+              color: nec.separator.withValues(alpha: 0.35),
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: nec.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: nec.separator.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Icon(
+                  CupertinoIcons.briefcase_fill,
+                  size: 20,
+                  color: nec.brand,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'DEPARTMENT & FUNCTION',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: nec.textTertiary,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: nec.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: () {
                       NecToast.show(
                         context,
                         message: 'Calling ${employee.phone}...',
                         type: NecToastType.success,
                       );
                     },
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: nec.separator.withValues(alpha: 0.4),
                       ),
-                      child: const Icon(
-                        CupertinoIcons.phone_fill,
-                        color: AppColors.success,
-                        size: 20,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Call',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: nec.textSecondary,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(CupertinoIcons.phone_fill,
+                            color: AppColors.success, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Call',
+                          style: TextStyle(
+                            color: nec.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-              const SizedBox(width: 28),
-              Column(
-                children: [
-                  InkWell(
-                    onTap: () => context.push(
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () => context.push(
                       employee.id == DemoSession.instance.employeeId
                           ? '/messages'
                           : '/messages/${employee.id}',
                     ),
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.brandLight.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.chat_bubble_fill,
-                        color: AppColors.brandLight,
-                        size: 20,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: nec.brand,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Message',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: nec.textSecondary,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(CupertinoIcons.chat_bubble_fill,
+                            color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Message',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),

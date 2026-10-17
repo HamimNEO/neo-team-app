@@ -1,3 +1,4 @@
+import '../../../leads/data/lead_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -18,22 +19,23 @@ class SelectLeadSheet extends StatefulWidget {
 class _SelectLeadSheetState extends State<SelectLeadSheet> {
   final _searchController = TextEditingController();
 
-  final List<String> _allLeads = [
-    'Blue Wave Resort',
-    'Sea Pearl Resort',
-    'Green Palm Hotel',
-    'Ocean Nest Hotel',
-    'Sunrise Guest House',
-    'Coral Bay Resort',
-    'Bay Garden Hotel',
-    'Seagull Hotel',
-    'Hilltop Inn',
-    'Palm View Resort',
-    'Marine Drive Hotel',
-  ];
+  List<String> get _allLeads =>
+      LeadStore.instance.leads.map((l) => l.company).toSet().toList();
+
+  @override
+  void initState() {
+    super.initState();
+    LeadStore.instance.addListener(_refresh);
+    LeadStore.instance.load();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    LeadStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }

@@ -53,15 +53,30 @@ class ChatMessage {
       (senderId == first && recipientId == second) ||
       (senderId == second && recipientId == first);
 
-  String get preview => isDeleted
-      ? 'Message deleted'
-      : text.isNotEmpty
-          ? text
-          : attachments.length == 1
-              ? (attachments.first.isImage
-                  ? '📷 Photo'
-                  : '📎 ${attachments.first.name}')
-              : '${attachments.length} attachments';
+  String get preview {
+    if (isDeleted) return 'Message deleted';
+    final cleaned = text
+        .replaceAll(
+            RegExp(r'\s*\[\d{1,2}:\d{2}(\s*(?:AM|PM|am|pm))?\]',
+                caseSensitive: false),
+            '')
+        .replaceAll(RegExp(r'^\s*\[attachment\]\s*$', caseSensitive: false), '')
+        .trim();
+    if (cleaned.isNotEmpty &&
+        (cleaned.toLowerCase() != 'sent an attachment' ||
+            attachments.isEmpty)) {
+      return cleaned;
+    }
+    if (attachments.length == 1) {
+      return attachments.first.isImage
+          ? '📷 Photo'
+          : '📎 ${attachments.first.name}';
+    }
+    if (attachments.length > 1) {
+      return '${attachments.length} attachments';
+    }
+    return cleaned.isNotEmpty ? cleaned : 'Message';
+  }
 
   ChatMessage copyWith(
           {String? text,

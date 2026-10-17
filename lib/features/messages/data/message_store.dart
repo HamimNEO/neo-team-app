@@ -2,13 +2,17 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/config/app_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/demo_session.dart';
+import '../../auth/presentation/controllers/auth_session.dart';
 import '../../team/data/employee_store.dart';
 import '../domain/models/chat_message.dart';
 import '../domain/models/chat_attachment.dart';
 import 'attachment_storage.dart';
+import 'message_api.dart';
 
-/// Local shared conversations for the UI phase. No messages are sent remotely.
+/// Live Direct Messages Store connected to backend with offline-tolerant cache.
 class MessageStore extends ChangeNotifier {
   MessageStore._();
 
@@ -16,10 +20,18 @@ class MessageStore extends ChangeNotifier {
   static const _key = 'nec_messages_v1';
   List<ChatMessage> _messages = [];
   Map<String, List<String>> _archives = {};
+  final Map<String, String> _conversationIdByContact = {};
   Future<void>? _loading;
   Future<void> _pending = Future<void>.value();
   int _sequence = 0;
   String? loadError;
+
+  final MessageApi _api = MessageApi(ApiClient(
+    baseUrl: () => AppConfig.apiBaseUrl,
+    accessToken: () => AuthSession.instance.accessToken,
+  ));
+
+  MessageApi get api => _api;
 
   Future<void> load() => _loading ??= _load();
 
@@ -27,32 +39,182 @@ class MessageStore extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_key);
-      if (raw == null) {
-        final sample = _seed();
-        if (!await prefs.setString(_key, _encode(sample, {}))) {
-          throw const FormatException('Unable to initialize conversations.');
-        }
-        _messages = sample;
-      } else {
+      if (raw != null) {
         final decoded = jsonDecode(raw);
         final records =
             decoded is List ? decoded : (decoded as Map)['messages'] as List;
         final restored = records
             .map((item) =>
                 ChatMessage.fromJson(Map<String, dynamic>.from(item as Map)))
+            .where((m) => !m.id.startsWith('sample_'))
             .toList();
-        if (restored.map((message) => message.id).toSet().length !=
-            restored.length) {
-          throw const FormatException('Duplicate message record.');
-        }
         _messages = restored;
         if (decoded is Map && decoded['archives'] is Map) {
           _archives = (decoded['archives'] as Map).map((owner, contacts) =>
               MapEntry(owner as String, List<String>.from(contacts as List)));
         }
       }
+      unawaited(syncRemote());
     } catch (_) {
       loadError = 'Messages could not be loaded. Restart the app to try again.';
+    }
+  }
+
+  Future<void> syncRemote() async {
+    if (!DemoSession.instance.signedIn) return;
+    try {
+      final res = await _api.listConversations(scope: 'direct');
+      final convs = (res['conversations'] as List? ?? []);
+      final me = DemoSession.instance.employeeId;
+      final myUser = DemoSession.instance.user;
+      final myBackendId = myUser?.employeeId.toString() ?? '';
+
+      final existingMap = {for (final m in _messages) m.id: m};
+      final newMessages = <ChatMessage>[];
+
+      for (final c in convs) {
+        final convId = c['id'].toString();
+        try {
+          final details = await _api.getConversation(convId);
+          final participants = (details['participants'] as List? ?? [])
+              .cast<Map<String, dynamic>>();
+          final msgs =
+              (details['messages'] as List? ?? []).cast<Map<String, dynamic>>();
+
+          String otherEmployeeId = DemoSession.adminEmployeeId;
+          if (DemoSession.instance.isAdmin) {
+            if (convId == '1') {
+              otherEmployeeId = 'api_emp_2';
+              _conversationIdByContact['api_emp_2'] = convId;
+            } else {
+              final target = participants
+                      .where((p) => p['id']?.toString() != '2')
+                      .firstOrNull ??
+                  participants.firstOrNull;
+              if (target != null && target['id'] != null) {
+                otherEmployeeId = 'api_emp_${target['id']}';
+                _conversationIdByContact[otherEmployeeId] = convId;
+              }
+            }
+          } else {
+            if (convId == '1') {
+              otherEmployeeId = DemoSession.adminEmployeeId;
+              _conversationIdByContact[DemoSession.adminEmployeeId] = convId;
+              _conversationIdByContact['api_emp_1'] = convId;
+            } else {
+              final otherPart = participants
+                  .where((p) => p['id']?.toString() != myBackendId)
+                  .firstOrNull;
+              if (otherPart != null && otherPart['id'] != null) {
+                otherEmployeeId = 'api_emp_${otherPart['id']}';
+                _conversationIdByContact[otherEmployeeId] = convId;
+              } else {
+                otherEmployeeId = DemoSession.adminEmployeeId;
+              }
+            }
+          }
+
+          for (final m in msgs) {
+            final mId = m['id'].toString();
+            final senderMap = m['sender'] as Map<String, dynamic>?;
+            final senderEmpId = senderMap?['employee_id'];
+            final senderUserId = senderMap?['user_id'];
+            final senderName = senderMap?['name']?.toString() ?? '';
+
+            String senderId;
+            if (senderEmpId != null) {
+              senderId = 'api_emp_$senderEmpId';
+            } else if (senderName == 'Super Admin' || senderUserId == 1) {
+              senderId = DemoSession.adminEmployeeId;
+            } else {
+              senderId = 'usr_$senderUserId';
+            }
+
+            final recipientId = senderId == me ? otherEmployeeId : me;
+
+            final existing = existingMap[mId];
+            final reactionMap = <String, String>{};
+            final rawReactions = m['reactions'];
+            if (rawReactions is List) {
+              for (final r in rawReactions) {
+                if (r is Map && r['emoji'] != null) {
+                  final emp = r['employee_id'] != null
+                      ? 'api_emp_${r['employee_id']}'
+                      : (r['user_id']?.toString() == '1'
+                          ? DemoSession.adminEmployeeId
+                          : me);
+                  reactionMap[emp] = r['emoji'].toString();
+                }
+              }
+            }
+            if (existing != null) {
+              for (final e in existing.reactions.entries) {
+                reactionMap.putIfAbsent(e.key, () => e.value);
+              }
+            }
+
+            final readAt = existing?.readAt ??
+                (m['read_at'] != null
+                    ? DateTime.tryParse(m['read_at'].toString())
+                    : null);
+
+            ChatReply? reply;
+            final replyToId = m['reply_to_message_id'];
+            if (replyToId != null) {
+              reply = ChatReply(
+                messageId: replyToId.toString(),
+                senderId: otherEmployeeId,
+                preview: 'Quoted message',
+              );
+            }
+
+            final rawAtt = m['attachment'] as Map<String, dynamic>?;
+            final List<ChatAttachment> msgAttachments = [];
+            if (rawAtt != null && rawAtt['url'] != null) {
+              msgAttachments.add(ChatAttachment(
+                id: 'att_${m['id']}',
+                name: rawAtt['name']?.toString() ?? 'image.png',
+                size: 0,
+                isImage: true,
+                url: rawAtt['url'].toString(),
+              ));
+            }
+
+            newMessages.add(ChatMessage(
+              id: mId,
+              senderId: senderId,
+              recipientId: recipientId,
+              text: m['body']?.toString() ?? '',
+              sentAt: DateTime.tryParse(m['created_at']?.toString() ?? '') ??
+                  DateTime.now(),
+              readAt: readAt,
+              pinnedAt: m['pinned_at'] != null
+                  ? DateTime.tryParse(m['pinned_at'].toString())
+                  : null,
+              isDeleted: m['deleted_at'] != null,
+              reactions: reactionMap,
+              reply: reply,
+              attachments: msgAttachments,
+            ));
+          }
+        } catch (_) {
+          // Ignore individual conversation failure
+        }
+      }
+
+      final idSet = newMessages.map((m) => m.id).toSet();
+      _messages = [
+        ..._messages
+            .where((m) => !idSet.contains(m.id) && !m.id.startsWith('sample_')),
+        ...newMessages,
+      ];
+      _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_key, _encode(_messages, _archives));
+      notifyListeners();
+    } catch (_) {
+      // Keep offline cache
     }
   }
 
@@ -121,6 +283,17 @@ class MessageStore extends ChangeNotifier {
           message.readAt == null)
       .length;
 
+  String? contactForConversationId(String conversationId) {
+    for (final entry in _conversationIdByContact.entries) {
+      if (entry.value == conversationId) return entry.key;
+    }
+    return null;
+  }
+
+  String? conversationIdForContact(String employeeId) {
+    return _conversationIdByContact[employeeId];
+  }
+
   void _authorize(String actorId) {
     if (!DemoSession.instance.signedIn ||
         DemoSession.instance.employeeId != actorId) {
@@ -163,7 +336,13 @@ class MessageStore extends ChangeNotifier {
   }
 
   Future<void> archiveConversation(String employeeId,
-      {required bool archived}) {
+      {required bool archived}) async {
+    final convId = _conversationIdByContact[employeeId];
+    if (convId != null) {
+      try {
+        await _api.archiveConversation(convId);
+      } catch (_) {}
+    }
     final me = DemoSession.instance.employeeId;
     return _write(me, (messages) {
       if (employeeId == me || EmployeeStore.instance.byId(employeeId) == null) {
@@ -271,10 +450,72 @@ class MessageStore extends ChangeNotifier {
                   : original.preview);
         }
         final now = DateTime.now();
-        final id = '${me}_${now.microsecondsSinceEpoch}_${_sequence++}';
-        for (var index = 0; index < attachments.length; index++) {
-          saved.add(
-              await AttachmentStorage.save(attachments[index], '${id}_$index'));
+        var id = '${me}_${now.microsecondsSinceEpoch}_${_sequence++}';
+
+        String? convId = _conversationIdByContact[employeeId];
+        if (convId == null) {
+          if (employeeId == DemoSession.adminEmployeeId) {
+            convId = _conversationIdByContact['api_emp_1'] ?? '1';
+          } else if (employeeId == 'api_emp_2' &&
+              DemoSession.instance.isAdmin) {
+            convId = '1';
+          } else if (employeeId.startsWith('api_emp_')) {
+            final bId = int.tryParse(employeeId.substring(8));
+            if (bId != null) {
+              try {
+                final cRes = await _api.createDirectConversation(bId);
+                convId = cRes['conversation']?['id']?.toString();
+                if (convId != null) {
+                  _conversationIdByContact[employeeId] = convId;
+                }
+              } catch (_) {}
+            }
+          }
+        }
+
+        if (convId != null) {
+          try {
+            Map<String, dynamic> sent;
+            if (attachments.isNotEmpty) {
+              final first = attachments.first;
+              sent = await _api.sendMessageWithAttachment(
+                convId,
+                value.isEmpty ? 'Sent an attachment' : value,
+                first.bytes,
+                first.name,
+                replyToMessageId: int.tryParse(replyToId ?? ''),
+              );
+            } else if (value.isNotEmpty) {
+              sent = await _api.sendMessage(
+                convId,
+                value,
+                replyToMessageId: int.tryParse(replyToId ?? ''),
+              );
+            } else {
+              sent = {};
+            }
+            final item = sent['item'] as Map<String, dynamic>?;
+            if (item != null && item['id'] != null) {
+              id = item['id'].toString();
+              final att = item['attachment'] as Map<String, dynamic>?;
+              if (att != null && att['url'] != null) {
+                saved.add(ChatAttachment(
+                  id: 'att_${item['id']}',
+                  name: att['name']?.toString() ?? 'image.png',
+                  size: 0,
+                  isImage: true,
+                  url: att['url'].toString(),
+                ));
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (saved.isEmpty) {
+          for (var index = 0; index < attachments.length; index++) {
+            saved.add(await AttachmentStorage.save(
+                attachments[index], '${id}_$index'));
+          }
         }
         messages.add(ChatMessage(
             id: id,
@@ -304,7 +545,10 @@ class MessageStore extends ChangeNotifier {
     });
   }
 
-  Future<void> react(String id, String emoji) {
+  Future<void> react(String id, String emoji) async {
+    try {
+      await _api.reactToMessage(id, emoji);
+    } catch (_) {}
     final me = DemoSession.instance.employeeId;
     return _updateMessage(id, (message) {
       if (!ChatMessage.reactionOptions.contains(emoji)) {
@@ -320,13 +564,23 @@ class MessageStore extends ChangeNotifier {
     });
   }
 
-  Future<void> togglePin(String id) => _updateMessage(
-      id,
-      (message) => message.copyWith(
-          pinnedAt: message.pinnedAt == null ? DateTime.now() : null,
-          unpin: message.pinnedAt != null));
+  Future<void> togglePin(String id) async {
+    try {
+      await _api.pinMessage(id);
+    } catch (_) {}
+    return _updateMessage(
+        id,
+        (message) => message.copyWith(
+            pinnedAt: message.pinnedAt == null ? DateTime.now() : null,
+            unpin: message.pinnedAt != null));
+  }
 
   Future<void> deleteMessage(String id, {required bool forEveryone}) async {
+    if (forEveryone) {
+      try {
+        await _api.deleteMessage(id);
+      } catch (_) {}
+    }
     final me = DemoSession.instance.employeeId;
     final cleanup = <ChatAttachment>[];
     await _write(me, (messages) {
@@ -382,73 +636,5 @@ class MessageStore extends ChangeNotifier {
               : message)
           .toList();
     });
-  }
-
-  List<ChatMessage> _seed() {
-    final now = DateTime.now();
-    const admin = DemoSession.adminEmployeeId;
-    const staff = DemoSession.staffEmployeeId;
-    ChatMessage sample(
-            String id, String from, String to, String text, Duration ago,
-            {bool read = false}) =>
-        ChatMessage(
-            id: id,
-            senderId: from,
-            recipientId: to,
-            text: text,
-            sentAt: now.subtract(ago),
-            readAt: read
-                ? now.subtract(ago).add(const Duration(minutes: 1))
-                : null);
-    return [
-      sample(
-          'sample_1',
-          admin,
-          staff,
-          'Hi Shahina, how is the client follow-up going?',
-          const Duration(days: 1, hours: 2),
-          read: true),
-      sample(
-          'sample_2',
-          staff,
-          admin,
-          'Good morning! I have updated the leads and scheduled the visits.',
-          const Duration(days: 1, hours: 1),
-          read: true),
-      sample(
-          'sample_3',
-          admin,
-          staff,
-          'Great work. Please share the update before our meeting today.',
-          const Duration(minutes: 18)),
-      sample(
-          'sample_4',
-          'emp_yeapas',
-          admin,
-          'The latest app screens are ready for your review.',
-          const Duration(minutes: 42)),
-      sample(
-          'sample_5',
-          'emp_sultana',
-          admin,
-          'I have shared the team schedule for this week.',
-          const Duration(days: 1)),
-      sample(
-          'sample_6',
-          'emp_sultana',
-          staff,
-          'Let’s review the follow-up plan after lunch.',
-          const Duration(minutes: 55)),
-      sample(
-          'sample_7',
-          'emp_hamim',
-          staff,
-          'Thanks for sharing the client requirements!',
-          const Duration(days: 1, minutes: 30)),
-    ]
-        .where((message) =>
-            EmployeeStore.instance.byId(message.senderId) != null &&
-            EmployeeStore.instance.byId(message.recipientId) != null)
-        .toList();
   }
 }

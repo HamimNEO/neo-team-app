@@ -173,7 +173,6 @@ class ProfileOverviewTab extends StatelessWidget {
                       color: nec.textPrimary,
                     ),
                   ),
-                  onTap: () => context.push('/department/marketing'),
                 ),
                 _buildRowItem(
                   context: context,

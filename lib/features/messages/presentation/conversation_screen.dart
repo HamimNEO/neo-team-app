@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +40,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   bool _reading = false;
   bool _picking = false;
   bool _foreground = true;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -50,8 +52,14 @@ class _ConversationScreenState extends State<ConversationScreen>
     MessageStore.instance.addListener(_messagesChanged);
     EmployeeStore.instance.addListener(_refresh);
     WidgetsBinding.instance.addObserver(this);
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_foreground && mounted && ModalRoute.of(context)?.isCurrent == true) {
+        MessageStore.instance.syncRemote().ignore();
+      }
+    });
     MessageStore.instance.load().then((_) {
       if (!mounted) return;
+      MessageStore.instance.syncRemote().ignore();
       setState(() => _loading = false);
       _markRead();
     });
@@ -401,6 +409,7 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     MessageStore.instance.removeListener(_messagesChanged);
     EmployeeStore.instance.removeListener(_refresh);
@@ -447,6 +456,8 @@ class _ConversationScreenState extends State<ConversationScreen>
               NecAvatar(
                   initials: employee.avatarInitials,
                   photoBase64: employee.photoBase64,
+                  photoUrl: employee.photoUrl,
+                  assetPath: employee.avatarAsset,
                   size: 34),
               const SizedBox(width: 9),
               Expanded(

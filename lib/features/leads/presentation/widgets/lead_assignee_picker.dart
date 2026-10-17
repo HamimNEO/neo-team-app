@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/services/demo_session.dart';
+import '../../../../core/widgets/nec_avatar.dart';
 import '../../../team/data/employee_store.dart';
 import 'add_lead_picker_sheet.dart';
 
 Future<String?> chooseLeadAssignee(
     BuildContext context, String? employeeId) async {
   if (!DemoSession.instance.isAdmin) return null;
+  await EmployeeStore.instance.load();
+  if (!context.mounted || !DemoSession.instance.isAdmin) return null;
   String? selected;
   await showModalBottomSheet<void>(
     context: context,
@@ -20,7 +23,13 @@ Future<String?> chooseLeadAssignee(
           {
             'label': employee.name,
             'value': employee.id,
-            'subtitle': employee.designation
+            'subtitle': employee.designation,
+            'avatar': NecAvatar(
+                initials: employee.avatarInitials,
+                photoBase64: employee.photoBase64,
+                photoUrl: employee.photoUrl,
+                assetPath: employee.avatarAsset,
+                size: 34)
           },
       ],
       selectedValue: employeeId ?? '',

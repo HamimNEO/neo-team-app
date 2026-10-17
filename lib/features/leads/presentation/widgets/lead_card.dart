@@ -4,6 +4,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
 import '../../../../core/widgets/nec_badge.dart';
 import '../../domain/models/lead.dart';
+import '../../../team/data/employee_store.dart';
+import '../../../team/domain/models/employee.dart';
+import '../../data/lead_store.dart';
 
 class LeadCard extends StatelessWidget {
   final Lead lead;
@@ -19,6 +22,8 @@ class LeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final employee = EmployeeStore.instance.byId(lead.assignedEmployeeId ?? '');
+    final assignee = LeadStore.instance.assigneeName(lead);
     final nec = Theme.of(context).extension<NecColors>()!;
 
     return Material(
@@ -84,12 +89,16 @@ class LeadCard extends StatelessWidget {
               Row(
                 children: [
                   NecAvatar(
-                    initials: lead.assignedTo?.substring(0, 2) ?? '??',
+                    initials: employee?.avatarInitials ??
+                        Employee.initialsFor(assignee),
+                    photoBase64: employee?.photoBase64,
+                    photoUrl: employee?.photoUrl,
+                    assetPath: employee?.avatarAsset,
                     size: 18,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    lead.assignedTo ?? 'Unassigned',
+                    assignee,
                     style: TextStyle(fontSize: 12, color: nec.textTertiary),
                   ),
                 ],

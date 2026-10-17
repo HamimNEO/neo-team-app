@@ -6,7 +6,9 @@ import 'widgets/exit_confirmation_dialog.dart';
 import 'widgets/nav_tab_item.dart';
 import 'widgets/quick_create_sheet.dart';
 import '../../../core/services/demo_session.dart';
-import '../../../core/services/internet_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../tasks/data/work_item_store.dart';
+import '../../more/data/notification_store.dart';
 import '../../../core/services/staff_access_store.dart';
 
 class ShellScreen extends StatefulWidget {
@@ -27,6 +29,9 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     DemoSession.instance.addListener(_refreshAccess);
     StaffAccessStore.instance.addListener(_refreshAccess);
+    WorkItemStore.instance.addListener(_refreshAccess);
+    WorkItemStore.instance.load(preferCache: true);
+    NotificationStore.instance.load();
   }
 
   void _refreshAccess() {
@@ -40,7 +45,17 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     DemoSession.instance.removeListener(_refreshAccess);
     StaffAccessStore.instance.removeListener(_refreshAccess);
+    WorkItemStore.instance.removeListener(_refreshAccess);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      WorkItemStore.instance.load(preferCache: true);
+      NotificationStore.instance.load(force: true);
+      NotificationService.instance.refreshRegistration();
+    }
   }
 
   @override
@@ -50,7 +65,6 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
 
   Future<bool> _handleBackPress() async {
     if (!mounted) return false;
-    if (!InternetService.instance.isConnected) return true;
     if (_isHandlingBack) return true;
     _isHandlingBack = true;
 
@@ -216,7 +230,11 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
                         ? 'Lunch'
                         : 'Settings',
                 active: currentIndex == 3,
-                badgeCount: tasks ? 9 : 0,
+                badgeCount: tasks
+                    ? (WorkItemStore.instance.hasOverview
+                        ? WorkItemStore.instance.overview.summary.openTasks
+                        : WorkItemStore.instance.openTasks)
+                    : 0,
                 onTap: () {
                   if (tasks) {
                     context.go('/tasks');

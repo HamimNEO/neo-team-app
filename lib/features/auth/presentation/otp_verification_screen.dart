@@ -49,43 +49,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _hasError = false;
+      _isLoading = false;
+      _hasError = true;
+      _errorMessage =
+          'Verification is not available yet. Contact your administrator.';
     });
-
-    await Future.delayed(const Duration(milliseconds: 1000));
-    if (!mounted) return;
-
-    if (code == '123456') {
-      setState(() {
-        _isLoading = false;
-      });
-      NecToast.show(
-        context,
-        message: 'Code verified successfully!',
-        type: NecToastType.success,
-      );
-      context.push('/set-password');
-    } else {
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-        _errorMessage = 'Invalid verification code. Please use 123456.';
-      });
-      NecToast.show(
-        context,
-        message: 'Invalid code. Please use 123456.',
-        type: NecToastType.error,
-      );
-    }
   }
 
   Future<void> _handleResendCode() async {
     NecToast.show(
       context,
-      message: 'Verification code resent successfully.',
-      type: NecToastType.success,
+      message:
+          'Password reset is not available yet. Contact your administrator.',
+      type: NecToastType.error,
     );
   }
 

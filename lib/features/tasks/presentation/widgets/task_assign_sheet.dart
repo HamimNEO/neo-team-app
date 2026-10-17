@@ -1,5 +1,7 @@
+import '../../../team/data/employee_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/services/demo_session.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
 
@@ -20,36 +22,13 @@ class TaskAssignSheet extends StatelessWidget {
 
     final candidates = [
       {'name': 'Unassigned', 'designation': '', 'initials': '??'},
-      {
-        'name': 'Mahmud Hasan',
-        'designation': 'General Manager',
-        'initials': 'MH'
-      },
-      {
-        'name': 'Most. Shahina Akter',
-        'designation': 'Digital Marketing Executive',
-        'initials': 'MS'
-      },
-      {
-        'name': 'Md. Yeapas',
-        'designation': 'Senior Software Engineer',
-        'initials': 'MY'
-      },
-      {
-        'name': 'Rashidul Islam',
-        'designation': 'Sales Executive',
-        'initials': 'RI'
-      },
-      {
-        'name': 'MD. Abdul Hamim',
-        'designation': 'Flutter Developer',
-        'initials': 'MA'
-      },
-      {
-        'name': 'Tania Rahman',
-        'designation': 'Sales Executive',
-        'initials': 'TR'
-      },
+      for (final e in EmployeeStore.instance.employees
+          .where((e) => e.status == 'Active'))
+        {
+          'name': e.name,
+          'designation': e.designation,
+          'initials': e.avatarInitials
+        },
     ];
 
     return Container(
@@ -142,6 +121,7 @@ class TaskAssignSheet extends StatelessWidget {
                                   )
                                 : null,
                             onTap: () {
+                              if (!DemoSession.instance.isAdmin) return;
                               onSelected(name);
                               Navigator.pop(context);
                             },

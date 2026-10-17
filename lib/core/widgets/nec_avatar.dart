@@ -6,6 +6,8 @@ class NecAvatar extends StatefulWidget {
   final String? initials;
   final double size;
   final String? photoBase64;
+  final String? assetPath;
+  final String? photoUrl;
   final Color? backgroundColor;
 
   const NecAvatar(
@@ -13,6 +15,8 @@ class NecAvatar extends StatefulWidget {
       this.initials,
       this.size = 36,
       this.photoBase64,
+      this.assetPath,
+      this.photoUrl,
       this.backgroundColor});
 
   @override
@@ -72,13 +76,32 @@ class _NecAvatarState extends State<NecAvatar> {
             fontSize: size * 0.36,
             fontWeight: FontWeight.w600));
     Widget content = fallback;
-    if (_photoBytes != null) {
+    if (widget.assetPath != null) {
+      final pixels = (size * MediaQuery.devicePixelRatioOf(context)).ceil();
+      content = ClipOval(
+        child: Image.asset(widget.assetPath!,
+            width: size,
+            height: size,
+            cacheWidth: pixels,
+            cacheHeight: pixels,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
+            errorBuilder: (_, __, ___) => Center(child: fallback)),
+      );
+    } else if (_photoBytes != null) {
       content = ClipOval(
           child: Image.memory(_photoBytes!,
               width: size,
               height: size,
               fit: BoxFit.cover,
               gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => Center(child: fallback)));
+    } else if (widget.photoUrl != null) {
+      content = ClipOval(
+          child: Image.network(widget.photoUrl!,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Center(child: fallback)));
     }
     return Container(

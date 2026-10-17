@@ -1,3 +1,4 @@
+import 'dashboard_rows.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -6,46 +7,21 @@ import '../../../../core/theme/app_theme.dart';
 
 class NeedsAttentionSection extends StatelessWidget {
   final bool staff;
+
   const NeedsAttentionSection({super.key, this.staff = false});
 
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final items = [
-      {
-        'id': 'fu_001',
-        'title': 'Sea Pearl Resort',
-        'subtitle': 'Follow-up overdue · 20h',
-        'isOverdue': true,
-        'icon': CupertinoIcons.arrow_turn_down_left,
-        'route': '/follow-up-details/fu_001',
-      },
-      {
-        'id': 'fu_002',
-        'title': 'Ocean Nest Hotel',
-        'subtitle': 'Follow-up overdue · 3h',
-        'isOverdue': true,
-        'icon': CupertinoIcons.arrow_turn_down_left,
-        'route': '/follow-up-details/fu_002',
-      },
-      {
-        'id': 'lead_3',
-        'title': 'Ocean Paradise Hotel',
-        'subtitle': 'Unassigned · New Lead',
-        'isOverdue': false,
-        'icon': CupertinoIcons.person_2,
-        'route': '/leads/lead_3',
-      },
-      {
-        'id': 'lead_4',
-        'title': 'Coral Reef Resort',
-        'subtitle': 'Unassigned · New Lead',
-        'isOverdue': false,
-        'icon': CupertinoIcons.person_2,
-        'route': '/leads/lead_4',
-      },
-    ].where((item) => !staff || item['id'].toString().startsWith('fu_')).toList();
+    final items = DashboardRows.attention(staff: staff);
+    if (items.isEmpty) {
+      return const SectionEmptyCard(
+        icon: CupertinoIcons.shield_fill,
+        title: 'You’re all caught up',
+        subtitle: 'No pending items need your attention.',
+      );
+    }
 
     return Material(
       color: nec.surface,
@@ -83,8 +59,10 @@ class NeedsAttentionSection extends StatelessWidget {
                       children: [
                         Text(
                           item['title'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                             color: nec.textPrimary,
                           ),
@@ -92,6 +70,8 @@ class NeedsAttentionSection extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           item['subtitle'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
                             color: isOverdue

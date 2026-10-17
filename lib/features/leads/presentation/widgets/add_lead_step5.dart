@@ -253,6 +253,12 @@ class _AddLeadStep5State extends State<AddLeadStep5> {
                       photoBase64: EmployeeStore.instance
                           .byId(widget.selectedEmployeeId ?? '')
                           ?.photoBase64,
+                      photoUrl: EmployeeStore.instance
+                          .byId(widget.selectedEmployeeId ?? '')
+                          ?.photoUrl,
+                      assetPath: EmployeeStore.instance
+                          .byId(widget.selectedEmployeeId ?? '')
+                          ?.avatarAsset,
                       size: 22,
                     ),
                     const SizedBox(width: 8),

@@ -5,13 +5,21 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
 import '../../../../core/widgets/nec_button.dart';
+import '../../../team/data/employee_store.dart';
+import '../../data/lead_store.dart';
+import '../../domain/models/lead_filters.dart';
+import '../../domain/models/lead_status.dart';
 
 class LeadFilterSortSheet extends StatefulWidget {
+  final LeadFilters initialFilters;
+  final ValueChanged<LeadFilters>? onFiltersChanged;
   final String selectedSort;
   final ValueChanged<String> onSortChanged;
 
   const LeadFilterSortSheet({
     super.key,
+    this.initialFilters = const LeadFilters(),
+    this.onFiltersChanged,
     required this.selectedSort,
     required this.onSortChanged,
   });
@@ -40,89 +48,75 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
     'Priority',
   ];
 
-  final statusOptions = [
-    {'label': 'New', 'color': AppColors.brandLight},
-    {'label': 'Contacted', 'color': AppColors.leadContacted},
-    {'label': 'Interested', 'color': AppColors.leadInterested},
-    {'label': 'Follow-up', 'color': AppColors.warning},
-    {'label': 'Visit Scheduled', 'color': AppColors.leadVisit},
-    {'label': 'Negotiation', 'color': AppColors.leadNegotiation},
-    {'label': 'Won', 'color': AppColors.success},
-    {'label': 'Lost', 'color': AppColors.error},
-  ];
+  Map<String, dynamic> _options = {};
 
-  final employeeOptions = [
-    {
-      'name': 'Unassigned',
-      'designation': '',
-      'initials': '??',
-      'color': Colors.transparent,
-      'count': ''
-    },
-    {
-      'name': 'Me (Shahina Akter)',
-      'designation': '',
-      'initials': 'SA',
-      'color': AppColors.brandLight,
-      'count': ''
-    },
-    {
-      'name': 'Rahul Mehta',
-      'designation': 'Sales Manager',
-      'initials': 'RM',
-      'color': AppColors.success,
-      'count': '21 leads'
-    },
-    {
-      'name': 'Priya Das',
-      'designation': 'Sales Executive',
-      'initials': 'PD',
-      'color': AppColors.warning,
-      'count': '18 leads'
-    },
-    {
-      'name': 'Fahim Ahmed',
-      'designation': 'Field Sales',
-      'initials': 'FA',
-      'color': AppColors.leadInterested,
-      'count': '12 leads'
-    },
-    {
-      'name': 'Tania Rahman',
-      'designation': 'Sales Executive',
-      'initials': 'TR',
-      'color': AppColors.leadNegotiation,
-      'count': '9 leads'
-    },
-    {
-      'name': 'Karim Hossain',
-      'designation': 'Sales Executive',
-      'initials': 'KH',
-      'color': AppColors.error,
-      'count': '7 leads'
-    },
-  ];
+  List<String> _labels(String key, Iterable<String> existing) {
+    final raw = _options[key];
+    return {
+      ...(raw is List
+          ? raw
+              .whereType<Map>()
+              .map((item) => (item['label'] ?? item['key'] ?? '').toString())
+          : <String>[]),
+      ...existing
+    }.where((s) => s.trim().isNotEmpty).toList();
+  }
 
-  final sourceOptions = [
-    'Facebook',
-    'Website',
-    'WhatsApp',
-    'Phone',
-    'Referral',
-    'Field Visit',
-    'Campaign',
-    'Manual',
-    'Custom',
-  ];
+  List<Map<String, dynamic>> get statusOptions =>
+      _labels('statuses', LeadStore.instance.leads.map((l) => l.status))
+          .map(LeadStatus.label)
+          .toSet()
+          .map((label) => <String, dynamic>{
+                'label': label,
+                'color': switch (LeadStatus.api(label)) {
+                  'won' => AppColors.success,
+                  'lost' => AppColors.error,
+                  'contacted' => AppColors.warning,
+                  'qualified' => AppColors.leadVisit,
+                  'negotiation' => AppColors.leadNegotiation,
+                  'interested' => AppColors.leadInterested,
+                  'proposal' => AppColors.leadInterested,
+                  _ => AppColors.brandLight,
+                }
+              })
+          .toList();
 
-  final typeOptions = [
-    'Hotel',
-    'Resort',
-    'Guest House',
-    'Restaurant',
-    'Company',
-    'Agency',
-  ];
+  List<Map<String, dynamic>> get employeeOptions {
+    final list = <Map<String, dynamic>>[
+      {
+        'id': '',
+        'name': 'Unassigned',
+        'designation': 'No assignee',
+        'initials': '??',
+        'color': Colors.transparent,
+        'count':
+            '${LeadStore.instance.leads.where((l) => l.assignedEmployeeId == null || l.assignedEmployeeId!.isEmpty).length} leads',
+      },
+    ];
+    final allLeads = LeadStore.instance.leads;
+    for (final emp in EmployeeStore.instance.employees) {
+      final count =
+          allLeads.where((l) => l.assignedEmployeeId == emp.id).length;
+      list.add({
+        'id': emp.id,
+        'name': emp.name,
+        'designation': emp.designation,
+        'initials': emp.avatarInitials,
+        'photoBase64': emp.photoBase64,
+        'photoUrl': emp.photoUrl,
+        'avatarAsset': emp.avatarAsset,
+        'color': AppColors.brandLight,
+        'count': count > 0 ? '$count leads' : '0 leads',
+      });
+    }
+    return list;
+  }
+
+  List<String> get sourceOptions =>
+      _labels('sources', LeadStore.instance.leads.map((l) => l.source ?? ''));
+
+  List<String> get typeOptions =>
+      _labels('business_types', LeadStore.instance.leads.map((l) => l.type));
 
   final priorityOptions = [
     {'label': 'Low', 'color': AppColors.neutral},
@@ -135,7 +129,33 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
   void initState() {
     super.initState();
     _currentSort = widget.selectedSort;
+    _selectedStatuses.addAll(widget.initialFilters.statuses);
+    _selectedEmployees.addAll(widget.initialFilters.employees);
+    _selectedSources.addAll(widget.initialFilters.sources);
+    _selectedTypes.addAll(widget.initialFilters.types);
+    _selectedPriorities.addAll(widget.initialFilters.priorities);
+    LeadStore.instance.getOptions().then((options) {
+      if (mounted) setState(() => _options = options ?? {});
+    });
+    EmployeeStore.instance.addListener(_dataChanged);
+    LeadStore.instance.addListener(_dataChanged);
+    EmployeeStore.instance.load();
     DemoSession.instance.addListener(_sessionChanged);
+  }
+
+  void _dataChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _apply() {
+    widget.onSortChanged(_currentSort);
+    widget.onFiltersChanged?.call(LeadFilters(
+        statuses: Set.of(_selectedStatuses),
+        employees: Set.of(_selectedEmployees),
+        sources: Set.of(_selectedSources),
+        types: Set.of(_selectedTypes),
+        priorities: Set.of(_selectedPriorities)));
+    Navigator.pop(context);
   }
 
   void _sessionChanged() {
@@ -151,6 +171,8 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
   @override
   void dispose() {
     DemoSession.instance.removeListener(_sessionChanged);
+    EmployeeStore.instance.removeListener(_dataChanged);
+    LeadStore.instance.removeListener(_dataChanged);
     _employeeSearchController.dispose();
     super.dispose();
   }
@@ -348,6 +370,47 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
                           color: nec.textPrimary,
                         ),
                       ),
+                      subtitle: () {
+                        final key = cat['key']!;
+                        if (key == 'status' && _selectedStatuses.isNotEmpty) {
+                          return Text(_selectedStatuses.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: nec.brand));
+                        }
+                        if (key == 'assigned' &&
+                            _selectedEmployees.isNotEmpty) {
+                          return Text(
+                              employeeOptions
+                                  .where((e) =>
+                                      _selectedEmployees.contains(e['id']))
+                                  .map((e) => e['name'])
+                                  .join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: nec.brand));
+                        }
+                        if (key == 'source' && _selectedSources.isNotEmpty) {
+                          return Text(_selectedSources.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: nec.brand));
+                        }
+                        if (key == 'type' && _selectedTypes.isNotEmpty) {
+                          return Text(_selectedTypes.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: nec.brand));
+                        }
+                        if (key == 'priority' &&
+                            _selectedPriorities.isNotEmpty) {
+                          return Text(_selectedPriorities.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: nec.brand));
+                        }
+                        return null;
+                      }(),
                       trailing: Icon(
                         CupertinoIcons.chevron_right,
                         size: 16,
@@ -373,10 +436,7 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
           const SizedBox(height: 24),
           NecButton(
             label: 'Apply',
-            onPressed: () {
-              widget.onSortChanged(_currentSort);
-              Navigator.pop(context);
-            },
+            onPressed: _apply,
             fullWidth: true,
           ),
           const SizedBox(height: 12),
@@ -447,7 +507,7 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
           padding: const EdgeInsets.all(16),
           child: NecButton(
             label: 'Apply',
-            onPressed: () => Navigator.pop(context),
+            onPressed: _apply,
             fullWidth: true,
           ),
         ),
@@ -507,13 +567,15 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
                 final desig = item['designation'] as String;
                 final initials = item['initials'] as String;
                 final count = item['count'] as String;
-                final isSelected = _selectedEmployees.contains(name);
+                final isSelected =
+                    _selectedEmployees.contains(item['id'] as String);
                 final isLast = index == filtered.length - 1;
 
                 return Column(
                   children: [
                     InkWell(
-                      onTap: () => _toggleSelection(_selectedEmployees, name),
+                      onTap: () => _toggleSelection(
+                          _selectedEmployees, item['id'] as String),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
@@ -521,6 +583,9 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
                             if (initials != '??')
                               NecAvatar(
                                 initials: initials,
+                                photoBase64: item['photoBase64'] as String?,
+                                photoUrl: item['photoUrl'] as String?,
+                                assetPath: item['avatarAsset'] as String?,
                                 size: 36,
                               )
                             else
@@ -595,7 +660,7 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
           padding: const EdgeInsets.all(16),
           child: NecButton(
             label: 'Apply',
-            onPressed: () => Navigator.pop(context),
+            onPressed: _apply,
             fullWidth: true,
           ),
         ),
@@ -654,7 +719,7 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
           padding: const EdgeInsets.all(16),
           child: NecButton(
             label: 'Apply',
-            onPressed: () => Navigator.pop(context),
+            onPressed: _apply,
             fullWidth: true,
           ),
         ),
@@ -713,7 +778,7 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
           padding: const EdgeInsets.all(16),
           child: NecButton(
             label: 'Apply',
-            onPressed: () => Navigator.pop(context),
+            onPressed: _apply,
             fullWidth: true,
           ),
         ),
@@ -783,7 +848,7 @@ class _LeadFilterSortSheetState extends State<LeadFilterSortSheet> {
           padding: const EdgeInsets.all(16),
           child: NecButton(
             label: 'Apply',
-            onPressed: () => Navigator.pop(context),
+            onPressed: _apply,
             fullWidth: true,
           ),
         ),

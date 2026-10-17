@@ -223,6 +223,7 @@ class AttendanceRecord {
   final int revision;
   final bool corrected;
   final String note;
+  final int? reportedWorkedMinutes, reportedBreakMinutes;
 
   const AttendanceRecord(
       {required this.employeeId,
@@ -239,13 +240,18 @@ class AttendanceRecord {
       this.revision = 1,
       this.corrected = false,
       this.note = '',
-      this.wasWorkingDay = true});
+      this.wasWorkingDay = true,
+      this.reportedWorkedMinutes,
+      this.reportedBreakMinutes});
 
   bool get open => checkIn != null && checkOut == null;
 
   bool get onBreak => breaks.isNotEmpty && breaks.last.end == null;
 
   int breakSeconds(DateTime now) {
+    if (!onBreak && reportedBreakMinutes != null) {
+      return reportedBreakMinutes!.clamp(0, 1000000).toInt() * 60;
+    }
     if (checkIn == null) {
       return 0;
     }
@@ -262,6 +268,9 @@ class AttendanceRecord {
   }
 
   int workedSeconds(DateTime now) {
+    if ((checkOut != null || onBreak) && reportedWorkedMinutes != null) {
+      return reportedWorkedMinutes!.clamp(0, 1000000).toInt() * 60;
+    }
     if (checkIn == null) {
       return 0;
     }
@@ -286,23 +295,36 @@ class AttendanceRecord {
         'paidBreakMinutes': paidBreakMinutes,
         'revision': revision,
         'corrected': corrected,
-        'note': note
+        'note': note,
+        'reportedWorkedMinutes': reportedWorkedMinutes,
+        'reportedBreakMinutes': reportedBreakMinutes,
       };
 
-  factory AttendanceRecord.fromJson(Map<String, dynamic> json) =>
+  factory AttendanceRecord.fromJson(
+          Map<String, dynamic> json) =>
       AttendanceRecord(
           employeeId: json['employeeId'] as String,
           day: json['day'] as String,
-          checkIn: json['checkIn'] == null
-              ? null
-              : DateTime.parse(json['checkIn'] as String),
-          checkOut: json['checkOut'] == null
-              ? null
-              : DateTime.parse(json['checkOut'] as String),
-          breaks: (json['breaks'] as List)
-              .map((item) => AttendanceBreak.fromJson(
-                  Map<String, dynamic>.from(item as Map)))
-              .toList(),
+          checkIn:
+              json[
+                          'checkIn'] ==
+                      null
+                  ? null
+                  : DateTime.parse(json['checkIn'] as String),
+          checkOut:
+              json[
+                          'checkOut'] ==
+                      null
+                  ? null
+                  : DateTime.parse(json['checkOut'] as String),
+          breaks:
+              (json[
+                      'breaks'] as List)
+                  .map(
+                      (item) =>
+                          AttendanceBreak.fromJson(
+                              Map<String, dynamic>.from(item as Map)))
+                  .toList(),
           offsetMinutes: json['offsetMinutes'] as int,
           requiredMinutes: json['requiredMinutes'] as int,
           expectedStart: DateTime.parse(json['expectedStart'] as String),
@@ -312,7 +334,11 @@ class AttendanceRecord {
           paidBreakMinutes: json['paidBreakMinutes'] as int,
           revision: json['revision'] as int,
           corrected: json['corrected'] as bool,
-          note: json['note'] as String);
+          note: json['note'] as String,
+          reportedWorkedMinutes:
+              (json['reportedWorkedMinutes'] as num?)?.toInt(),
+          reportedBreakMinutes:
+              (json['reportedBreakMinutes'] as num?)?.toInt());
 }
 
 /// Dates are civil organization dates; event timestamps are always UTC.

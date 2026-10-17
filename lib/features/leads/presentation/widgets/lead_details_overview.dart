@@ -32,6 +32,8 @@ class LeadDetailsOverview extends StatelessWidget {
               LeadInfoRow('Company', lead.company),
               LeadInfoRow('Type', lead.type),
               LeadInfoRow('Location', lead.location),
+              if (lead.hasCoordinates)
+                LeadInfoRow('Coordinates', lead.coordinatesFormatted),
             ],
           ),
           if (lead.totalProperties != null || lead.interestedPlan != null) ...[

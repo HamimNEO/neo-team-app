@@ -26,11 +26,24 @@ class EmployeeProfileScreen extends StatefulWidget {
 
 class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
   int _selectedTabIndex = 0;
+  bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
     EmployeeStore.instance.addListener(_refresh);
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      await EmployeeStore.instance.loadDetails(widget.employeeId);
+    } catch (exception) {
+      if (mounted) _loadError = EmployeeStore.messageFor(exception);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _refresh() {
@@ -59,7 +72,18 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     if (employee == null) {
       return Scaffold(
           appBar: AppBar(title: const Text('Employee unavailable')),
-          body: const Center(child: Text('This employee could not be found.')));
+          body: Center(
+              child: _loading
+                  ? const CupertinoActivityIndicator()
+                  : Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(_loadError ?? 'This employee could not be found.'),
+                      TextButton(
+                          onPressed: () {
+                            setState(() => _loading = true);
+                            _load();
+                          },
+                          child: const Text('Retry'))
+                    ])));
     }
 
     final contactOnly = !DemoSession.instance.isAdmin &&
@@ -142,6 +166,11 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              if (_loading) const LinearProgressIndicator(minHeight: 2),
+              if (_loadError != null)
+                Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(_loadError!)),
               EmployeeProfileHeader(employee: employee),
               if (contactOnly)
                 Padding(
@@ -179,7 +208,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   EmployeeDetailsTab(employee: employee),
                   EmployeeSalaryTab(employee: employee),
                   EmployeeWorkTab(employee: employee),
-                  const EmployeeActivityTab(),
+                  EmployeeActivityTab(activities: employee.activity),
                   EmployeeMoreTab(employee: employee),
                 ][_selectedTabIndex],
               ],

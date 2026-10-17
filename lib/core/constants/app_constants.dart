@@ -3,6 +3,7 @@ import '../services/package_service.dart';
 class AppConstants {
   static const String appName = 'NEC TEAM';
   static const String appSubtitle = 'BY NEONECY';
+  static const String superAdminAvatarAsset = 'assets/logos/super_admin.png';
   static const String logoAsset =
       'assets/logos/NEC app icon — Rounded — 512 × 512.png';
   static const String largeLogoAsset =

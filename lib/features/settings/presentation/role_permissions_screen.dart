@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../data/mock_system_roles.dart';
+import '../data/role_store.dart';
 import '../domain/models/system_role.dart';
 
 class RolePermissionsScreen extends StatefulWidget {
@@ -15,36 +15,38 @@ class RolePermissionsScreen extends StatefulWidget {
 
 class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   final _searchController = TextEditingController();
-  late List<SystemRoleItem> _roles;
+  final _store = RoleStore.instance;
 
   @override
   void initState() {
     super.initState();
-    _roles = List.from(mockSystemRoles);
+    _store.addListener(_refresh);
+    _store.load();
     _searchController.addListener(() {
       setState(() {});
     });
   }
 
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _store.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
 
   void _openNewRoleScreen() async {
-    final newRole = await context.push<SystemRoleItem>('/new-role');
-    if (newRole != null) {
-      setState(() {
-        _roles.add(newRole);
-      });
-    }
+    await context.push<SystemRoleItem>('/new-role');
+    if (mounted) _store.load();
   }
 
-  List<SystemRoleItem> _getFilteredRoles() {
+  List<SystemRoleItem> _getFilteredRoles(List<SystemRoleItem> liveRoles) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return _roles;
-    return _roles.where((r) {
+    if (query.isEmpty) return liveRoles;
+    return liveRoles.where((r) {
       return r.name.toLowerCase().contains(query) ||
           r.description.toLowerCase().contains(query) ||
           r.badge.toLowerCase().contains(query);
@@ -56,7 +58,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     final nec = Theme.of(context).extension<NecColors>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final filtered = _getFilteredRoles();
+    final liveRoles = _store.roles;
+    final filtered = _getFilteredRoles(liveRoles);
     final systemRoles = filtered.where((r) => r.badge == 'SYSTEM').toList();
     final customRoles = filtered.where((r) => r.badge == 'CUSTOM').toList();
 
@@ -147,12 +150,35 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   child: ListTile(
                       leading: Icon(CupertinoIcons.person_2, color: nec.brand),
                       title: const Text('Staff Access'),
-                      subtitle: const Text(
-                          'Control modules and actions for staff demo logins'),
+                      subtitle:
+                          const Text('Employee module availability settings'),
                       trailing:
                           const Icon(CupertinoIcons.chevron_right, size: 16),
                       onTap: () => context.push('/staff-access'))),
               const SizedBox(height: 20),
+              Material(
+                  color: nec.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  child: ListTile(
+                      leading:
+                          Icon(CupertinoIcons.list_bullet, color: nec.brand),
+                      title: const Text('Permission Catalog'),
+                      subtitle:
+                          const Text('Available server permissions by module'),
+                      trailing:
+                          const Icon(CupertinoIcons.chevron_right, size: 16),
+                      onTap: () => context.push('/permission-catalog'))),
+              const SizedBox(height: 12),
+              if (_store.loading && liveRoles.isEmpty)
+                const Center(child: CupertinoActivityIndicator()),
+              if (_store.error != null || _store.catalogError != null)
+                ListTile(
+                  title: Text(_store.error ?? _store.catalogError!),
+                  trailing: TextButton(
+                      onPressed: _store.load, child: const Text('Retry')),
+                ),
+              if (!_store.loading && liveRoles.isEmpty && _store.error == null)
+                const Center(child: Text('No roles available')),
               Container(
                 height: 42,
                 padding: const EdgeInsets.symmetric(horizontal: 12),

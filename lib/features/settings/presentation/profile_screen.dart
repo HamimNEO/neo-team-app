@@ -7,11 +7,14 @@ import '../../attendance/data/attendance_store.dart';
 import '../../leads/data/lead_store.dart';
 import '../../meals/data/meal_store.dart';
 import '../data/system_settings_store.dart';
+import '../data/profile_store.dart';
+import '../domain/models/account_profile.dart';
 import 'widgets/admin_profile_tabs.dart';
 import 'widgets/profile_activity_tab.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/profile_more_tab.dart';
 import '../../team/data/employee_store.dart';
+import '../../team/domain/models/employee.dart';
 import '../../team/presentation/widgets/employee_details_tab.dart';
 import '../../team/presentation/widgets/employee_salary_tab.dart';
 import 'widgets/profile_tab_bar.dart';
@@ -36,16 +39,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _administrator = DemoSession.instance.isAdmin;
     EmployeeStore.instance.addListener(_refresh);
     SystemSettingsStore.instance.addListener(_refresh);
+    ProfileStore.instance.addListener(_refresh);
     _loadProfileData();
   }
 
   Future<void> _loadProfileData() async {
-    await SystemSettingsStore.instance.load();
     if (DemoSession.instance.isAdmin) {
       await Future.wait([
+        ProfileStore.instance.load(),
         AttendanceStore.instance.load(),
         MealStore.instance.load(),
         LeadStore.instance.load(),
+      ]);
+    } else {
+      await Future.wait([
+        ProfileStore.instance.load(),
+        SystemSettingsStore.instance.load(),
       ]);
     }
     _refresh();
@@ -67,20 +76,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     EmployeeStore.instance.removeListener(_refresh);
     SystemSettingsStore.instance.removeListener(_refresh);
+    ProfileStore.instance.removeListener(_refresh);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
-    final employee = EmployeeStore.instance.currentEmployee;
+    if (!DemoSession.instance.signedIn) return const SizedBox.shrink();
     final administrator = DemoSession.instance.isAdmin;
+    final accountProfile = ProfileStore.instance.profile ??
+        (DemoSession.instance.user == null
+            ? null
+            : AccountProfile.fromAuthUser(DemoSession.instance.user!));
+    final initialEmployee = accountProfile?.employeeProfile ??
+        EmployeeStore.instance.currentEmployee;
+    final storeEmp = EmployeeStore.instance.byId(initialEmployee.id);
+    final employee = storeEmp != null
+        ? Employee.fromJson({
+            ...initialEmployee.toJson(),
+            'employmentType': storeEmp.employmentType,
+            'probationStartDate': storeEmp.probationStartDate,
+            'probationEndDate': storeEmp.probationEndDate,
+            'agreementPdfName': storeEmp.agreementPdfName,
+            'agreementPdfUrl': storeEmp.agreementPdfUrl,
+            'agreementPdfBase64': storeEmp.agreementPdfBase64,
+            'agreementPdfSizeBytes': storeEmp.agreementPdfSizeBytes,
+          })
+        : initialEmployee;
     final tabs = administrator
         ? const ['Overview', 'Manage', 'Activity', 'More']
         : const ['Overview', 'Salary', 'Work', 'Activity', 'More'];
     final pages = administrator
         ? <Widget>[
-            AdminProfileOverviewTab(employee: employee),
+            AdminProfileOverviewTab(profile: accountProfile),
             const AdminProfileManagementTab(),
             AdminProfileActivityTab(employeeId: employee.id),
             ProfileMoreTab(employee: employee),
@@ -88,8 +117,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : <Widget>[
             EmployeeDetailsTab(employee: employee),
             EmployeeSalaryTab(employee: employee),
-            const ProfileWorkTab(),
-            const ProfileActivityTab(),
+            ProfileWorkTab(work: accountProfile?.work ?? const {}),
+            ProfileActivityTab(
+                activities: accountProfile?.activity ?? const []),
             ProfileMoreTab(employee: employee),
           ];
 
@@ -141,15 +171,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => context.push('/edit-profile'),
-                child: Icon(
-                  CupertinoIcons.square_pencil,
-                  size: 20,
-                  color: nec.brand,
-                ),
-              ),
+              if (!administrator)
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => context.push('/edit-profile'),
+                  child: Icon(
+                    CupertinoIcons.square_pencil,
+                    size: 20,
+                    color: nec.brand,
+                  ),
+                )
+              else
+                const SizedBox(width: 44, height: 44),
             ],
           ),
         ),
@@ -162,22 +195,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              ProfileHeader(
-                  employee: employee,
-                  administrator: administrator,
-                  onEditTap: () => context.push('/edit-profile')),
-              ProfileTabBar(
-                tabs: tabs,
-                selectedIndex: _selectedTabIndex,
-                onTabSelected: (index) {
-                  setState(() => _selectedTabIndex = index);
-                },
-              ),
-              pages[_selectedTabIndex < pages.length ? _selectedTabIndex : 0],
-            ],
+        child: RefreshIndicator(
+          onRefresh: _loadProfileData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                if (ProfileStore.instance.loading)
+                  const LinearProgressIndicator(minHeight: 2),
+                if (ProfileStore.instance.loadError != null)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(children: [
+                      Expanded(
+                          child: Text(ProfileStore.instance.loadError!,
+                              style: TextStyle(
+                                  color: nec.textSecondary, fontSize: 12))),
+                      TextButton(
+                          onPressed: _loadProfileData,
+                          child: const Text('Retry')),
+                    ]),
+                  ),
+                ProfileHeader(
+                    employee: employee,
+                    administrator: administrator,
+                    profile: accountProfile,
+                    onEditTap: administrator
+                        ? null
+                        : () => context.push('/edit-profile')),
+                ProfileTabBar(
+                  tabs: tabs,
+                  selectedIndex: _selectedTabIndex,
+                  onTabSelected: (index) {
+                    setState(() => _selectedTabIndex = index);
+                  },
+                ),
+                pages[_selectedTabIndex < pages.length ? _selectedTabIndex : 0],
+              ],
+            ),
           ),
         ),
       ),

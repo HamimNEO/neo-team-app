@@ -1,10 +1,12 @@
+import '../../tasks/data/work_item_store.dart';
+import '../../../core/services/demo_session.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/staff_access_store.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../data/mock_issues.dart';
+import '../data/work_queue_mapper.dart';
 import '../domain/models/issue.dart';
 import 'widgets/issue_card_item.dart';
 import 'widgets/issue_filter_sheet.dart';
@@ -25,19 +27,30 @@ class _IssuesScreenState extends State<IssuesScreen> {
   final _searchController = TextEditingController();
   String? _filterPriority;
 
-  late List<Issue> _issues;
+  List<Issue> _issues = [];
 
   @override
   void initState() {
     super.initState();
-    _issues = List.from(mockIssues);
+    _selectedScope = DemoSession.instance.isAdmin ? 'All' : 'Mine';
+    WorkItemStore.instance.addListener(_refresh);
+    WorkItemStore.instance.load();
+    _refresh();
     _searchController.addListener(() {
       setState(() {});
     });
   }
 
+  void _refresh() {
+    if (mounted) {
+      setState(() => _issues =
+          WorkItemStore.instance.issues.map(WorkQueueMapper.issue).toList());
+    }
+  }
+
   @override
   void dispose() {
+    WorkItemStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
@@ -71,7 +84,8 @@ class _IssuesScreenState extends State<IssuesScreen> {
     );
     if (result != null) {
       setState(() {
-        _issues.insert(0, result);
+        _issues =
+            WorkItemStore.instance.issues.map(WorkQueueMapper.issue).toList();
       });
     }
   }
@@ -171,7 +185,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
 
     final scopeIssues = _issues.where((issue) {
       if (_selectedScope == 'Mine') {
-        return issue.scopeMine || issue.assigneeName == 'Md.';
+        return issue.scopeMine;
       } else if (_selectedScope == 'Team') {
         return issue.scopeTeam;
       }
@@ -414,7 +428,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
                                 date: issue.date,
                                 hasRedDot: issue.hasRedDot,
                                 onTap: () {
-                                  // Can show issue details or options
+                                  context.push('/issues/${issue.id}');
                                 },
                               ),
                               if (!isLast)

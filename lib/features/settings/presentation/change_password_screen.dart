@@ -7,7 +7,6 @@ import '../../../core/widgets/nec_button.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../auth/domain/models/employee_login.dart';
 import '../../auth/presentation/widgets/password_field.dart';
-import '../../team/data/employee_store.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -33,8 +32,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           DemoSession.instance.employeeId != _actor) {
         throw const FormatException('Sign in again to change your password.');
       }
-      await EmployeeStore.instance
-          .changePassword(_current.text, _password.text);
+      await DemoSession.instance.changePassword(_current.text, _password.text);
       if (!mounted) return;
       setState(() => _saving = false);
       NecToast.show(context, message: 'Password changed successfully');

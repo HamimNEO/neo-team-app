@@ -1,3 +1,4 @@
+import 'dashboard_rows.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,24 +12,14 @@ class LeadsNeedingActionSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final items = [
-      {
-        'id': 'fu_001',
-        'title': 'Sea Pearl Resort',
-        'subtitle': 'Follow-up call · Tomorrow, 11:30 AM',
-        'badgeText': 'Follow-up',
-        'badgeColor': AppColors.warning,
-        'route': '/follow-up-details/fu_001',
-      },
-      {
-        'id': 'fu_002',
-        'title': 'Blue Wave Resort',
-        'subtitle': 'Follow-up · Today, 4:00 PM',
-        'badgeText': 'Interested',
-        'badgeColor': AppColors.success,
-        'route': '/follow-up-details/fu_002',
-      },
-    ];
+    final items = DashboardRows.leadActions();
+    if (items.isEmpty) {
+      return const SectionEmptyCard(
+        icon: CupertinoIcons.person_2_fill,
+        title: 'No leads need follow-up',
+        subtitle: 'You’re up to date with all lead actions.',
+      );
+    }
 
     return Material(
       color: nec.surface,
@@ -63,8 +54,10 @@ class LeadsNeedingActionSection extends StatelessWidget {
                       children: [
                         Text(
                           item['title'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                             color: nec.textPrimary,
                           ),
@@ -72,6 +65,8 @@ class LeadsNeedingActionSection extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           item['subtitle'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
                             color: nec.textTertiary,

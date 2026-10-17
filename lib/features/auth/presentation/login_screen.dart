@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_button.dart';
-import '../../../core/services/demo_session.dart';
+import '../../settings/data/user_settings_store.dart';
+import 'controllers/auth_session.dart';
 import 'widgets/auth_field.dart';
 import 'widgets/auth_header.dart';
 
@@ -30,10 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await DemoSession.instance
+      await AuthSession.instance
           .signIn(_emailController.text, _passwordController.text);
       if (mounted) {
-        context.go('/home');
+        context.go(UserSettingsStore.instance.defaultViewRoute);
       }
     } catch (error) {
       if (mounted) {

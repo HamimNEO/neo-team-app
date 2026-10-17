@@ -25,6 +25,7 @@ class _FollowUpVisitSettingsScreenState
   void initState() {
     super.initState();
     _settings.load();
+    AutoSmsSettingsStore.instance.load();
   }
 
   void _showAddSheet(OperationOptionGroup group) {

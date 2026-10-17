@@ -11,10 +11,14 @@ class EmployeePersonalDraft {
   final dateOfBirth = TextEditingController();
   final emergencyName = TextEditingController();
   final emergencyPhone = TextEditingController();
-  String? photo;
+  String? photo, photoUrl;
 
   EmployeePersonalDraft([Employee? employee]) {
     if (employee == null) return;
+    loadFrom(employee);
+  }
+
+  void loadFrom(Employee employee) {
     name.text = employee.name;
     email.text = employee.email;
     phone.text = employee.phone;
@@ -23,6 +27,7 @@ class EmployeePersonalDraft {
     emergencyName.text = employee.emergencyContactName;
     emergencyPhone.text = employee.emergencyContactPhone;
     photo = employee.photoBase64;
+    photoUrl = employee.photoUrl;
   }
 
   void dispose() {
@@ -43,13 +48,14 @@ class EmployeePersonalDraft {
 class EmployeePersonalFields extends StatelessWidget {
   final EmployeePersonalDraft draft;
   final bool selfEdit;
-  final bool administrator;
+  final bool administrator, emailReadOnly;
 
   const EmployeePersonalFields(
       {super.key,
       required this.draft,
       this.selfEdit = false,
-      this.administrator = false});
+      this.administrator = false,
+      this.emailReadOnly = false});
 
   Future<void> _pickBirthday(BuildContext context) async {
     final now = DateTime.now();
@@ -79,7 +85,7 @@ class EmployeePersonalFields extends StatelessWidget {
                 : 'Work Email *',
             controller: draft.email,
             hint: 'you@neonecy.com',
-            readOnly: selfEdit,
+            readOnly: selfEdit || emailReadOnly,
             keyboardType: TextInputType.emailAddress,
             validator: employeeEmailValidator),
         EmployeeFormField(

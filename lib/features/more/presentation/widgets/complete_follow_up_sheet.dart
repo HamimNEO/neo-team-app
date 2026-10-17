@@ -1,3 +1,4 @@
+import '../../../tasks/data/work_item_store.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_button.dart';
@@ -5,9 +6,11 @@ import '../../../../core/widgets/nec_toast.dart';
 
 class CompleteFollowUpSheet extends StatefulWidget {
   final String leadName;
+  final Future<void> Function(String)? onSave;
 
   const CompleteFollowUpSheet({
     super.key,
+    this.onSave,
     required this.leadName,
   });
 
@@ -55,7 +58,6 @@ class _CompleteFollowUpSheetState extends State<CompleteFollowUpSheet> {
           child: Column(
             children: [
               const SizedBox(height: 10),
-              // Drag handle
               Container(
                 width: 36,
                 height: 4,
@@ -179,7 +181,27 @@ class _CompleteFollowUpSheetState extends State<CompleteFollowUpSheet> {
                       const SizedBox(height: 20),
                       NecButton(
                         label: 'Save Result',
-                        onPressed: () {
+                        onPressed: () async {
+                          if (_selectedOutcome == null) {
+                            NecToast.show(context,
+                                message: 'Select an outcome.',
+                                type: NecToastType.error);
+                            return;
+                          }
+                          try {
+                            await widget.onSave?.call([
+                              _selectedOutcome!,
+                              _noteController.text.trim()
+                            ].where((v) => v.isNotEmpty).join(' · '));
+                          } catch (error) {
+                            if (context.mounted) {
+                              NecToast.show(context,
+                                  message: WorkItemStore.messageFor(error),
+                                  type: NecToastType.error);
+                            }
+                            return;
+                          }
+                          if (!context.mounted) return;
                           Navigator.pop(context);
                           NecToast.show(
                             context,

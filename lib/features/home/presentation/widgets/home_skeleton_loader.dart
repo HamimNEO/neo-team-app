@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 /// Admin and staff users see skeletons that precisely match the content they will get.
 class HomeSkeletonLoader extends StatefulWidget {
   final bool isAdmin;
+
   const HomeSkeletonLoader({super.key, this.isAdmin = true});
 
   @override
@@ -55,13 +56,18 @@ class _HomeSkeletonLoaderState extends State<HomeSkeletonLoader>
               height: height,
               decoration: BoxDecoration(
                 shape: shape,
-                borderRadius:
-                    shape == BoxShape.circle ? null : BorderRadius.circular(radius),
+                borderRadius: shape == BoxShape.circle
+                    ? null
+                    : BorderRadius.circular(radius),
                 gradient: LinearGradient(
                   begin: Alignment(-1.6 + t * 3.2, -0.3),
                   end: Alignment(-0.6 + t * 3.2, 0.3),
                   colors: card
-                      ? [nec.surface, highlight.withValues(alpha: 0.55), nec.surface]
+                      ? [
+                          nec.surface,
+                          highlight.withValues(alpha: 0.55),
+                          nec.surface
+                        ]
                       : [base, highlight, base],
                   stops: const [0.15, 0.5, 0.85],
                 ),
@@ -188,7 +194,6 @@ class _HomeSkeletonLoaderState extends State<HomeSkeletonLoader>
         bool can(StaffPermission p) => access.allows(p);
 
         final children = <Widget>[
-          // Greeting bar (shared)
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 6),
             child: Row(
@@ -244,16 +249,16 @@ class _HomeSkeletonLoaderState extends State<HomeSkeletonLoader>
               header(110),
               listCard(2),
             ],
-            if (can(StaffPermission.followUps) || can(StaffPermission.visits)) ...[
+            if (can(StaffPermission.followUps) ||
+                can(StaffPermission.visits)) ...[
               header(60),
               listCard(3),
             ],
             if (can(StaffPermission.tasks) || can(StaffPermission.issues)) ...[
               header(70),
-              listCard(
-                  can(StaffPermission.tasks) && can(StaffPermission.issues)
-                      ? 2
-                      : 1),
+              listCard(can(StaffPermission.tasks) && can(StaffPermission.issues)
+                  ? 2
+                  : 1),
             ],
           ],
           const SizedBox(height: 24),

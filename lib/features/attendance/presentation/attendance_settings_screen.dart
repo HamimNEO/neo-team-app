@@ -36,6 +36,27 @@ class _AttendanceSettingsScreenState extends State<AttendanceSettingsScreen> {
     _grace = TextEditingController(text: '${_policy.graceMinutes}');
     _paidBreak = TextEditingController(text: '${_policy.paidBreakMinutes}');
     _window = TextEditingController(text: '${_policy.correctionWindowDays}');
+    _loadRemote();
+  }
+
+  Future<void> _loadRemote() async {
+    try {
+      await AttendanceStore.instance.loadPolicy();
+      if (!mounted) return;
+      setState(() {
+        _policy = AttendanceStore.instance.policy;
+        _required.text = '${_policy.requiredMinutes}';
+        _grace.text = '${_policy.graceMinutes}';
+        _paidBreak.text = '${_policy.paidBreakMinutes}';
+        _window.text = '${_policy.correctionWindowDays}';
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e is FormatException
+            ? e.message
+            : 'Attendance settings could not be loaded.');
+      }
+    }
   }
 
   @override

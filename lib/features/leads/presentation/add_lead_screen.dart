@@ -52,6 +52,8 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
   final _actor = DemoSession.instance.employeeId;
   String? _selectedPriority = 'Normal';
   String? _attachedFileName;
+  double? _latitude;
+  double? _longitude;
 
   @override
   void initState() {
@@ -64,6 +66,16 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
       _companyController.text = lead.company;
       _selectedBusinessType = lead.type;
       _locationController.text = lead.location;
+      _latitude = lead.latitude;
+      _longitude = lead.longitude;
+      if (_latitude == null && _longitude == null && lead.location.isNotEmpty) {
+        final match = RegExp(r'(-?\d{1,3}\.\d+)[,\s]+(-?\d{1,3}\.\d+)')
+            .firstMatch(lead.location);
+        if (match != null) {
+          _latitude = double.tryParse(match.group(1)!);
+          _longitude = double.tryParse(match.group(2)!);
+        }
+      }
       _contactNameController.text = lead.contactName ?? '';
       _selectedRole = lead.contactRole;
       _phoneController.text = lead.phone ?? '';
@@ -138,6 +150,8 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
         company: _companyController.text.trim(),
         type: _selectedBusinessType ?? 'Other',
         location: _locationController.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
         status: _original?.status ?? 'New',
         priority: _selectedPriority ?? 'Normal',
         createdAt: _original?.createdAt ?? DateTime.now(),
@@ -285,6 +299,20 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
               companyController: _companyController,
               locationController: _locationController,
               selectedBusinessType: _selectedBusinessType,
+              latitude: _latitude,
+              longitude: _longitude,
+              onLocationPicked: (result) {
+                setState(() {
+                  _latitude = result.latitude;
+                  _longitude = result.longitude;
+                });
+              },
+              onClearCoordinates: () {
+                setState(() {
+                  _latitude = null;
+                  _longitude = null;
+                });
+              },
               onBusinessTypeChanged: (val) {
                 setState(() {
                   _selectedBusinessType = val;

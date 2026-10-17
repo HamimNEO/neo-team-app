@@ -5,13 +5,30 @@ class ModulePermission {
   final Color dotColor;
   final String accessLevel;
   final List<(String name, bool isGranted)> permissions;
+  final Map<String, String> permissionKeys;
 
   const ModulePermission({
     required this.moduleName,
     required this.dotColor,
     this.accessLevel = 'Full Access',
     required this.permissions,
+    this.permissionKeys = const {},
   });
+
+  ModulePermission copyWith({
+    String? moduleName,
+    Color? dotColor,
+    String? accessLevel,
+    List<(String name, bool isGranted)>? permissions,
+  }) {
+    return ModulePermission(
+      moduleName: moduleName ?? this.moduleName,
+      dotColor: dotColor ?? this.dotColor,
+      accessLevel: accessLevel ?? this.accessLevel,
+      permissions: permissions ?? this.permissions,
+      permissionKeys: permissionKeys,
+    );
+  }
 }
 
 class SystemRoleItem {
@@ -34,8 +51,34 @@ class SystemRoleItem {
     required this.memberCount,
     required this.iconColor,
     required this.scope,
-    this.lastUpdated = 'Sep 20, 2024',
-    this.memberNames = const ['Rahul Sharma'],
+    this.lastUpdated = '',
+    this.memberNames = const [],
     required this.modulePermissions,
   });
+
+  SystemRoleItem copyWith({
+    String? id,
+    String? name,
+    String? badge,
+    String? description,
+    int? memberCount,
+    Color? iconColor,
+    String? scope,
+    String? lastUpdated,
+    List<String>? memberNames,
+    List<ModulePermission>? modulePermissions,
+  }) {
+    return SystemRoleItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      badge: badge ?? this.badge,
+      description: description ?? this.description,
+      memberCount: memberCount ?? this.memberCount,
+      iconColor: iconColor ?? this.iconColor,
+      scope: scope ?? this.scope,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      memberNames: memberNames ?? this.memberNames,
+      modulePermissions: modulePermissions ?? this.modulePermissions,
+    );
+  }
 }

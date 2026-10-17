@@ -48,6 +48,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
     _month = DateTime.utc(_date.year, _date.month);
     _search.addListener(_refresh);
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _refresh());
+    AttendanceStore.instance.syncRemote(day: AttendanceClock.key(_date));
+    EmployeeStore.instance.load(preferCache: true);
   }
 
   void _refresh() {
@@ -497,8 +499,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
       ]);
 
   Widget _staffRow(Employee employee, String actor, NecColors nec) {
+    final resolvedEmp = EmployeeStore.instance.byId(employee.id) ?? employee;
     final day = AttendanceStore.instance
-        .dayFor(employee.id, AttendanceClock.key(_date));
+        .dayFor(resolvedEmp.id, AttendanceClock.key(_date));
     return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Material(
@@ -509,10 +512,12 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 leading: NecAvatar(
-                    initials: employee.avatarInitials,
-                    photoBase64: employee.photoBase64,
+                    initials: resolvedEmp.avatarInitials,
+                    photoBase64: resolvedEmp.photoBase64,
+                    photoUrl: resolvedEmp.photoUrl,
+                    assetPath: resolvedEmp.avatarAsset,
                     size: 38),
-                title: Text(employee.name,
+                title: Text(resolvedEmp.name,
                     style: TextStyle(
                         color: nec.textPrimary,
                         fontSize: 15,
@@ -538,19 +543,20 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                         : () => showAttendanceSheet(
                             context,
                             AttendanceEditForm(
-                                employeeId: employee.id,
+                                employeeId: resolvedEmp.id,
                                 day: AttendanceClock.key(_date),
                                 actorId: actor))),
                 onTap: () => showAttendanceSheet(
                     context,
                     AttendanceDayDetail(
-                        employeeId: employee.id,
+                        employeeId: resolvedEmp.id,
                         day: AttendanceClock.key(_date),
                         actorId: actor)))));
   }
 
   Widget _reportRow(Employee employee, NecColors nec) {
-    final days = AttendanceStore.instance.monthFor(employee.id, _month);
+    final resolvedEmp = EmployeeStore.instance.byId(employee.id) ?? employee;
+    final days = AttendanceStore.instance.monthFor(resolvedEmp.id, _month);
     final present = days.where((day) => day.record?.checkIn != null).length;
     final absent = days
         .where((day) => day.status == AttendanceStatus.absent)
@@ -567,12 +573,14 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             NecAvatar(
-                initials: employee.avatarInitials,
-                photoBase64: employee.photoBase64,
+                initials: resolvedEmp.avatarInitials,
+                photoBase64: resolvedEmp.photoBase64,
+                photoUrl: resolvedEmp.photoUrl,
+                assetPath: resolvedEmp.avatarAsset,
                 size: 34),
             const SizedBox(width: 10),
             Expanded(
-                child: Text(employee.name,
+                child: Text(resolvedEmp.name,
                     style: TextStyle(
                         color: nec.textPrimary,
                         fontSize: 15,

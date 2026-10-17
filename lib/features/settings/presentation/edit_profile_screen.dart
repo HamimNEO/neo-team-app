@@ -6,6 +6,7 @@ import '../../../core/services/demo_session.dart';
 import '../../../core/widgets/nec_button.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../team/data/employee_store.dart';
+import '../data/profile_store.dart';
 import '../../team/presentation/widgets/employee_personal_fields.dart';
 import '../../team/presentation/widgets/employee_photo_field.dart';
 
@@ -24,6 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _saving = false;
   bool _saved = false;
   bool _photoBusy = false;
+  bool _loading = true, _photoChanged = false;
+  String? _loadError, _originalPhoto;
 
   @override
   void initState() {
@@ -32,6 +35,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _administrator = DemoSession.instance.isAdmin;
     _draft = EmployeePersonalDraft(EmployeeStore.instance.currentEmployee);
     _draft.name.addListener(_refresh);
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      if (_administrator) {
+        throw const FormatException('Super Admin profiles are read-only.');
+      }
+      await ProfileStore.instance.load();
+      if (!mounted || DemoSession.instance.employeeId != _ownerId) return;
+      final profile = ProfileStore.instance.profile?.employeeProfile;
+      if (profile == null || ProfileStore.instance.loadError != null) {
+        throw FormatException(ProfileStore.instance.loadError ??
+            'Unable to load your profile. Please try again.');
+      }
+      _draft.loadFrom(profile);
+      _originalPhoto = _draft.photo;
+      _photoChanged = false;
+    } catch (error) {
+      if (mounted) {
+        _loadError = error is FormatException
+            ? error.message
+            : 'Unable to load your profile.';
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _refresh() {
@@ -71,7 +105,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         emergencyContactPhone: _draft.emergencyPhone.text.trim(),
         photoBase64: _draft.photo,
       );
-      await EmployeeStore.instance.save(employee);
+      await ProfileStore.instance
+          .updatePersonal(employee, photoChanged: _photoChanged);
+      if (!DemoSession.instance.signedIn ||
+          DemoSession.instance.employeeId != _ownerId) {
+        return;
+      }
       if (!mounted) return;
       NecToast.show(context, message: 'Profile updated successfully');
       setState(() => _saved = true);
@@ -120,42 +159,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   preferredSize: const Size.fromHeight(1),
                   child: Divider(height: 1, color: nec.separator))),
           body: SafeArea(
-            child: AbsorbPointer(
-                absorbing: _saving,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                      key: _formKey,
-                      child: Column(children: [
-                        EmployeePhotoField(
-                            name: _draft.name.text,
-                            photoBase64: _draft.photo,
-                            onChanged: (photo) =>
-                                setState(() => _draft.photo = photo),
-                            onBusyChanged: (busy) =>
-                                setState(() => _photoBusy = busy)),
-                        const SizedBox(height: 20),
-                        EmployeePersonalFields(
-                            draft: _draft,
-                            selfEdit: true,
-                            administrator: _administrator),
-                        const SizedBox(height: 12),
-                        Text(
-                            _administrator
-                                ? 'Update your photo, name and contact details here. Organization settings and staff access are available in Administration.'
-                                : 'Employment, work email, role, and salary changes are managed by your administrator.',
-                            style: TextStyle(
-                                color: nec.textTertiary,
-                                fontSize: 12,
-                                height: 1.5)),
-                        const SizedBox(height: 24),
-                        NecButton(
-                            label: 'Save Changes',
-                            fullWidth: true,
-                            loading: _saving,
-                            onPressed: _saving || _photoBusy ? null : _save),
-                      ])),
-                )),
+            child: _loading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _loadError != null
+                    ? Center(
+                        child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text(_loadError!, textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          TextButton(
+                              onPressed: _load, child: const Text('Retry')),
+                        ]),
+                      ))
+                    : AbsorbPointer(
+                        absorbing: _saving,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(24),
+                          child: Form(
+                              key: _formKey,
+                              child: Column(children: [
+                                EmployeePhotoField(
+                                    name: _draft.name.text,
+                                    photoBase64: _draft.photo,
+                                    photoUrl: _draft.photoUrl,
+                                    onChanged: (photo) => setState(() {
+                                          _draft.photo = photo;
+                                          _photoChanged =
+                                              photo != _originalPhoto;
+                                        }),
+                                    onBusyChanged: (busy) =>
+                                        setState(() => _photoBusy = busy)),
+                                const SizedBox(height: 20),
+                                EmployeePersonalFields(
+                                    draft: _draft,
+                                    selfEdit: true,
+                                    administrator: _administrator),
+                                const SizedBox(height: 12),
+                                Text(
+                                    _administrator
+                                        ? 'Update your photo, name and contact details here. Organization settings and staff access are available in Administration.'
+                                        : 'Employment, work email, role, and salary changes are managed by your administrator.',
+                                    style: TextStyle(
+                                        color: nec.textTertiary,
+                                        fontSize: 12,
+                                        height: 1.5)),
+                                const SizedBox(height: 24),
+                                NecButton(
+                                    label: 'Save Changes',
+                                    fullWidth: true,
+                                    loading: _saving,
+                                    onPressed:
+                                        _saving || _photoBusy ? null : _save),
+                              ])),
+                        )),
           ),
         ));
   }

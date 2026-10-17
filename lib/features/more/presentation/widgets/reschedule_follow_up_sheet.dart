@@ -1,3 +1,6 @@
+import '../../../tasks/data/work_item_store.dart';
+import '../../data/work_queue_mapper.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -5,11 +8,15 @@ import '../../../../core/widgets/nec_button.dart';
 import '../../../../core/widgets/nec_toast.dart';
 
 class RescheduleFollowUpSheet extends StatefulWidget {
+  final String title;
   final String currentSchedule;
   final String leadName;
+  final Future<void> Function(String, String)? onSave;
 
   const RescheduleFollowUpSheet({
     super.key,
+    this.title = 'Reschedule Follow-up',
+    this.onSave,
     required this.currentSchedule,
     required this.leadName,
   });
@@ -22,6 +29,7 @@ class RescheduleFollowUpSheet extends StatefulWidget {
 class _RescheduleFollowUpSheetState extends State<RescheduleFollowUpSheet> {
   String _selectedDate = 'Tomorrow';
   String _selectedTime = '11:30 AM';
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +59,7 @@ class _RescheduleFollowUpSheetState extends State<RescheduleFollowUpSheet> {
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  'Reschedule Follow-up',
+                  widget.title,
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -217,16 +225,40 @@ class _RescheduleFollowUpSheetState extends State<RescheduleFollowUpSheet> {
               ),
               const SizedBox(height: 24),
               NecButton(
-                label: 'Reschedule',
-                onPressed: () {
-                  Navigator.pop(context);
-                  NecToast.show(
-                    context,
-                    message:
-                        'Rescheduled follow-up to $_selectedDate at $_selectedTime',
-                    type: NecToastType.success,
-                  );
-                },
+                label: _saving ? 'Rescheduling...' : 'Reschedule',
+                loading: _saving,
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        setState(() => _saving = true);
+                        try {
+                          final scheduled = WorkQueueMapper.scheduled(
+                              _selectedDate, _selectedTime);
+                          await widget.onSave?.call(
+                              DateFormat('yyyy-MM-dd').format(scheduled),
+                              DateFormat('HH:mm').format(scheduled));
+                        } catch (error) {
+                          if (context.mounted) {
+                            NecToast.show(context,
+                                message: WorkItemStore.messageFor(error),
+                                type: NecToastType.error);
+                          }
+                          if (mounted) setState(() => _saving = false);
+                          return;
+                        }
+                        if (!context.mounted) return;
+                        final typeLabel =
+                            widget.title.toLowerCase().contains('visit')
+                                ? 'visit'
+                                : 'follow-up';
+                        Navigator.pop(context);
+                        NecToast.show(
+                          context,
+                          message:
+                              'Rescheduled $typeLabel to $_selectedDate at $_selectedTime',
+                          type: NecToastType.success,
+                        );
+                      },
                 fullWidth: true,
               ),
               const SizedBox(height: 12),

@@ -7,17 +7,20 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/services/firebase_service.dart';
+import 'core/services/notification_alert_manager.dart';
 import 'core/services/package_service.dart';
 import 'core/widgets/internet_guard.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
-import 'core/services/demo_session.dart';
+import 'features/auth/presentation/controllers/auth_session.dart';
 import 'core/services/staff_access_store.dart';
 import 'features/team/data/employee_store.dart';
 import 'features/attendance/data/attendance_store.dart';
 import 'features/meals/data/meal_store.dart';
 import 'features/messages/data/message_store.dart';
 import 'features/leads/data/lead_store.dart';
+import 'features/settings/data/user_settings_store.dart';
+import 'features/tasks/data/work_item_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,13 +50,17 @@ void main() async {
   }
 
   await PackageService.init();
-  await DemoSession.instance.load();
-  await StaffAccessStore.instance.load();
-  await EmployeeStore.instance.load();
-  await LeadStore.instance.load();
-  await MessageStore.instance.load();
-  await AttendanceStore.instance.load();
-  await MealStore.instance.load();
+  await AuthSession.instance.load(verifyInBackground: true);
+  await Future.wait([
+    StaffAccessStore.instance.restoreLocalPermissions(),
+    EmployeeStore.instance.restoreCache(),
+    LeadStore.instance.restoreCache(),
+    WorkItemStore.instance.restoreCache(),
+    MessageStore.instance.load(),
+    AttendanceStore.instance.load(),
+    MealStore.instance.load(),
+    UserSettingsStore.instance.restoreCache(),
+  ]);
 
   runApp(
     ChangeNotifierProvider(
@@ -61,6 +68,10 @@ void main() async {
       child: const NecTeamApp(),
     ),
   );
+  unawaited(FirebaseService.instance.initialize());
+  unawaited(StaffAccessStore.instance.load());
+  unawaited(NotificationAlertManager.instance.initialize());
+  unawaited(UserSettingsStore.instance.load());
 }
 
 class NecTeamApp extends StatelessWidget {
@@ -69,21 +80,33 @@ class NecTeamApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
-    return MaterialApp.router(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      themeMode: themeProvider.themeMode,
-      themeAnimationDuration: const Duration(milliseconds: 450),
-      themeAnimationCurve: Curves.easeInOutCubic,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      routerConfig: appRouter,
-      builder: (context, child) => InternetGuard(
-        onFirstConnection: () {
-          unawaited(FirebaseService.instance.initialize());
-        },
-        child: child ?? const SizedBox.shrink(),
-      ),
+    return ListenableBuilder(
+      listenable: UserSettingsStore.instance,
+      builder: (context, _) {
+        final reduceMotion = UserSettingsStore.instance.reduceMotion;
+        return MaterialApp.router(
+          title: AppConstants.appName,
+          debugShowCheckedModeBanner: false,
+          themeMode: themeProvider.themeMode,
+          themeAnimationDuration:
+              reduceMotion ? Duration.zero : const Duration(milliseconds: 450),
+          themeAnimationCurve: Curves.easeInOutCubic,
+          theme: AppTheme.light(themeProvider.style),
+          darkTheme: AppTheme.dark(themeProvider.style),
+          routerConfig: appRouter,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              disableAnimations: reduceMotion,
+            ),
+            child: InternetGuard(
+              onFirstConnection: () {
+                unawaited(FirebaseService.instance.initialize());
+              },
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        );
+      },
     );
   }
 }

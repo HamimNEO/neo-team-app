@@ -1,91 +1,57 @@
+import 'dashboard_rows.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/services/staff_access_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class TodayScheduleSection extends StatelessWidget {
   final bool staff;
+
   const TodayScheduleSection({super.key, this.staff = false});
 
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final scheduleItems = [
-      {
-        'time': 'Late',
-        'title': 'Sea Pearl Resort',
-        'type': 'Follow-up · Call',
-        'isLate': true,
-        'route': '/follow-up-details/fu_001',
-      },
-      {
-        'time': 'Late',
-        'title': 'Ocean Nest Hotel',
-        'type': 'Follow-up · WhatsApp',
-        'isLate': true,
-        'route': '/follow-up-details/fu_002',
-      },
-      {
-        'time': '11:00 AM',
-        'title': 'Blue Wave Resort',
-        'type': 'Site Visit · Product demo',
-        'isLate': false,
-        'route': '/visit-details/visit_001',
-      },
-      {
-        'time': '3:30 PM',
-        'title': 'Green Palm Hotel',
-        'type': 'Site Visit · Initial meeting',
-        'isLate': false,
-        'route': '/visit-details/visit_002',
-      },
-      {
-        'time': '4:00 PM',
-        'title': 'Sunrise Guest House',
-        'type': 'Follow-up · Call',
-        'isLate': false,
-        'route': '/follow-up-details/fu_001',
-      },
-    ].where((item) {
-      if (!staff) return true;
-      final route = item['route'] as String;
-      final access = StaffAccessStore.instance;
-      return route.startsWith('/visit-details')
-          ? access.allows(StaffPermission.visits)
-          : access.allows(StaffPermission.followUps);
-    }).toList();
+    final scheduleItems = DashboardRows.today(staff: staff);
+    if (scheduleItems.isEmpty) {
+      return const SectionEmptyCard(
+        icon: CupertinoIcons.calendar,
+        title: 'Nothing scheduled today',
+        subtitle: 'Your schedule is clear for today.',
+      );
+    }
+
     final lateCount =
         scheduleItems.where((item) => item['isLate'] as bool).length;
-
     return Column(
       children: [
         if (lateCount > 0)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.error.withValues(alpha: 0.12),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(CupertinoIcons.exclamationmark_triangle,
-                  color: AppColors.error, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                '$lateCount ${lateCount == 1 ? 'item' : 'items'} overdue',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.error,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.12),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(CupertinoIcons.exclamationmark_triangle,
+                    color: AppColors.error, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  '$lateCount ${lateCount == 1 ? 'item' : 'items'} overdue',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.error,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         Material(
           color: nec.surface,
           borderRadius: BorderRadius.vertical(
@@ -141,8 +107,10 @@ class TodayScheduleSection extends StatelessWidget {
                           children: [
                             Text(
                               item['title'] as String,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
                                 color:
                                     isLate ? AppColors.error : nec.textPrimary,
@@ -151,6 +119,8 @@ class TodayScheduleSection extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               item['type'] as String,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: nec.textTertiary,

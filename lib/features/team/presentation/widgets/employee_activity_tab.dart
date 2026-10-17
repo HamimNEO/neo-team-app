@@ -1,11 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class EmployeeActivityTab extends StatefulWidget {
-  const EmployeeActivityTab({super.key});
+  const EmployeeActivityTab({super.key, this.activities = const []});
+
+  final List<Map<String, dynamic>> activities;
 
   @override
   State<EmployeeActivityTab> createState() => _EmployeeActivityTabState();
@@ -20,95 +22,44 @@ class _EmployeeActivityTabState extends State<EmployeeActivityTab> {
     'Follow-ups',
     'Visits',
     'Tasks',
-    'Issues'
+    'Issues',
+    'Administration'
   ];
 
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
-    final allActivities = {
-      'TODAY': [
-        {
-          'title': 'Follow-up completed',
-          'subtitle': 'Blue Wave Resort',
-          'detail': 'Result: Interested',
-          'time': '2:15 PM',
-          'category': 'Follow-ups',
-          'icon': CupertinoIcons.arrow_turn_down_left,
-          'color': AppColors.success,
-        },
-        {
-          'title': 'Lead status updated',
-          'subtitle': 'Interested → Negotiation',
-          'detail': 'Ocean Nest Hotel',
-          'time': '11:40 AM',
-          'category': 'Leads',
-          'icon': CupertinoIcons.person_2,
-          'color': AppColors.brandLight,
-        },
-        {
-          'title': 'Note added',
-          'subtitle': 'Blue Wave Resort',
-          'detail': null,
-          'time': '10:05 AM',
-          'category': 'Leads',
-          'icon': CupertinoIcons.doc_text,
-          'color': AppColors.warning,
-        },
-      ],
-      'YESTERDAY': [
-        {
-          'title': 'Visit completed',
-          'subtitle': 'Green Palm Hotel',
-          'detail': 'Outcome: Interested',
-          'time': '4:20 PM',
-          'category': 'Visits',
-          'icon': CupertinoIcons.house_fill,
-          'color': AppColors.leadVisit,
-        },
-        {
-          'title': 'Lead assigned',
-          'subtitle': 'Sea Pearl Resort',
-          'detail': null,
-          'time': '9:30 AM',
-          'category': 'Leads',
-          'icon': CupertinoIcons.person_2,
-          'color': AppColors.brandLight,
-        },
-      ],
-      'MON, 22 SEP': [
-        {
-          'title': 'Task completed',
-          'subtitle': 'Prepare proposal for Blue Wave',
-          'detail': null,
-          'time': '3:10 PM',
-          'category': 'Tasks',
-          'icon': CupertinoIcons.checkmark_rectangle,
-          'color': AppColors.leadContacted,
-        },
-        {
-          'title': 'Follow-up completed',
-          'subtitle': 'Ocean Nest Hotel',
-          'detail': 'Result: Call Later',
-          'time': '1:00 PM',
-          'category': 'Follow-ups',
-          'icon': CupertinoIcons.arrow_turn_down_left,
-          'color': AppColors.success,
-        },
-      ],
-      'FRI, 19 SEP': [
-        {
-          'title': 'Lead status updated',
-          'subtitle': 'New → Contacted',
-          'detail': 'Sunrise Guest House',
-          'time': '11:15 AM',
-          'category': 'Leads',
-          'icon': CupertinoIcons.person_2,
-          'color': AppColors.brandLight,
-        },
-      ],
-    };
+    final allActivities = <String, List<Map<String, dynamic>>>{};
+    for (final event in widget.activities) {
+      final occurred =
+          DateTime.tryParse(event['occurred_at']?.toString() ?? '');
+      final category = {
+            'leads': 'Leads',
+            'followups': 'Follow-ups',
+            'visits': 'Visits',
+            'tasks': 'Tasks',
+            'issues': 'Issues'
+          }[event['kind']?.toString()] ??
+          'Administration';
+      final group = event['date_group']?.toString().toUpperCase() ??
+          (occurred == null
+              ? 'ACTIVITY'
+              : DateFormat('dd MMM yyyy').format(occurred));
+      allActivities.putIfAbsent(group, () => []).add({
+        'title': event['description']?.toString() ??
+            event['event']?.toString() ??
+            '',
+        'subtitle': event['actor'] is Map
+            ? (event['actor'] as Map)['name']?.toString() ?? ''
+            : '',
+        'detail': null,
+        'time': occurred == null ? '' : DateFormat('h:mm a').format(occurred),
+        'category': category,
+        'icon': CupertinoIcons.clock,
+        'color': AppColors.brandLight,
+      });
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -162,6 +113,11 @@ class _EmployeeActivityTabState extends State<EmployeeActivityTab> {
             ),
           ),
           const SizedBox(height: 20),
+          if (allActivities.isEmpty)
+            Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('No activity returned for this employee.',
+                    style: TextStyle(color: nec.textSecondary))),
           ...allActivities.entries.map((group) {
             final dateTitle = group.key;
             final items = group.value.where((item) {
@@ -199,7 +155,6 @@ class _EmployeeActivityTabState extends State<EmployeeActivityTab> {
                         return Column(
                           children: [
                             InkWell(
-                              onTap: () => context.push('/leads/lead_1'),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,

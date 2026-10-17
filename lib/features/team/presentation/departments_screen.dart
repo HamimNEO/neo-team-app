@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../data/mock_employees.dart';
+import '../data/department_store.dart';
+import '../domain/models/department.dart';
+import '../../../core/widgets/nec_toast.dart';
+import 'widgets/department_presentation.dart';
+import 'widgets/department_load_status.dart';
 import 'widgets/create_department_sheet.dart';
 
 class DepartmentsScreen extends StatefulWidget {
@@ -14,12 +18,25 @@ class DepartmentsScreen extends StatefulWidget {
 }
 
 class _DepartmentsScreenState extends State<DepartmentsScreen> {
-  late List<DepartmentItem> _departments;
+  final _store = DepartmentStore.instance;
+
+  List<DepartmentItem> get _departments => _store.departments;
 
   @override
   void initState() {
     super.initState();
-    _departments = List.from(mockDepartments);
+    _store.addListener(_refresh);
+    _store.load();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_refresh);
+    super.dispose();
   }
 
   void _openCreateDepartmentSheet() async {
@@ -29,10 +46,11 @@ class _DepartmentsScreenState extends State<DepartmentsScreen> {
       isScrollControlled: true,
       builder: (context) => const CreateDepartmentSheet(),
     );
-    if (result != null) {
-      setState(() {
-        _departments.add(result);
-      });
+    if (result != null && mounted) {
+      NecToast.show(context,
+          message: 'Department created successfully',
+          type: NecToastType.success);
+      _store.load();
     }
   }
 
@@ -41,10 +59,18 @@ class _DepartmentsScreenState extends State<DepartmentsScreen> {
     final nec = Theme.of(context).extension<NecColors>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final activeCount = _departments.where((d) => d.status == 'Active').length;
+    final activeCount =
+        _departments.every((d) => d.isActive != null) && _store.hasData
+            ? _departments.where((d) => d.isActive == true).length
+            : null;
     final totalMembers =
-        _departments.fold<int>(0, (sum, d) => sum + d.memberCount);
-    final totalTeams = _departments.fold<int>(0, (sum, d) => sum + d.teamCount);
+        _departments.every((d) => d.memberCount != null) && _store.hasData
+            ? _departments.fold<int>(0, (sum, d) => sum + d.memberCount!)
+            : null;
+    final totalTeams =
+        _departments.every((d) => d.teamCount != null) && _store.hasData
+            ? _departments.fold<int>(0, (sum, d) => sum + d.teamCount!)
+            : null;
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -99,7 +125,9 @@ class _DepartmentsScreenState extends State<DepartmentsScreen> {
               ),
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: _openCreateDepartmentSheet,
+                onPressed: _store.canManage && _store.hasData && !_store.saving
+                    ? _openCreateDepartmentSheet
+                    : null,
                 child: Text(
                   '+ New',
                   style: TextStyle(
@@ -121,114 +149,123 @@ class _DepartmentsScreenState extends State<DepartmentsScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _buildStatCard(
-                    nec,
-                    isDark,
-                    '$activeCount',
-                    'Active',
-                    AppColors.success,
-                  ),
-                  const SizedBox(width: 10),
-                  _buildStatCard(
-                    nec,
-                    isDark,
-                    '$totalMembers',
-                    'Total Members',
-                    AppColors.brandLight,
-                  ),
-                  const SizedBox(width: 10),
-                  _buildStatCard(
-                    nec,
-                    isDark,
-                    '$totalTeams',
-                    'Total Teams',
-                    AppColors.leadContacted,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'ACTIVE',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: nec.textSecondary,
-                  letterSpacing: 0.5,
+        child: RefreshIndicator(
+          onRefresh: _store.load,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _buildStatCard(
+                      nec,
+                      isDark,
+                      activeCount?.toString() ?? '—',
+                      'Active',
+                      AppColors.success,
+                    ),
+                    const SizedBox(width: 10),
+                    _buildStatCard(
+                      nec,
+                      isDark,
+                      totalMembers?.toString() ?? '—',
+                      'Total Members',
+                      AppColors.brandLight,
+                    ),
+                    const SizedBox(width: 10),
+                    _buildStatCard(
+                      nec,
+                      isDark,
+                      totalTeams?.toString() ?? '—',
+                      'Total Teams',
+                      AppColors.leadContacted,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              Material(
-                color: nec.surface,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: List.generate(_departments.length, (index) {
-                    final dept = _departments[index];
-                    final isLast = index == _departments.length - 1;
+                DepartmentLoadStatus(
+                    loading: _store.loading,
+                    error: _store.error ?? _store.cacheError,
+                    empty: _store.hasData && _departments.isEmpty,
+                    onRetry: _store.load),
+                const SizedBox(height: 24),
+                Text(
+                  'DEPARTMENTS',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: nec.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Material(
+                  color: nec.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: List.generate(_departments.length, (index) {
+                      final dept = _departments[index];
+                      final isLast = index == _departments.length - 1;
 
-                    return Column(
-                      children: [
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          leading: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: dept.iconColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              CupertinoIcons.briefcase_fill,
-                              color: dept.iconColor,
-                              size: 18,
-                            ),
-                          ),
-                          title: Text(
-                            dept.name,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w700,
-                              color: nec.textPrimary,
-                            ),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 2.0),
-                            child: Text(
-                              'Lead: ${dept.leadName} · ${dept.memberCount} members · ${dept.teamCount} ${dept.teamCount == 1 ? 'team' : 'teams'}',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: nec.textTertiary,
+                      return Column(
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            leading: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: dept.iconColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.briefcase_fill,
+                                color: dept.iconColor,
+                                size: 18,
                               ),
                             ),
+                            title: Text(
+                              dept.name,
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: nec.textPrimary,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 2.0),
+                              child: Text(
+                                dept.subtitle,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: nec.textTertiary,
+                                ),
+                              ),
+                            ),
+                            trailing: Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 16,
+                              color: nec.textTertiary,
+                            ),
+                            onTap: () => context.push('/department/${dept.id}'),
                           ),
-                          trailing: Icon(
-                            CupertinoIcons.chevron_right,
-                            size: 16,
-                            color: nec.textTertiary,
-                          ),
-                          onTap: () => context.push('/department/${dept.id}'),
-                        ),
-                        if (!isLast)
-                          Divider(
-                            height: 1,
-                            color: nec.separator.withValues(alpha: 0.2),
-                            indent: 16,
-                          ),
-                      ],
-                    );
-                  }),
+                          if (!isLast)
+                            Divider(
+                              height: 1,
+                              color: nec.separator.withValues(alpha: 0.2),
+                              indent: 16,
+                            ),
+                        ],
+                      );
+                    }),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 32),
-            ],
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),

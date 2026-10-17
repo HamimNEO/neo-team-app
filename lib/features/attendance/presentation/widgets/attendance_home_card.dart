@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../settings/data/system_settings_store.dart';
@@ -77,7 +76,7 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
           final progressPercent = (progress * 100).toInt();
 
           final checkInStr = record?.checkIn != null
-              ? DateFormat('hh:mm a').format(record!.checkIn!)
+              ? AttendanceClock.time(record!.checkIn, record.offsetMinutes)
               : '--:--';
 
           final shiftWindowStr =
@@ -95,67 +94,95 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isWorking
-                        ? nec.brand.withValues(alpha: 0.3)
-                        : nec.separator.withValues(alpha: 0.15),
-                    width: isWorking ? 1.5 : 1,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : nec.separator.withValues(alpha: 0.18),
+                    width: 0.7,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          Colors.black.withValues(alpha: isDark ? 0.20 : 0.035),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
-                            color: nec.brand.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
+                            color: isDark
+                                ? const Color(0xFF1E1E3B)
+                                : const Color(0xFFE8EAFF),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             CupertinoIcons.clock_fill,
-                            color: nec.brand,
-                            size: 20,
+                            color: Color(0xFF4F46E5),
+                            size: 22,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'My Attendance',
-                                style: TextStyle(
-                                  color: nec.textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.2,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'My Attendance',
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    color: nec.textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 1),
+                              const SizedBox(height: 2),
                               Text(
-                                'Daily work tracker',
+                                'Track your daily work hours',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: nec.textTertiary,
-                                  fontSize: 11,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Container(
+                        const SizedBox(width: 8),
+                        Icon(
+                          CupertinoIcons.chevron_right,
+                          color: nec.textTertiary,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: statusColor.withValues(
-                                alpha: isDark ? 0.22 : 0.12),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : const Color(0xFFF3F4F6),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: statusColor.withValues(alpha: 0.28),
-                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -167,7 +194,7 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                                   child: Container(
                                     width: 7,
                                     height: 7,
-                                    margin: const EdgeInsets.only(right: 5),
+                                    margin: const EdgeInsets.only(right: 6),
                                     decoration: BoxDecoration(
                                       color: statusColor,
                                       shape: BoxShape.circle,
@@ -178,7 +205,7 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                                 Container(
                                   width: 6,
                                   height: 6,
-                                  margin: const EdgeInsets.only(right: 5),
+                                  margin: const EdgeInsets.only(right: 6),
                                   decoration: BoxDecoration(
                                     color: statusColor,
                                     shape: BoxShape.circle,
@@ -187,23 +214,17 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                               Text(
                                 facts.status.label,
                                 style: TextStyle(
-                                  color: statusColor,
+                                  color: nec.textSecondary,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          CupertinoIcons.chevron_right,
-                          color: nec.textTertiary,
-                          size: 15,
-                        ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
@@ -212,28 +233,28 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                           workedDurationText,
                           style: TextStyle(
                             color: nec.textPrimary,
-                            fontSize: 26,
+                            fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
+                            letterSpacing: -0.6,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'worked today',
                           style: TextStyle(
-                            color: nec.textSecondary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            color: nec.textTertiary,
+                            fontSize: 14,
                           ),
                         ),
                         const Spacer(),
                         Text(
                           '$progressPercent%',
                           style: TextStyle(
-                            color:
-                                progress >= 1.0 ? AppColors.success : nec.brand,
+                            color: progress >= 1.0
+                                ? AppColors.success
+                                : const Color(0xFF4F46E5),
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ],
@@ -241,43 +262,22 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: Stack(
-                        children: [
-                          Container(
-                            height: 6,
-                            width: double.infinity,
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : Colors.black.withValues(alpha: 0.05),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: progress,
-                            child: Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    nec.brand,
-                                    progress >= 1.0
-                                        ? AppColors.success
-                                        : nec.brand.withValues(alpha: 0.75),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 8,
+                        color: const Color(0xFF4F46E5),
+                        backgroundColor: isDark
+                            ? const Color(0xFF4F46E5).withValues(alpha: 0.18)
+                            : const Color(0xFFE8EAFF),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.04)
-                            : nec.bg,
+                            : const Color(0xFFF4F5FF),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
@@ -288,43 +288,49 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
                               label: 'Shift',
                               value: shiftWindowStr,
                               icon: CupertinoIcons.clock_fill,
-                              iconColor: const Color(0xFF2563EB),
+                              iconBg: isDark
+                                  ? const Color(0xFF1E2840)
+                                  : const Color(0xFFE0E7FF),
+                              iconColor: const Color(0xFF4F46E5),
                               nec: nec,
-                              fontSize: 11.5,
                             ),
                           ),
                           Container(
                             width: 1,
-                            height: 26,
+                            height: 28,
                             color: nec.separator.withValues(alpha: 0.25),
                           ),
                           Expanded(
-                            flex: 8,
+                            flex: 10,
                             child: _StatColumn(
                               label: 'Check-in',
                               value: checkInStr,
-                              icon: CupertinoIcons.arrow_right_circle_fill,
+                              icon: CupertinoIcons.arrow_right_square_fill,
+                              iconBg: isDark
+                                  ? const Color(0xFF123B2B)
+                                  : const Color(0xFFD1FAE5),
                               iconColor: const Color(0xFF10B981),
                               nec: nec,
-                              fontSize: 12.0,
                             ),
                           ),
                           Container(
                             width: 1,
-                            height: 26,
+                            height: 28,
                             color: nec.separator.withValues(alpha: 0.25),
                           ),
                           Expanded(
-                            flex: 8,
+                            flex: 9,
                             child: _StatColumn(
                               label: 'Overtime',
                               value: facts.overtimeMinutes > 0
-                                  ? '+${facts.overtimeMinutes}m OT'
+                                  ? '+${facts.overtimeMinutes}m'
                                   : '0m',
-                              icon: CupertinoIcons.sparkles,
+                              icon: CupertinoIcons.bolt_fill,
+                              iconBg: isDark
+                                  ? const Color(0xFF3B2F14)
+                                  : const Color(0xFFFEF3C7),
                               iconColor: const Color(0xFFF59E0B),
                               nec: nec,
-                              fontSize: 12.0,
                             ),
                           ),
                         ],
@@ -343,62 +349,66 @@ class _StatColumn extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
+  final Color iconBg;
   final Color iconColor;
   final NecColors nec;
-  final double fontSize;
 
   const _StatColumn({
     required this.label,
     required this.value,
     required this.icon,
+    required this.iconBg,
     required this.iconColor,
     required this.nec,
-    this.fontSize = 12.0,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 10, color: iconColor),
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: nec.textSecondary,
-                    fontWeight: FontWeight.w600,
+                child: Icon(icon, size: 13, color: iconColor),
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: nec.textTertiary,
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           FittedBox(
             fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
             child: Text(
               value,
-              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: fontSize,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
                 color: nec.textPrimary,
+                letterSpacing: -0.2,
               ),
             ),
           ),

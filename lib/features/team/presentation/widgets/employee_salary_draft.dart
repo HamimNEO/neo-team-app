@@ -49,8 +49,9 @@ class EmployeeSalaryDraft extends ChangeNotifier {
   int get mealEmployeePayAmount =>
       isMealFree ? 0 : ((parsedTotalMealCost * mealCoPayPercent) / 100).round();
 
-  int get mealCompanyCoverageAmount =>
-      isMealFree ? parsedTotalMealCost : (parsedTotalMealCost - mealEmployeePayAmount);
+  int get mealCompanyCoverageAmount => isMealFree
+      ? parsedTotalMealCost
+      : (parsedTotalMealCost - mealEmployeePayAmount);
 
   EmployeeSalaryDraft(
     EmployeeSalary? salary, {

@@ -1,3 +1,4 @@
+import '../../../tasks/data/work_item_store.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_button.dart';
@@ -6,9 +7,11 @@ import '../../../../core/widgets/nec_toast.dart';
 class VisitReportSheet extends StatefulWidget {
   final String leadName;
   final VoidCallback onSaved;
+  final Future<void> Function(Map<String, dynamic>)? onSubmit;
 
   const VisitReportSheet({
     super.key,
+    this.onSubmit,
     required this.leadName,
     required this.onSaved,
   });
@@ -271,7 +274,36 @@ class _VisitReportSheetState extends State<VisitReportSheet> {
                       const SizedBox(height: 24),
                       NecButton(
                         label: 'Save Report',
-                        onPressed: () {
+                        onPressed: () async {
+                          if (_selectedOutcome == null) {
+                            NecToast.show(context,
+                                message: 'Select an outcome.',
+                                type: NecToastType.error);
+                            return;
+                          }
+                          try {
+                            await widget.onSubmit?.call({
+                              'meeting_with':
+                                  _meetingWithController.text.trim(),
+                              'outcome': _selectedOutcome,
+                              'notes': _notesController.text.trim(),
+                              'next_action': switch (_selectedNextAction) {
+                                'Schedule Follow-up' => 'schedule_followup',
+                                'Another Visit' => 'schedule_visit',
+                                'Negotiation' => 'negotiation',
+                                'Mark Lost' => 'mark_lost',
+                                _ => 'none'
+                              }
+                            });
+                          } catch (error) {
+                            if (context.mounted) {
+                              NecToast.show(context,
+                                  message: WorkItemStore.messageFor(error),
+                                  type: NecToastType.error);
+                            }
+                            return;
+                          }
+                          if (!context.mounted) return;
                           Navigator.pop(context);
                           widget.onSaved();
                           NecToast.show(

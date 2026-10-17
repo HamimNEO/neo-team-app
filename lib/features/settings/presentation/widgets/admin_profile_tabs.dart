@@ -12,41 +12,47 @@ import '../../../leads/data/lead_store.dart';
 import '../../../meals/data/meal_store.dart';
 import '../../../meals/domain/models/lunch_preference.dart';
 import '../../../team/data/employee_store.dart';
-import '../../../team/domain/models/employee.dart';
 import '../../../team/presentation/widgets/employee_details_section.dart';
-import '../../data/system_settings_store.dart';
+import '../../domain/models/account_profile.dart';
 
 class AdminProfileOverviewTab extends StatelessWidget {
-  final Employee employee;
+  final AccountProfile? profile;
 
-  const AdminProfileOverviewTab({super.key, required this.employee});
+  const AdminProfileOverviewTab({super.key, required this.profile});
 
   @override
   Widget build(BuildContext context) {
     if (!DemoSession.instance.isAdmin) return const SizedBox.shrink();
-    final organization = SystemSettingsStore.instance.value;
+    final value = profile;
+    if (value == null) return const SizedBox.shrink();
+    Widget section(String title, List<(String, String?)> rows) {
+      final available = rows
+          .where((row) => row.$2?.trim().isNotEmpty ?? false)
+          .map((row) => (row.$1, row.$2!))
+          .toList();
+      return available.isEmpty
+          ? const SizedBox.shrink()
+          : EmployeeDetailsSection(title: title, rows: available);
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(children: [
-        EmployeeDetailsSection(title: 'Administrator Account', rows: [
-          ('Name', employee.name),
-          ('Login Email', DemoSession.instance.email),
-          ('System Role', 'Administrator'),
-          ('Access', 'Full administration'),
-          ('Account Status', employee.status),
+        section('Administrator Account', [
+          ('Name', value.name),
+          ('Login Email', value.email),
+          ('System Role', value.roleLabel),
+          ('Access', value.accessLabel),
+          ('Account Status', value.statusLabel),
         ]),
-        EmployeeDetailsSection(title: 'Contact', rows: [
-          ('Work Email', employee.email),
-          ('Phone', employee.phone),
-          ('Address', employee.address),
-        ]),
-        EmployeeDetailsSection(title: 'Organization', rows: [
-          ('Name', organization.organizationName),
-          ('Primary Email', organization.primaryWorkEmail),
-          (
-            'Timezone',
-            '${organization.timezone.label} (${organization.timezone.offset})'
-          ),
+        section(
+            'Contact', [('Phone', value.phone), ('Address', value.address)]),
+        section('Organization', [('Name', value.organization)]),
+        section('Employee Information', [
+          ('Employee Code', value.employeeCode),
+          ('Designation', value.designation),
+          ('Department', value.department),
+          ('Team', value.team),
         ]),
       ]),
     );
@@ -82,54 +88,62 @@ class AdminProfileManagementTab extends StatelessWidget {
                   MealStore.instance.statusFor(staff.id, day) ==
                   LunchStatus.receiving)
               .length;
-          final actions = <(IconData, String, String, String)>[
+          final actions = <(IconData, Color, String, String, String)>[
             (
-              CupertinoIcons.person_2,
+              CupertinoIcons.person_2_fill,
+              const Color(0xFF007AFF),
               'Staff Directory',
-              'Manage employee accounts and details',
-              '/team'
+              'Manage employees & profiles',
+              '/team',
             ),
             (
-              CupertinoIcons.person_2_square_stack,
+              CupertinoIcons.person_2_square_stack_fill,
+              const Color(0xFFFF9500),
               'Leads',
-              'Review leads and assign employees',
-              '/leads'
+              'Track leads & team assignments',
+              '/leads',
             ),
             (
               CupertinoIcons.calendar,
+              const Color(0xFF34C759),
               'Attendance Management',
-              'Review requests, shifts and overtime',
-              '/attendance/admin'
+              'Approve requests & shifts',
+              '/attendance/admin',
             ),
             (
-              CupertinoIcons.cart,
+              CupertinoIcons.cart_fill,
+              const Color(0xFFFF2D55),
               'Lunch Management',
-              'Manage staff lunch preferences and counts',
-              '/meals/admin'
+              'Staff meals & daily counts',
+              '/meals/admin',
             ),
             (
-              CupertinoIcons.lock_shield,
+              CupertinoIcons.shield_fill,
+              const Color(0xFF5856D6),
               'Staff Access',
-              'Control the features available to staff',
-              '/staff-access'
+              'Role permissions & access scope',
+              '/staff-access',
             ),
             (
-              CupertinoIcons.settings,
+              CupertinoIcons.gear_alt_fill,
+              const Color(0xFF00C7BE),
               'Administration',
-              'Manage roles, modules and operations',
-              '/administration'
+              'System roles & operations',
+              '/administration',
             ),
             (
-              CupertinoIcons.gear,
+              CupertinoIcons.settings_solid,
+              const Color(0xFF8E8E93),
               'System Settings',
-              'Organization details and app defaults',
-              '/system-settings'
+              'App defaults & company profile',
+              '/system-settings',
             ),
             (
-              CupertinoIcons.doc_text_search,
+              CupertinoIcons.doc_text_fill,
+              const Color(0xFF32ADE6),
               'Audit Logs',
-              'Review organization audit records',
-              '/audit-logs'
+              'View security & activity logs',
+              '/audit-logs',
             ),
           ];
           return Padding(
@@ -181,14 +195,46 @@ class AdminProfileManagementTab extends StatelessWidget {
                 child: Column(children: [
                   for (var index = 0; index < actions.length; index++) ...[
                     if (index > 0)
-                      Divider(height: 1, indent: 56, color: nec.separator),
+                      Divider(
+                          height: 1,
+                          indent: 68,
+                          color: nec.separator.withValues(alpha: 0.3)),
                     ListTile(
-                      leading: Icon(actions[index].$1, color: nec.brand),
-                      title: Text(actions[index].$2),
-                      subtitle: Text(actions[index].$3),
-                      trailing:
-                          const Icon(CupertinoIcons.chevron_right, size: 16),
-                      onTap: () => context.pushAppRoute(actions[index].$4),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 2),
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: actions[index].$2.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(actions[index].$1,
+                            color: actions[index].$2, size: 20),
+                      ),
+                      title: Text(
+                        actions[index].$3,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: nec.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        actions[index].$4,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: nec.textTertiary,
+                        ),
+                      ),
+                      trailing: Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 14,
+                        color: nec.textTertiary,
+                      ),
+                      onTap: () => context.pushAppRoute(actions[index].$5),
                     ),
                   ],
                 ]),

@@ -19,6 +19,12 @@ class EmployeeWorkTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
+    if (employee.backendId != null) {
+      return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Work information is not available in this profile.',
+              style: TextStyle(color: nec.textSecondary)));
+    }
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -76,7 +82,6 @@ class EmployeeWorkTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
           SectionHeader(
             title: 'ASSIGNED LEADS',
             actionTitle: 'View All',
@@ -101,7 +106,6 @@ class EmployeeWorkTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
           SectionHeader(
             title: 'FOLLOW-UPS',
             actionTitle: 'View All',
@@ -218,8 +222,6 @@ class EmployeeWorkTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
-          // 4. OPEN TASKS
           SectionHeader(
             title: 'OPEN TASKS',
             actionTitle: 'View All',
@@ -304,7 +306,6 @@ class EmployeeWorkTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
           const SectionHeader(title: 'OPEN ISSUES'),
           const SizedBox(height: 10),
           Material(

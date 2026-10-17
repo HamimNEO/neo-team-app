@@ -1,52 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/services/demo_session.dart';
-import '../../../../core/widgets/nec_toast.dart';
+import '../../../../core/widgets/sign_out_dialog.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class SessionSection extends StatelessWidget {
   const SessionSection({super.key});
 
-  void _confirmSignOut(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out of NEC TEAM?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await DemoSession.instance.signOut();
-                if (context.mounted) {
-                  context.go('/login');
-                }
-              } catch (_) {
-                if (context.mounted) {
-                  NecToast.show(context,
-                      message: 'Unable to sign out. Please try again.',
-                      type: NecToastType.error);
-                }
-              }
-            },
-            child: const Text(
-              'Sign Out',
-              style: TextStyle(
-                color: AppColors.error,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  void _confirmSignOut(BuildContext context) => confirmAndSignOut(context);
 
   @override
   Widget build(BuildContext context) {

@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_button.dart';
 import '../../../core/widgets/nec_toast.dart';
-import '../data/mock_system_roles.dart';
-import '../domain/models/system_role.dart';
+import '../../team/data/employee_store.dart';
+import '../data/role_store.dart';
 
 class NewRoleScreen extends StatefulWidget {
   const NewRoleScreen({super.key});
@@ -25,8 +25,11 @@ class _NewRoleScreenState extends State<NewRoleScreen> {
     super.dispose();
   }
 
-  void _submitRole() {
-    if (_nameController.text.trim().isEmpty) {
+  bool _saving = false;
+
+  Future<void> _submitRole() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
       NecToast.show(
         context,
         message: 'Please enter a role name',
@@ -35,32 +38,26 @@ class _NewRoleScreenState extends State<NewRoleScreen> {
       return;
     }
 
-    final newRole = SystemRoleItem(
-      id: 'role_${DateTime.now().millisecondsSinceEpoch % 1000}',
-      name: _nameController.text.trim(),
-      badge: 'CUSTOM',
-      description: _descController.text.trim().isEmpty
-          ? 'Custom operational role'
-          : _descController.text.trim(),
-      memberCount: 0,
-      iconColor: const Color(0xFF30B0C7),
-      scope: 'Custom scope',
-      lastUpdated: 'Today',
-      memberNames: const [],
-      modulePermissions: defaultModulePermissions,
-    );
+    setState(() => _saving = true);
+    final desc = _descController.text.trim().isEmpty
+        ? 'Custom operational role'
+        : _descController.text.trim();
 
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context, newRole);
-    } else {
+    try {
+      final newRole = await RoleStore.instance.create(name, desc);
+      if (!mounted) return;
+      NecToast.show(context,
+          message: 'New role "$name" created successfully',
+          type: NecToastType.success);
       context.pop(newRole);
+    } catch (e) {
+      if (mounted) {
+        NecToast.show(context,
+            message: EmployeeStore.messageFor(e), type: NecToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-
-    NecToast.show(
-      context,
-      message: 'New role created successfully',
-      type: NecToastType.success,
-    );
   }
 
   @override
@@ -221,7 +218,8 @@ class _NewRoleScreenState extends State<NewRoleScreen> {
               const SizedBox(height: 28),
               NecButton(
                 label: 'Continue',
-                onPressed: _submitRole,
+                loading: _saving,
+                onPressed: _saving ? null : _submitRole,
                 fullWidth: true,
               ),
             ],

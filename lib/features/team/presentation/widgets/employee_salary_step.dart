@@ -12,12 +12,14 @@ class EmployeeSalaryStep extends StatelessWidget {
   final EmployeeSalaryDraft draft;
   final GlobalKey<FormState> formKey;
   final VoidCallback onContinue;
+  final bool editable;
 
   const EmployeeSalaryStep(
       {super.key,
       required this.draft,
       required this.formKey,
-      required this.onContinue});
+      required this.onContinue,
+      this.editable = true});
 
   String? _amountValidator(String? value) {
     final amount = EmployeeSalary.parseAmount(value ?? '');
@@ -136,6 +138,20 @@ class EmployeeSalaryStep extends StatelessWidget {
       builder: (context, _) {
         final nec = Theme.of(context).extension<NecColors>()!;
         final salary = draft.buildSalary();
+        if (!editable) {
+          return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(children: [
+                Text(
+                    'Salary and bank settings are available to view here. Changes to existing payroll settings are not currently available.',
+                    style: TextStyle(color: nec.textSecondary, fontSize: 14)),
+                const SizedBox(height: 20),
+                if (draft.enabled) EmployeeSalarySummary(salary: salary),
+                const SizedBox(height: 24),
+                NecButton(
+                    label: 'Continue', fullWidth: true, onPressed: onContinue),
+              ]));
+        }
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           child: Form(
@@ -352,8 +368,6 @@ class EmployeeSalaryStep extends StatelessWidget {
           const SizedBox(height: 16),
           Divider(height: 1, color: nec.separator),
           const SizedBox(height: 14),
-
-          // 1. MEAL SCHEME
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -405,9 +419,7 @@ class EmployeeSalaryStep extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-          // Total Monthly Meal Cost Input Field
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -637,12 +649,9 @@ class EmployeeSalaryStep extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 16),
           Divider(height: 1, color: nec.separator),
           const SizedBox(height: 14),
-
-          // 2. ROTATIONAL RESERVE FUND
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -687,7 +696,6 @@ class EmployeeSalaryStep extends StatelessWidget {
               ),
             ],
           ),
-
           if (draft.hasRotationalReserve) ...[
             const SizedBox(height: 12),
             Container(
@@ -775,7 +783,7 @@ class EmployeeSalaryStep extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Year-End Payout (December): ${EmployeeSalary.formatCurrency(annualReserve, draft.currency)} accumulated',
+                            '12-month deduction estimate: ${EmployeeSalary.formatCurrency(annualReserve, draft.currency)}',
                             style: TextStyle(
                               color: nec.brand,
                               fontSize: 12,

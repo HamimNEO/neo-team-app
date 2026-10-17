@@ -2,14 +2,21 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/nec_empty_state.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/demo_session.dart';
+import '../../../core/services/phone_service.dart';
 import '../../team/data/employee_store.dart';
 import '../../team/domain/models/employee.dart';
+import '../../tasks/data/work_item_store.dart';
 import '../data/lead_store.dart';
+import '../domain/models/lead.dart';
+import '../domain/models/lead_status.dart';
+import '../domain/models/lead_filters.dart';
 import 'widgets/lead_card_item.dart';
 import 'widgets/lead_filter_sort_sheet.dart';
 import 'widgets/lead_metric_summary_row.dart';
+import 'widgets/leads_skeleton_loader.dart';
 
 class LeadsScreen extends StatefulWidget {
   const LeadsScreen({super.key});
@@ -21,7 +28,9 @@ class LeadsScreen extends StatefulWidget {
 class _LeadsScreenState extends State<LeadsScreen> {
   String _selectedChip = 'All';
   String _selectedSort = 'Recently Updated';
+  LeadFilters _filters = const LeadFilters();
   bool _isSearching = false;
+  bool _warningDismissed = false;
   final _searchController = TextEditingController();
 
   final filterChips = ['All', 'Mine', 'New', 'Follow-up', 'More >'];
@@ -31,7 +40,10 @@ class _LeadsScreenState extends State<LeadsScreen> {
     super.initState();
     LeadStore.instance.addListener(_refresh);
     EmployeeStore.instance.addListener(_refresh);
-    LeadStore.instance.load().then((_) => _refresh());
+    WorkItemStore.instance.addListener(_refresh);
+    EmployeeStore.instance.load();
+    LeadStore.instance.load(preferCache: true).then((_) => _refresh());
+    WorkItemStore.instance.load(preferCache: true).then((_) => _refresh());
   }
 
   void _refresh() {
@@ -44,6 +56,15 @@ class _LeadsScreenState extends State<LeadsScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => LeadFilterSortSheet(
+        initialFilters: _filters,
+        onFiltersChanged: (filters) {
+          if (mounted) {
+            setState(() {
+              _filters = filters;
+              _selectedChip = 'All';
+            });
+          }
+        },
         selectedSort: _selectedSort,
         onSortChanged: (sort) {
           setState(() {
@@ -79,6 +100,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
   void dispose() {
     LeadStore.instance.removeListener(_refresh);
     EmployeeStore.instance.removeListener(_refresh);
+    WorkItemStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
@@ -86,12 +108,28 @@ class _LeadsScreenState extends State<LeadsScreen> {
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final allLeads = LeadStore.instance.leads.map((lead) {
+    final rawLeads = LeadStore.instance.leads;
+
+    final newCount =
+        rawLeads.where((l) => LeadStatus.api(l.status) == 'new').length;
+    final followUpCount =
+        rawLeads.where((l) => LeadStatus.api(l.status) == 'contacted').length;
+    final visitsTodayCount =
+        WorkItemStore.instance.overview.summary.todayVisits;
+    final negotiationCount =
+        rawLeads.where((l) => LeadStatus.api(l.status) == 'negotiation').length;
+
+    final allLeads = rawLeads.map((lead) {
       final assignee = LeadStore.instance.assigneeName(lead);
       final employee =
           EmployeeStore.instance.byId(lead.assignedEmployeeId ?? '');
       return <String, dynamic>{
+        'lead': lead,
+        'photoBase64': employee?.photoBase64,
+        'photoUrl': employee?.photoUrl,
+        'avatarAsset': employee?.avatarAsset,
         'id': lead.id,
         'company': lead.company,
         'subtitle': [lead.location, lead.type]
@@ -100,12 +138,13 @@ class _LeadsScreenState extends State<LeadsScreen> {
         'status': lead.status,
         'scheduleNote': lead.scheduleNote,
         'isOverdue': lead.isOverdue,
+        'phone': lead.phone,
         'assigneeName': assignee,
         'assigneeInitials': employee?.avatarInitials ??
             (assignee == 'Unassigned' ? '??' : Employee.initialsFor(assignee)),
         'isMine': lead.assignedEmployeeId == DemoSession.instance.employeeId,
-        'isNew': lead.status == 'New',
-        'isFollowUp': ['Follow-up', 'Interested'].contains(lead.status),
+        'isNew': LeadStatus.api(lead.status) == 'new',
+        'isFollowUp': LeadStatus.api(lead.status) == 'contacted',
         'group': lead.scheduleGroup,
       };
     }).toList();
@@ -113,6 +152,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     List<Map<String, dynamic>> filteredLeads = allLeads.where((item) {
+      final lead = item['lead'] as Lead;
+      if (!_filters.matches(lead)) return false;
       if (query.isNotEmpty) {
         final companyMatch =
             item['company'].toString().toLowerCase().contains(query);
@@ -120,17 +161,48 @@ class _LeadsScreenState extends State<LeadsScreen> {
             item['subtitle'].toString().toLowerCase().contains(query);
         final assigneeMatch =
             item['assigneeName'].toString().toLowerCase().contains(query);
-        if (!companyMatch && !subtitleMatch && !assigneeMatch) {
+        if (!companyMatch &&
+            !subtitleMatch &&
+            !assigneeMatch &&
+            ![lead.contactName, lead.phone, lead.email]
+                .any((v) => v?.toLowerCase().contains(query) ?? false)) {
           return false;
         }
       }
-      if (!_isSearching) {
-        if (_selectedChip == 'Mine') return item['isMine'] == true;
-        if (_selectedChip == 'New') return item['isNew'] == true;
-        if (_selectedChip == 'Follow-up') return item['isFollowUp'] == true;
-      }
+      if (_selectedChip == 'Mine') return item['isMine'] == true;
+      if (_selectedChip == 'New') return item['isNew'] == true;
+      if (_selectedChip == 'Follow-up') return item['isFollowUp'] == true;
       return true;
     }).toList();
+
+    filteredLeads.sort((a, b) {
+      final x = a['lead'] as Lead, y = b['lead'] as Lead;
+      int result;
+      switch (_selectedSort) {
+        case 'Oldest':
+          result = x.createdAt.compareTo(y.createdAt);
+          break;
+        case 'Newest':
+          result = y.createdAt.compareTo(x.createdAt);
+          break;
+        case 'Next Action':
+          result = x.nextAction == null
+              ? (y.nextAction == null ? 0 : 1)
+              : y.nextAction == null
+                  ? -1
+                  : x.nextAction!.compareTo(y.nextAction!);
+          break;
+        case 'Priority':
+          const rank = {'urgent': 0, 'high': 1, 'medium': 2, 'low': 3};
+          result = (rank[LeadFilters.priority(x.priority)] ?? 4)
+              .compareTo(rank[LeadFilters.priority(y.priority)] ?? 4);
+          break;
+        default:
+          result = (y.updatedAt ?? y.createdAt)
+              .compareTo(x.updatedAt ?? x.createdAt);
+      }
+      return result == 0 ? x.id.compareTo(y.id) : result;
+    });
 
     final isFollowUpTab = !_isSearching && _selectedChip == 'Follow-up';
 
@@ -240,7 +312,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
                           },
                           icon: Icon(
                             CupertinoIcons.search,
-                            color: nec.textPrimary,
+                            color:
+                                _filters.isActive ? nec.brand : nec.textPrimary,
                             size: 20,
                           ),
                         ),
@@ -248,7 +321,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
                           onPressed: _openFilterSortSheet,
                           icon: Icon(
                             CupertinoIcons.slider_horizontal_3,
-                            color: nec.textPrimary,
+                            color:
+                                _filters.isActive ? nec.brand : nec.textPrimary,
                             size: 20,
                           ),
                         ),
@@ -260,185 +334,317 @@ class _LeadsScreenState extends State<LeadsScreen> {
       ),
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!_isSearching) ...[
-                const SizedBox(height: 12),
-                const LeadMetricSummaryRow(),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 38,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: filterChips.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final chip = filterChips[index];
-                      final isSelected = _selectedChip == chip;
-
-                      return GestureDetector(
-                        onTap: () {
-                          if (chip == 'More >') {
-                            _openFilterSortSheet();
-                          } else {
-                            setState(() {
-                              _selectedChip = chip;
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? nec.brand : nec.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? nec.brand
-                                  : nec.separator.withValues(alpha: 0.3),
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Text(
-                            chip,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color:
-                                  isSelected ? Colors.white : nec.textSecondary,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ] else
-                const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  _isSearching && _searchController.text.trim().isNotEmpty
-                      ? '${filteredLeads.length} leads for "${_searchController.text.trim()}"'
-                      : '${filteredLeads.length} leads',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: nec.textTertiary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (_isSearching && filteredLeads.isEmpty)
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          CupertinoIcons.search,
-                          size: 56,
-                          color: nec.textTertiary.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'No leads found',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: nec.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No leads match your search. Try different terms.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: nec.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
+        child: RefreshIndicator(
+          color: nec.brand,
+          backgroundColor: nec.surface,
+          onRefresh: () => LeadStore.instance.load(force: true),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                  child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!_isSearching) ...[
+                    const SizedBox(height: 12),
+                    LeadMetricSummaryRow(
+                      newCount: newCount,
+                      followUpCount: followUpCount,
+                      visitsTodayCount: visitsTodayCount,
+                      negotiationCount: negotiationCount,
+                      onMetricTap: (label) {
+                        if (label == 'New' && filterChips.contains('New')) {
+                          setState(() {
+                            _selectedChip = 'New';
+                            _filters = const LeadFilters();
+                          });
+                        } else if (label == 'Follow-up' &&
+                            filterChips.contains('Follow-up')) {
+                          setState(() {
+                            _selectedChip = 'Follow-up';
+                            _filters = const LeadFilters();
+                          });
+                        } else if (label == 'Negotiation') {
+                          setState(() {
+                            _selectedChip = 'All';
+                            _filters =
+                                const LeadFilters(statuses: {'Negotiation'});
+                          });
+                        }
+                      },
                     ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 38,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: filterChips.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final chip = filterChips[index];
+                          final isSelected = chip == 'More >'
+                              ? _filters.isActive
+                              : _selectedChip == chip && !_filters.isActive;
+
+                          return GestureDetector(
+                            onTap: () {
+                              if (chip == 'More >') {
+                                _openFilterSortSheet();
+                              } else {
+                                setState(() {
+                                  _selectedChip = chip;
+                                  _filters = const LeadFilters();
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? nec.brand : nec.surface,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? nec.brand
+                                      : nec.separator.withValues(alpha: 0.3),
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Text(
+                                chip,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : nec.textSecondary,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ] else
+                    const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      _isSearching && _searchController.text.trim().isNotEmpty
+                          ? '${filteredLeads.length} leads for "${_searchController.text.trim()}"'
+                          : '${filteredLeads.length} leads',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: nec.textTertiary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (LeadStore.instance.loadError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          Text(
+                            LeadStore.instance.loadError!,
+                            style: TextStyle(
+                              color: nec.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                LeadStore.instance.load(force: true),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (LeadStore.instance.listWarning != null &&
+                      !_warningDismissed)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: nec.surfaceSecondary.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: nec.separator.withValues(alpha: 0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 15,
+                              color: nec.textTertiary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                LeadStore.instance.listWarning!,
+                                style: TextStyle(
+                                  color: nec.textSecondary,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _warningDismissed = true),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: nec.textTertiary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              )),
+              if (!LeadStore.instance.hasData &&
+                  LeadStore.instance.loadError == null)
+                const SliverToBoxAdapter(
+                    child: LeadsSkeletonLoader(itemCount: 5))
+              else if (filteredLeads.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: NecEmptyState(
+                    icon: CupertinoIcons.person_2_fill,
+                    color: nec.brand,
+                    title: LeadStore.instance.loadError != null
+                        ? 'Leads are unavailable'
+                        : 'No leads found',
+                    message: LeadStore.instance.loadError != null
+                        ? 'Please pull down to retry loading your leads.'
+                        : 'There are no leads in this view. Adjust your filters or pull down to refresh.',
                   ),
                 )
-              else if (isFollowUpTab) ...[
-                _buildLeadGroup(
-                  context: context,
-                  title: 'OVERDUE',
-                  titleColor: AppColors.error,
-                  showWarningIcon: true,
-                  leads: filteredLeads
-                      .where((x) => x['group'] == 'OVERDUE')
-                      .toList(),
-                ),
-                _buildLeadGroup(
-                  context: context,
-                  title: 'TOMORROW',
-                  leads: filteredLeads
-                      .where((x) => x['group'] == 'TOMORROW')
-                      .toList(),
-                ),
-              ] else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Material(
-                    color: nec.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: List.generate(filteredLeads.length, (index) {
-                        final item = filteredLeads[index];
-                        final isLast = index == filteredLeads.length - 1;
-
-                        return Column(
-                          children: [
-                            LeadCardItem(
-                              company: item['company'] as String,
-                              subtitle: item['subtitle'] as String,
-                              status: item['status'] as String,
-                              statusColor:
-                                  _getStatusColor(item['status'] as String),
-                              scheduleNote: item['scheduleNote'] as String?,
-                              isOverdue: item['isOverdue'] as bool,
-                              assigneeInitials:
-                                  item['assigneeInitials'] as String,
-                              assigneeName: item['assigneeName'] as String,
-                              onTap: () => context.push('/leads/${item['id']}'),
-                            ),
-                            if (!isLast)
-                              Divider(
-                                height: 1,
-                                color: nec.separator.withValues(alpha: 0.3),
-                                indent: 16,
+              else
+                SliverToBoxAdapter(
+                    child: Column(children: [
+                  if (isFollowUpTab) ...[
+                    _buildLeadGroup(
+                      context: context,
+                      title: 'OVERDUE',
+                      titleColor: AppColors.error,
+                      showWarningIcon: true,
+                      leads: filteredLeads
+                          .where((x) => x['group'] == 'OVERDUE')
+                          .toList(),
+                    ),
+                    _buildLeadGroup(
+                      context: context,
+                      title: 'TOMORROW',
+                      leads: filteredLeads
+                          .where((x) => x['group'] == 'TOMORROW')
+                          .toList(),
+                    ),
+                    _buildLeadGroup(
+                        context: context,
+                        title: 'TODAY',
+                        leads: filteredLeads
+                            .where((x) => x['group'] == 'TODAY')
+                            .toList()),
+                    _buildLeadGroup(
+                        context: context,
+                        title: 'UPCOMING',
+                        leads: filteredLeads
+                            .where((x) => x['group'] == 'UPCOMING')
+                            .toList()),
+                    _buildLeadGroup(
+                        context: context,
+                        title: 'NO ACTION SCHEDULED',
+                        leads: filteredLeads
+                            .where((x) => x['group'] == 'UNSCHEDULED')
+                            .toList()),
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: filteredLeads.map((item) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1E1E26)
+                                  : nec.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : nec.separator.withValues(alpha: 0.22),
+                                width: 0.8,
                               ),
-                          ],
-                        );
-                      }),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black
+                                      .withValues(alpha: isDark ? 0.30 : 0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: LeadCardItem(
+                                company: item['company'] as String,
+                                subtitle: item['subtitle'] as String,
+                                status: item['status'] as String,
+                                statusColor:
+                                    _getStatusColor(item['status'] as String),
+                                scheduleNote: item['scheduleNote'] as String?,
+                                isOverdue: item['isOverdue'] as bool,
+                                assigneeInitials:
+                                    item['assigneeInitials'] as String,
+                                assigneeName: item['assigneeName'] as String,
+                                photoBase64: item['photoBase64'] as String?,
+                                photoUrl: item['photoUrl'] as String?,
+                                avatarAsset: item['avatarAsset'] as String?,
+                                phone: item['phone'] as String?,
+                                onCall: (item['phone'] != null &&
+                                        (item['phone'] as String)
+                                            .trim()
+                                            .isNotEmpty)
+                                    ? () => PhoneService.call(
+                                        context, item['phone'] as String)
+                                    : null,
+                                onTap: () =>
+                                    context.push('/leads/${item['id']}'),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  const SizedBox(height: 28),
+                  Center(
+                    child: Text(
+                      'SYNCED · JUST NOW',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                        color: nec.textTertiary,
+                      ),
                     ),
                   ),
-                ),
-              const SizedBox(height: 28),
-              Center(
-                child: Text(
-                  'SYNCED · JUST NOW',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                    color: nec.textTertiary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 120),
+                  const SizedBox(height: 120),
+                ])),
             ],
           ),
         ),
@@ -454,12 +660,13 @@ class _LeadsScreenState extends State<LeadsScreen> {
     required List<Map<String, dynamic>> leads,
   }) {
     final nec = Theme.of(context).extension<NecColors>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (leads.isEmpty) return const SizedBox.shrink();
 
     final headerColor = titleColor ?? nec.textSecondary;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -485,38 +692,54 @@ class _LeadsScreenState extends State<LeadsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Material(
-            color: nec.surface,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: List.generate(leads.length, (index) {
-                final item = leads[index];
-                final isLast = index == leads.length - 1;
-
-                return Column(
-                  children: [
-                    LeadCardItem(
-                      company: item['company'] as String,
-                      subtitle: item['subtitle'] as String,
-                      status: item['status'] as String,
-                      statusColor: _getStatusColor(item['status'] as String),
-                      scheduleNote: item['scheduleNote'] as String?,
-                      isOverdue: item['isOverdue'] as bool,
-                      assigneeInitials: item['assigneeInitials'] as String,
-                      assigneeName: item['assigneeName'] as String,
-                      onTap: () => context.push('/leads/${item['id']}'),
+          Column(
+            children: leads.map((item) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E26) : nec.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : nec.separator.withValues(alpha: 0.22),
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          Colors.black.withValues(alpha: isDark ? 0.30 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                    if (!isLast)
-                      Divider(
-                        height: 1,
-                        color: nec.separator.withValues(alpha: 0.3),
-                        indent: 16,
-                      ),
                   ],
-                );
-              }),
-            ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Material(
+                  color: Colors.transparent,
+                  child: LeadCardItem(
+                    company: item['company'] as String,
+                    subtitle: item['subtitle'] as String,
+                    status: item['status'] as String,
+                    statusColor: _getStatusColor(item['status'] as String),
+                    scheduleNote: item['scheduleNote'] as String?,
+                    isOverdue: item['isOverdue'] as bool,
+                    assigneeInitials: item['assigneeInitials'] as String,
+                    assigneeName: item['assigneeName'] as String,
+                    photoBase64: item['photoBase64'] as String?,
+                    photoUrl: item['photoUrl'] as String?,
+                    avatarAsset: item['avatarAsset'] as String?,
+                    phone: item['phone'] as String?,
+                    onCall: (item['phone'] != null &&
+                            (item['phone'] as String).trim().isNotEmpty)
+                        ? () =>
+                            PhoneService.call(context, item['phone'] as String)
+                        : null,
+                    onTap: () => context.push('/leads/${item['id']}'),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),

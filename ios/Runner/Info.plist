@@ -61,7 +61,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>NEONECY TEAM needs access to your microphone when recording video attachments.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>NEONECY TEAM needs your location to show directions to visit locations.</string>
+	<string>NEONECY TEAM uses your location for attendance check-in/check-out and visit directions.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>NEONECY TEAM needs your location to navigate to site visits.</string>
 	<key>UILaunchStoryboardName</key>

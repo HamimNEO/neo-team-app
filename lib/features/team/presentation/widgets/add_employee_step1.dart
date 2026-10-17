@@ -9,7 +9,7 @@ class AddEmployeeStep1 extends StatelessWidget {
   final VoidCallback onContinue;
   final VoidCallback onPhotoChanged;
   final ValueChanged<bool> onPhotoBusyChanged;
-  final bool busy;
+  final bool busy, editing;
 
   const AddEmployeeStep1(
       {super.key,
@@ -18,7 +18,8 @@ class AddEmployeeStep1 extends StatelessWidget {
       required this.onContinue,
       required this.onPhotoChanged,
       required this.onPhotoBusyChanged,
-      this.busy = false});
+      this.busy = false,
+      this.editing = false});
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -29,13 +30,14 @@ class AddEmployeeStep1 extends StatelessWidget {
               EmployeePhotoField(
                   name: draft.name.text,
                   photoBase64: draft.photo,
+                  photoUrl: draft.photoUrl,
                   onBusyChanged: onPhotoBusyChanged,
                   onChanged: (photo) {
                     draft.photo = photo;
                     onPhotoChanged();
                   }),
               const SizedBox(height: 20),
-              EmployeePersonalFields(draft: draft),
+              EmployeePersonalFields(draft: draft, emailReadOnly: editing),
               const SizedBox(height: 24),
               NecButton(
                   label: 'Continue',

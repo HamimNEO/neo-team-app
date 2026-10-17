@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/services/app_haptics.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class NavTabItem extends StatelessWidget {
@@ -36,7 +37,10 @@ class NavTabItem extends StatelessWidget {
           button: true,
           onTap: onTap,
           child: InkWell(
-            onTap: onTap,
+            onTap: () {
+              AppHaptics.mediumImpact();
+              onTap();
+            },
             splashFactory: NoSplash.splashFactory,
             overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             child: Center(
@@ -86,7 +90,10 @@ class NavTabItem extends StatelessWidget {
         selected: active,
         excludeSemantics: true,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            AppHaptics.selectionClick();
+            onTap();
+          },
           splashFactory: NoSplash.splashFactory,
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Column(

@@ -47,4 +47,32 @@ class AttendanceClock {
   static List<DateTime> monthDays(DateTime month) => List.generate(
       DateTime.utc(month.year, month.month + 1, 0).day,
       (index) => DateTime.utc(month.year, month.month, index + 1));
+
+  static DateTime? parseServerTimestamp(dynamic raw) {
+    if (raw == null) return null;
+    final str = raw.toString().trim();
+    if (str.isEmpty || str == 'null') return null;
+
+    if (RegExp(r'(Z|[+-]\d{2}(?::?\d{2})?)$').hasMatch(str)) {
+      final parsed = DateTime.tryParse(str);
+      if (parsed != null) return parsed.toUtc();
+    }
+
+    final match =
+        RegExp(r'^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})')
+            .firstMatch(str);
+    if (match != null) {
+      final year = int.parse(match.group(1)!);
+      final month = int.parse(match.group(2)!);
+      final day = int.parse(match.group(3)!);
+      final hour = int.parse(match.group(4)!);
+      final minute = int.parse(match.group(5)!);
+      final second = int.parse(match.group(6)!);
+
+      final offset = offsetMinutes;
+      final wallUtc = DateTime.utc(year, month, day, hour, minute, second);
+      return wallUtc.subtract(Duration(minutes: offset));
+    }
+    return DateTime.tryParse(str);
+  }
 }

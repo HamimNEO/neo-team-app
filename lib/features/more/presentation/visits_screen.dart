@@ -1,10 +1,11 @@
+import '../../tasks/data/work_item_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/staff_access_store.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../data/mock_visits.dart';
+import '../data/work_queue_mapper.dart';
 import '../domain/models/visit.dart';
 import 'widgets/schedule_visit_sheet.dart';
 import 'widgets/visit_card_item.dart';
@@ -22,19 +23,29 @@ class _VisitsScreenState extends State<VisitsScreen> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
 
-  late List<Visit> _visits;
+  List<Visit> _visits = [];
 
   @override
   void initState() {
     super.initState();
-    _visits = List.from(mockVisits);
+    WorkItemStore.instance.addListener(_refresh);
+    WorkItemStore.instance.load();
+    _refresh();
     _searchController.addListener(() {
       setState(() {});
     });
   }
 
+  void _refresh() {
+    if (mounted) {
+      setState(() => _visits =
+          WorkItemStore.instance.visits.map(WorkQueueMapper.visit).toList());
+    }
+  }
+
   @override
   void dispose() {
+    WorkItemStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
@@ -51,7 +62,8 @@ class _VisitsScreenState extends State<VisitsScreen> {
     );
     if (result != null) {
       setState(() {
-        _visits.insert(0, result);
+        _visits =
+            WorkItemStore.instance.visits.map(WorkQueueMapper.visit).toList();
       });
     }
   }
@@ -59,13 +71,16 @@ class _VisitsScreenState extends State<VisitsScreen> {
   List<Visit> _getFilteredVisits() {
     return _visits.where((item) {
       if (_selectedTab == 'Today') {
-        if (item.statusGroup != 'Today') return false;
+        if (item.statusGroup != 'Today' && item.statusGroup != 'Overdue') {
+          return false;
+        }
       } else if (_selectedTab == 'Upcoming') {
         if (item.statusGroup != 'Tomorrow' && item.statusGroup != 'This Week') {
           return false;
         }
       } else if (_selectedTab == 'Completed') {
-        if (item.statusGroup != 'Needs Report' &&
+        if (item.statusGroup != 'Completed' &&
+            item.statusGroup != 'Needs Report' &&
             item.statusGroup != 'Yesterday' &&
             item.statusGroup != 'Cancelled') {
           return false;
@@ -456,10 +471,12 @@ class _VisitsScreenState extends State<VisitsScreen> {
     }
 
     final groupOrder = [
+      'Overdue',
       'Today',
       'Tomorrow',
       'This Week',
       'Needs Report',
+      'Completed',
       'Yesterday',
       'Cancelled',
     ];
@@ -505,37 +522,20 @@ class _VisitsScreenState extends State<VisitsScreen> {
         ),
       );
 
-      widgets.add(
-        Material(
-          color: nec.surface,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: List.generate(gItems.length, (idx) {
-              final item = gItems[idx];
-              final isLast = idx == gItems.length - 1;
-
-              return Column(
-                children: [
-                  VisitCardItem(
-                    visit: item,
-                    onTap: () {
-                      context.push('/visit-details/${item.id}');
-                    },
-                  ),
-                  if (!isLast)
-                    Divider(
-                      height: 1,
-                      color: nec.separator.withValues(alpha: 0.2),
-                    ),
-                ],
-              );
-            }),
+      for (final item in gItems) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: VisitCardItem(
+              visit: item,
+              onTap: () {
+                context.push('/visit-details/${item.id}');
+              },
+            ),
           ),
-        ),
-      );
-
-      widgets.add(const SizedBox(height: 16));
+        );
+      }
+      widgets.add(const SizedBox(height: 8));
     }
 
     return widgets;

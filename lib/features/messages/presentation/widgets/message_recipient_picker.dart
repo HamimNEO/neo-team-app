@@ -105,6 +105,8 @@ class _MessageRecipientPickerState extends State<_MessageRecipientPicker> {
                                       leading: NecAvatar(
                                           initials: employee.avatarInitials,
                                           photoBase64: employee.photoBase64,
+                                          photoUrl: employee.photoUrl,
+                                          assetPath: employee.avatarAsset,
                                           size: 46),
                                       title: Text(employee.name,
                                           maxLines: 1,

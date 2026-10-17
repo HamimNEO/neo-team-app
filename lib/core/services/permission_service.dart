@@ -36,20 +36,28 @@ class PermissionService {
 
   static bool _hasRequestedOnStartup = false;
 
-  /// Requests core native permissions on app startup.
+  /// Requests core native permissions sequentially, one by one, on app startup.
   Future<void> requestInitialPermissions() async {
     if (_hasRequestedOnStartup) return;
     _hasRequestedOnStartup = true;
 
-    try {
-      await [
-        Permission.notification,
-        Permission.camera,
-        if (defaultTargetPlatform != TargetPlatform.android) Permission.photos,
-      ].request();
-    } catch (e) {
-      debugPrint(
-          'PermissionService: Initial permission request skipped/failed: $e');
+    final permissions = <Permission>[
+      Permission.notification,
+      Permission.camera,
+      Permission.locationWhenInUse,
+      if (defaultTargetPlatform == TargetPlatform.iOS) Permission.photos,
+    ];
+
+    for (final perm in permissions) {
+      try {
+        final status = await perm.status;
+        if (!status.isGranted && !status.isPermanentlyDenied) {
+          await perm.request();
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      } catch (e) {
+        debugPrint('PermissionService: Initial request error for $perm: $e');
+      }
     }
   }
 

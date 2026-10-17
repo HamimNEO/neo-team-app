@@ -43,7 +43,8 @@ class TeamHeroCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Column(
+                Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -63,18 +64,20 @@ class TeamHeroCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
+                )),
               ],
             ),
-            const SizedBox(height: 14),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: 13,
-                color: nec.textSecondary,
-                height: 1.3,
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: nec.textSecondary,
+                  height: 1.3,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

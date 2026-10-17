@@ -58,25 +58,36 @@ class _MessageAttachmentViewState extends State<MessageAttachmentView> {
                   child: SizedBox(
                       height: 180,
                       width: 260,
-                      child: FutureBuilder<Uint8List>(
-                          future: _bytes,
-                          builder: (context, snapshot) {
-                            if (snapshot.hasError) {
-                              return Center(
+                      child: attachment.url != null &&
+                              attachment.url!.isNotEmpty
+                          ? Image.network(
+                              attachment.url!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
                                   child:
-                                      Icon(CupertinoIcons.photo, color: color));
-                            }
-                            if (!snapshot.hasData) {
-                              return const Center(
-                                  child: CupertinoActivityIndicator());
-                            }
-                            return Image.memory(snapshot.data!,
-                                fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                                errorBuilder: (_, __, ___) => Center(
-                                    child: Icon(CupertinoIcons.photo,
-                                        color: color)));
-                          })))
+                                      Icon(CupertinoIcons.photo, color: color)),
+                            )
+                          : FutureBuilder<Uint8List>(
+                              future: _bytes,
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Center(
+                                      child: Icon(CupertinoIcons.photo,
+                                          color: color));
+                                }
+                                if (!snapshot.hasData ||
+                                    snapshot.data!.isEmpty) {
+                                  return Center(
+                                      child: Icon(CupertinoIcons.photo,
+                                          color: color));
+                                }
+                                return Image.memory(snapshot.data!,
+                                    fit: BoxFit.cover,
+                                    gaplessPlayback: true,
+                                    errorBuilder: (_, __, ___) => Center(
+                                        child: Icon(CupertinoIcons.photo,
+                                            color: color)));
+                              })))
               : Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -178,8 +189,10 @@ class _AttachmentPreviewState extends State<_AttachmentPreview> {
                           child: Text('This attachment is no longer available.',
                               style: TextStyle(color: nec.textSecondary)));
                     }
-                    if (!snapshot.hasData) {
-                      return const Center(child: CupertinoActivityIndicator());
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Center(
+                          child: Text('This attachment is no longer available.',
+                              style: TextStyle(color: nec.textSecondary)));
                     }
                     if (attachment.isImage) {
                       return Center(

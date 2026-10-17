@@ -37,14 +37,18 @@ class TodayLeadsList extends StatelessWidget {
                 ),
                 title: Text(
                   lead.company,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
                     color: nec.textPrimary,
                   ),
                 ),
                 subtitle: Text(
                   lead.nextActionNote ?? 'Follow-up',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: nec.textTertiary),
                 ),
                 trailing: LeadStatusBadge(status: lead.status, small: true),

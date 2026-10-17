@@ -6,13 +6,15 @@ class LeadMetricSummaryRow extends StatelessWidget {
   final int followUpCount;
   final int visitsTodayCount;
   final int negotiationCount;
+  final ValueChanged<String>? onMetricTap;
 
   const LeadMetricSummaryRow({
     super.key,
-    this.newCount = 3,
-    this.followUpCount = 3,
-    this.visitsTodayCount = 2,
-    this.negotiationCount = 1,
+    this.newCount = 0,
+    this.followUpCount = 0,
+    this.visitsTodayCount = 0,
+    this.negotiationCount = 0,
+    this.onMetricTap,
   });
 
   @override
@@ -20,10 +22,10 @@ class LeadMetricSummaryRow extends StatelessWidget {
     final nec = Theme.of(context).extension<NecColors>()!;
 
     final metrics = [
-      {'value': '$newCount', 'label': 'New'},
-      {'value': '$followUpCount', 'label': 'Follow-up'},
-      {'value': '$visitsTodayCount', 'label': 'Visits Today'},
-      {'value': '$negotiationCount', 'label': 'Negotiation'},
+      {'count': newCount, 'label': 'New'},
+      {'count': followUpCount, 'label': 'Follow-up'},
+      {'count': visitsTodayCount, 'label': 'Visits Today'},
+      {'count': negotiationCount, 'label': 'Negotiation'},
     ];
 
     return SizedBox(
@@ -35,7 +37,10 @@ class LeadMetricSummaryRow extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final item = metrics[index];
-          return Container(
+          final count = item['count'] as int;
+          final label = item['label'] as String;
+
+          final card = Container(
             width: 104,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
@@ -50,8 +55,8 @@ class LeadMetricSummaryRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  item['value']!,
+                _AnimatedCounterText(
+                  count: count,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -61,7 +66,7 @@ class LeadMetricSummaryRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item['label']!,
+                  label,
                   style: TextStyle(
                     fontSize: 11,
                     color: nec.textSecondary,
@@ -74,8 +79,43 @@ class LeadMetricSummaryRow extends StatelessWidget {
               ],
             ),
           );
+
+          if (onMetricTap != null) {
+            return InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => onMetricTap!(label),
+              child: card,
+            );
+          }
+          return card;
         },
       ),
+    );
+  }
+}
+
+class _AnimatedCounterText extends StatelessWidget {
+  final int count;
+  final TextStyle style;
+
+  const _AnimatedCounterText({
+    required this.count,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(count),
+      tween: Tween<double>(begin: 0, end: count.toDouble()),
+      duration: const Duration(milliseconds: 900),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        return Text(
+          '${val.round()}',
+          style: style,
+        );
+      },
     );
   }
 }

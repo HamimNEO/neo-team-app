@@ -6,6 +6,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import 'widgets/task_filter_sheet.dart';
 import 'widgets/task_item_card.dart';
+import 'widgets/task_completion_dialog.dart';
+import 'widgets/tasks_skeleton_loader.dart';
+import '../data/work_item_store.dart';
+import '../../../core/services/demo_session.dart';
+import '../../../core/widgets/nec_toast.dart';
+import '../../../core/widgets/nec_empty_state.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -34,78 +40,79 @@ class _TasksScreenState extends State<TasksScreen> {
   void initState() {
     super.initState();
     _initTasks();
+    _selectedScope = DemoSession.instance.isAdmin ? 'All' : 'My Tasks';
+    WorkItemStore.instance.addListener(_refreshFromStore);
+    _refreshFromStore();
+    WorkItemStore.instance.load(preferCache: true).then((_) {
+      if (mounted) _refreshFromStore();
+    });
+  }
+
+  void _refreshFromStore() {
+    if (!mounted) return;
+    if (WorkItemStore.instance.hasData) {
+      final all = WorkItemStore.instance.tasks;
+      final todo = <Map<String, dynamic>>[];
+      final inProg = <Map<String, dynamic>>[];
+      final done = <Map<String, dynamic>>[];
+
+      for (final item in all) {
+        if (item.status.toLowerCase() == 'cancelled') continue;
+        final initials =
+            (item.assigneeName != null && item.assigneeName!.isNotEmpty)
+                ? item.assigneeName![0].toUpperCase()
+                : 'U';
+        final map = {
+          'id': item.id,
+          'title': item.title,
+          'subtitle': '',
+          'relatedText': item.leadName,
+          'priority': item.priority.toLowerCase() == 'high'
+              ? 'High'
+              : (item.priority.toLowerCase() == 'low' ? 'Low' : 'Normal'),
+          'priorityColor': item.priority.toLowerCase() == 'high'
+              ? AppColors.warning
+              : (item.priority.toLowerCase() == 'low'
+                  ? AppColors.neutral
+                  : AppColors.brandLight),
+          'assigneeInitials': initials,
+          'assigneeName': item.assigneeName ?? 'Unassigned',
+          'assigneeId': item.assigneeEmployeeId,
+          'relatedType': item.metadata['related_to'] ??
+              (item.leadId == null ? 'internal' : 'lead'),
+          'leadId': item.leadId,
+          'isCompleted': item.isCompleted,
+          'status': item.status.toLowerCase(),
+          'group': item.isCompleted ? 'COMPLETED' : 'TASKS',
+        };
+        if (item.isCompleted) {
+          done.add(map);
+        } else if (item.status.toLowerCase() == 'in_progress') {
+          inProg.add(map);
+        } else {
+          todo.add(map);
+        }
+      }
+
+      setState(() {
+        _todoTasks = todo;
+        _inProgressTasks = inProg;
+        _doneTasks = done;
+      });
+    } else {
+      setState(_initTasks);
+    }
   }
 
   void _initTasks() {
-    _todoTasks = [
-      {
-        'id': 'task_1',
-        'title': 'Prepare hotel onboarding checklist',
-        'subtitle': 'Operations · Tomorrow',
-        'priority': 'Normal',
-        'priorityColor': AppColors.brandLight,
-        'assigneeInitials': 'A',
-        'assigneeName': 'Akter',
-        'isCompleted': false,
-        'group': 'TOMORROW',
-      },
-      {
-        'id': 'task_2',
-        'title': 'Review sales target for Q4',
-        'subtitle': 'Sales · Next Week',
-        'priority': 'Low',
-        'priorityColor': AppColors.neutral,
-        'assigneeInitials': 'A',
-        'assigneeName': 'Akter',
-        'isCompleted': false,
-        'group': 'NEXT WEEK',
-      },
-    ];
-
-    _inProgressTasks = [
-      {
-        'id': 'task_3',
-        'title': 'Send proposal draft to Sea Pearl Resort',
-        'relatedText': 'Sea Pearl Resort',
-        'subtitle': 'Today · 5:00 PM',
-        'priority': 'High',
-        'priorityColor': AppColors.warning,
-        'assigneeInitials': 'A',
-        'assigneeName': 'Akter',
-        'isCompleted': false,
-        'group': 'TODAY',
-      },
-    ];
-
-    _doneTasks = [
-      {
-        'id': 'task_4',
-        'title': 'Prepare Blue Wave Resort demo',
-        'relatedText': 'Blue Wave Resort',
-        'subtitle': 'Today · 2:00 PM',
-        'priority': 'High',
-        'priorityColor': AppColors.warning,
-        'assigneeInitials': 'A',
-        'assigneeName': 'Akter',
-        'isCompleted': true,
-        'group': 'COMPLETED TODAY',
-      },
-      {
-        'id': 'task_5',
-        'title': 'Prepare monthly report deck',
-        'subtitle': 'Management · Sep 25, 2026',
-        'priority': 'Normal',
-        'priorityColor': AppColors.brandLight,
-        'assigneeInitials': 'A',
-        'assigneeName': 'Akter',
-        'isCompleted': true,
-        'group': 'EARLIER',
-      },
-    ];
+    _todoTasks = [];
+    _inProgressTasks = [];
+    _doneTasks = [];
   }
 
   @override
   void dispose() {
+    WorkItemStore.instance.removeListener(_refreshFromStore);
     _searchController.dispose();
     super.dispose();
   }
@@ -132,6 +139,16 @@ class _TasksScreenState extends State<TasksScreen> {
       List<Map<String, dynamic>> rawList) {
     final query = _searchController.text.trim().toLowerCase();
     return rawList.where((item) {
+      if (_selectedScope == 'My Tasks' &&
+          item['assigneeId'] != DemoSession.instance.employeeId) {
+        return false;
+      }
+      if (_filterRelated != null &&
+          _filterRelated != 'All' &&
+          item['relatedType']?.toString().toLowerCase() !=
+              _filterRelated!.toLowerCase()) {
+        return false;
+      }
       if (query.isNotEmpty &&
           !item['title'].toString().toLowerCase().contains(query)) {
         return false;
@@ -189,10 +206,57 @@ class _TasksScreenState extends State<TasksScreen> {
                       assigneeInitials: task['assigneeInitials'] as String,
                       assigneeName: task['assigneeName'] as String,
                       isCompleted: task['isCompleted'] as bool,
-                      onToggle: (val) {
-                        setState(() {
-                          task['isCompleted'] = val ?? false;
-                        });
+                      status: task['status'] as String?,
+                      onStatusChange: (newStatus) async {
+                        try {
+                          await WorkItemStore.instance.update(
+                            task['id'].toString(),
+                            {'status': newStatus},
+                          );
+                          if (!context.mounted) return;
+                          NecToast.show(
+                            context,
+                            message: newStatus == 'in_progress'
+                                ? 'Task moved to In Progress'
+                                : 'Task moved to To Do',
+                            type: NecToastType.success,
+                          );
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          NecToast.show(context,
+                              message: WorkItemStore.messageFor(error),
+                              type: NecToastType.error);
+                        }
+                      },
+                      onToggle: (val) async {
+                        if (val == true) {
+                          await TaskCompletionDialog.show(
+                            context,
+                            taskTitle: task['title'] as String,
+                            onConfirm: () async {
+                              await WorkItemStore.instance.update(
+                                task['id'].toString(),
+                                {'status': 'completed'},
+                              );
+                            },
+                          );
+                        } else {
+                          try {
+                            await WorkItemStore.instance.update(
+                              task['id'].toString(),
+                              {'status': 'to_do'},
+                            );
+                            if (!context.mounted) return;
+                            NecToast.show(context,
+                                message: 'Task moved back to To Do',
+                                type: NecToastType.info);
+                          } catch (error) {
+                            if (!context.mounted) return;
+                            NecToast.show(context,
+                                message: WorkItemStore.messageFor(error),
+                                type: NecToastType.error);
+                          }
+                        }
                       },
                       onTap: () => context.push('/tasks/${task['id']}'),
                     ),
@@ -217,6 +281,13 @@ class _TasksScreenState extends State<TasksScreen> {
     final nec = Theme.of(context).extension<NecColors>()!;
 
     final todoCount = _getFilteredList(_todoTasks).length;
+    final visibleTasks = _getFilteredList(_selectedTabIndex == 0
+        ? _todoTasks
+        : _selectedTabIndex == 1
+            ? _inProgressTasks
+            : _doneTasks);
+    final initialLoading = !WorkItemStore.instance.hasData &&
+        WorkItemStore.instance.loadError == null;
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -543,41 +614,60 @@ class _TasksScreenState extends State<TasksScreen> {
               const SizedBox(height: 16),
             ],
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    if (_selectedTabIndex == 0) ...[
-                      _buildGroupedSection(
-                        context: context,
-                        title: 'TOMORROW',
-                        items: _todoTasks,
+              child: RefreshIndicator(
+                color: const Color(0xFF5856D6),
+                backgroundColor: nec.surface,
+                onRefresh: () async {
+                  await WorkItemStore.instance.load(force: true);
+                  _refreshFromStore();
+                },
+                child: visibleTasks.isEmpty && !initialLoading
+                    ? CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: NecEmptyState(
+                              icon: CupertinoIcons.checkmark_seal_fill,
+                              color: const Color(0xFF5856D6),
+                              title: WorkItemStore.instance.loadError != null
+                                  ? 'Tasks are unavailable'
+                                  : 'No tasks found',
+                              message: WorkItemStore.instance.loadError ??
+                                  'There are no tasks in this view. Adjust your filters or pull down to refresh.',
+                            ),
+                          ),
+                        ],
+                      )
+                    : SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            if (initialLoading) ...[
+                              const TasksSkeletonLoader(itemCount: 5),
+                            ] else if (_selectedTabIndex == 0) ...[
+                              _buildGroupedSection(
+                                context: context,
+                                title: 'TO DO',
+                                items: _todoTasks,
+                              ),
+                            ] else if (_selectedTabIndex == 1) ...[
+                              _buildGroupedSection(
+                                context: context,
+                                title: 'IN PROGRESS',
+                                items: _inProgressTasks,
+                              ),
+                            ] else ...[
+                              _buildGroupedSection(
+                                  context: context,
+                                  title: 'COMPLETED',
+                                  items: _doneTasks),
+                            ],
+                            const SizedBox(height: 120),
+                          ],
+                        ),
                       ),
-                    ] else if (_selectedTabIndex == 1) ...[
-                      _buildGroupedSection(
-                        context: context,
-                        title: 'TODAY',
-                        items: _inProgressTasks,
-                      ),
-                    ] else ...[
-                      _buildGroupedSection(
-                        context: context,
-                        title: 'COMPLETED TODAY',
-                        items: _doneTasks
-                            .where((x) => x['group'] == 'COMPLETED TODAY')
-                            .toList(),
-                      ),
-                      _buildGroupedSection(
-                        context: context,
-                        title: 'EARLIER',
-                        items: _doneTasks
-                            .where((x) => x['group'] == 'EARLIER')
-                            .toList(),
-                      ),
-                    ],
-                    const SizedBox(height: 120),
-                  ],
-                ),
               ),
             ),
           ],

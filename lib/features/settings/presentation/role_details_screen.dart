@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_avatar.dart';
-import '../data/mock_system_roles.dart';
+import '../../../core/widgets/nec_toast.dart';
+import '../../team/data/employee_store.dart';
+import '../data/role_store.dart';
 import '../domain/models/system_role.dart';
 
 class RoleDetailsScreen extends StatefulWidget {
@@ -24,9 +26,61 @@ class _RoleDetailsScreenState extends State<RoleDetailsScreen> {
   final Set<String> _expandedModules = {'Leads', 'Visits'};
 
   @override
+  void initState() {
+    super.initState();
+    RoleStore.instance.addListener(_refresh);
+    RoleStore.instance.loadDetail(widget.roleId);
+    EmployeeStore.instance.addListener(_refresh);
+    EmployeeStore.instance.load();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _savePermission(Future<void> Function() save) async {
+    try {
+      await save();
+      if (mounted) {
+        NecToast.show(context,
+            message: 'Role permissions saved', type: NecToastType.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        NecToast.show(context,
+            message: EmployeeStore.messageFor(e), type: NecToastType.error);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    RoleStore.instance.removeListener(_refresh);
+    EmployeeStore.instance.removeListener(_refresh);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
-    final role = getRoleById(widget.roleId);
+    final role = RoleStore.instance.byId(widget.roleId);
+    if (role == null) {
+      return Scaffold(
+        backgroundColor: nec.bg,
+        appBar: AppBar(title: const Text('Role Details')),
+        body: Center(
+            child: RoleStore.instance.loading
+                ? const CupertinoActivityIndicator()
+                : Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(RoleStore.instance.error ??
+                        'This role is unavailable.'),
+                    TextButton(
+                        onPressed: () =>
+                            RoleStore.instance.loadDetail(widget.roleId),
+                        child: const Text('Retry')),
+                  ])),
+      );
+    }
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -100,6 +154,13 @@ class _RoleDetailsScreenState extends State<RoleDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (RoleStore.instance.error != null)
+                      ListTile(
+                          title: Text(RoleStore.instance.error!),
+                          trailing: TextButton(
+                              onPressed: () =>
+                                  RoleStore.instance.loadDetail(widget.roleId),
+                              child: const Text('Retry'))),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -447,6 +508,118 @@ class _RoleDetailsScreenState extends State<RoleDetailsScreen> {
   }
 
   Widget _buildMembersTab(NecColors nec, SystemRoleItem role) {
+    final employees = EmployeeStore.instance.employees
+        .where((employee) => employee.systemRole == role.name)
+        .toList();
+
+    if (employees.isEmpty && role.memberNames.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        decoration: BoxDecoration(
+          color: nec.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: nec.separator.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                CupertinoIcons.person_2,
+                color: nec.textTertiary,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No Members Assigned',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: nec.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'No active employees are currently assigned to this role.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: nec.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (employees.isNotEmpty) {
+      return Material(
+        color: nec.surface,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: List.generate(employees.length, (idx) {
+            final emp = employees[idx];
+            final isLast = idx == employees.length - 1;
+
+            return Column(
+              children: [
+                ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: NecAvatar(
+                    initials: emp.avatarInitials,
+                    size: 40,
+                  ),
+                  title: Text(
+                    emp.name,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: nec.textPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
+                    emp.designation.isNotEmpty
+                        ? (emp.department.isNotEmpty
+                            ? '${emp.designation} • ${emp.department}'
+                            : emp.designation)
+                        : (emp.email.isNotEmpty
+                            ? emp.email
+                            : 'Active Employee'),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: nec.textSecondary,
+                    ),
+                  ),
+                  trailing: Icon(
+                    CupertinoIcons.chevron_right,
+                    size: 16,
+                    color: nec.textTertiary,
+                  ),
+                  onTap: () {
+                    context.push('/employee-details/${emp.id}');
+                  },
+                ),
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    color: nec.separator.withValues(alpha: 0.2),
+                    indent: 68,
+                  ),
+              ],
+            );
+          }),
+        ),
+      );
+    }
+
     return Material(
       color: nec.surface,
       borderRadius: BorderRadius.circular(16),
@@ -489,131 +662,287 @@ class _RoleDetailsScreenState extends State<RoleDetailsScreen> {
   }
 
   Widget _buildPermissionsTab(NecColors nec, SystemRoleItem role) {
-    return Column(
-      children: List.generate(role.modulePermissions.length, (idx) {
-        final mod = role.modulePermissions[idx];
-        final isExpanded = _expandedModules.contains(mod.moduleName);
+    final isAdminRole = role.badge == 'SYSTEM';
+    final serverEditable = RoleStore.instance.canEdit(role);
+    final canEdit = RoleStore.instance.canEdit(role);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: nec.surface,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    if (isExpanded) {
-                      _expandedModules.remove(mod.moduleName);
-                    } else {
-                      _expandedModules.add(mod.moduleName);
-                    }
-                  });
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: mod.dotColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            mod.moduleName,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w700,
-                              color: nec.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            mod.accessLevel,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.success,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Icon(
-                            isExpanded
-                                ? CupertinoIcons.chevron_up
-                                : CupertinoIcons.chevron_down,
-                            size: 14,
-                            color: nec.textTertiary,
-                          ),
-                        ],
-                      ),
-                    ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isAdminRole)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.brandLight.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.brandLight.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  CupertinoIcons.lock_shield_fill,
+                  color: AppColors.brandLight,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'System role permissions are protected and cannot be changed here.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: nec.textPrimary,
+                      height: 1.35,
+                    ),
                   ),
                 ),
+              ],
+            ),
+          )
+        else
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: nec.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: nec.separator.withValues(alpha: 0.15),
               ),
-              if (isExpanded) ...[
-                Divider(
-                  height: 1,
-                  color: nec.separator.withValues(alpha: 0.2),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  CupertinoIcons.slider_horizontal_3,
+                  color: nec.brand,
+                  size: 20,
                 ),
-                ...mod.permissions.map(
-                  (perm) => Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: nec.separator.withValues(alpha: 0.15),
-                          width: 0.8,
-                        ),
-                      ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    serverEditable
+                        ? 'Tap any permission row to grant or revoke access for employees assigned to ${role.name}.'
+                        : 'This role is read-only. Permissions are managed by the server.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: nec.textSecondary,
+                      height: 1.35,
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ...role.modulePermissions.map((mod) {
+          final isExpanded = _expandedModules.contains(mod.moduleName);
+          final grantedCount = mod.permissions.where((p) => p.$2).length;
+          final allGranted = grantedCount == mod.permissions.length;
+          final noneGranted = grantedCount == 0;
+
+          final Color accessColor = allGranted
+              ? AppColors.success
+              : noneGranted
+                  ? AppColors.error
+                  : AppColors.warning;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: nec.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedModules.remove(mod.moduleName);
+                      } else {
+                        _expandedModules.add(mod.moduleName);
+                      }
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          perm.$1,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: nec.textPrimary,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: mod.dotColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              mod.moduleName,
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: nec.textPrimary,
+                              ),
+                            ),
+                          ],
                         ),
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: const BoxDecoration(
-                            color: AppColors.success,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.checkmark,
-                            color: Colors.white,
-                            size: 13,
-                          ),
+                        Row(
+                          children: [
+                            if (canEdit && isExpanded) ...[
+                              CupertinoButton(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                minimumSize: Size.zero,
+                                onPressed: () {
+                                  _savePermission(() => RoleStore.instance
+                                          .toggleAllModulePermissions(
+                                        role.id,
+                                        mod.moduleName,
+                                        !allGranted,
+                                      ));
+                                },
+                                child: Text(
+                                  allGranted ? 'Revoke All' : 'Grant All',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: nec.brand,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              mod.accessLevel,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: accessColor,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              isExpanded
+                                  ? CupertinoIcons.chevron_up
+                                  : CupertinoIcons.chevron_down,
+                              size: 14,
+                              color: nec.textTertiary,
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ),
+                if (isExpanded) ...[
+                  Divider(
+                    height: 1,
+                    color: nec.separator.withValues(alpha: 0.2),
+                  ),
+                  ...mod.permissions.map(
+                    (perm) {
+                      final isGranted = perm.$2;
+
+                      return InkWell(
+                        onTap: !canEdit
+                            ? null
+                            : () {
+                                _savePermission(
+                                    () => RoleStore.instance.updatePermission(
+                                          role.id,
+                                          mod.moduleName,
+                                          perm.$1,
+                                          !isGranted,
+                                        ));
+                              },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: nec.separator.withValues(alpha: 0.15),
+                                width: 0.8,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                perm.$1,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isGranted
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
+                                  color: isGranted
+                                      ? nec.textPrimary
+                                      : nec.textTertiary,
+                                ),
+                              ),
+                              if (isAdminRole)
+                                Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.success,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    CupertinoIcons.checkmark,
+                                    color: Colors.white,
+                                    size: 13,
+                                  ),
+                                )
+                              else
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: isGranted
+                                        ? AppColors.success
+                                        : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                    border: isGranted
+                                        ? null
+                                        : Border.all(
+                                            color: nec.separator,
+                                            width: 1.5,
+                                          ),
+                                  ),
+                                  child: Icon(
+                                    isGranted
+                                        ? CupertinoIcons.checkmark
+                                        : CupertinoIcons.minus,
+                                    color: isGranted
+                                        ? Colors.white
+                                        : nec.textTertiary,
+                                    size: isGranted ? 13 : 11,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
-            ],
-          ),
-        );
-      }),
+            ),
+          );
+        }),
+      ],
     );
   }
 }

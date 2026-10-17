@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_button.dart';
 import 'add_lead_picker_sheet.dart';
+import 'lead_location_map_picker.dart';
 
 class AddLeadStep1 extends StatelessWidget {
   final TextEditingController companyController;
@@ -11,6 +12,10 @@ class AddLeadStep1 extends StatelessWidget {
   final String? selectedBusinessType;
   final ValueChanged<String> onBusinessTypeChanged;
   final VoidCallback onNext;
+  final double? latitude;
+  final double? longitude;
+  final ValueChanged<LocationPickResult>? onLocationPicked;
+  final VoidCallback? onClearCoordinates;
 
   const AddLeadStep1({
     super.key,
@@ -19,6 +24,10 @@ class AddLeadStep1 extends StatelessWidget {
     required this.selectedBusinessType,
     required this.onBusinessTypeChanged,
     required this.onNext,
+    this.latitude,
+    this.longitude,
+    this.onLocationPicked,
+    this.onClearCoordinates,
   });
 
   void _openBusinessTypePicker(BuildContext context) {
@@ -71,6 +80,21 @@ class AddLeadStep1 extends StatelessWidget {
         onSelected: (val) => onBusinessTypeChanged(val as String),
       ),
     );
+  }
+
+  Future<void> _openMapPicker(BuildContext context) async {
+    final result = await LeadLocationMapPicker.show(
+      context,
+      initialLocation: locationController.text.trim().isNotEmpty
+          ? locationController.text.trim()
+          : null,
+      initialLatitude: latitude,
+      initialLongitude: longitude,
+    );
+    if (result != null) {
+      locationController.text = result.locationName;
+      onLocationPicked?.call(result);
+    }
   }
 
   @override
@@ -164,9 +188,41 @@ class AddLeadStep1 extends StatelessWidget {
                 const SizedBox(height: 12),
                 Divider(height: 1, color: nec.separator.withValues(alpha: 0.2)),
                 const SizedBox(height: 12),
-                Text(
-                  'Location',
-                  style: TextStyle(fontSize: 13, color: nec.textTertiary),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Location',
+                      style: TextStyle(fontSize: 13, color: nec.textTertiary),
+                    ),
+                    InkWell(
+                      onTap: () => _openMapPicker(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.map_pin_ellipse,
+                              size: 14,
+                              color: nec.brand,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Pick on Map',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: nec.brand,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 TextField(
@@ -183,6 +239,91 @@ class AddLeadStep1 extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+                if (latitude != null && longitude != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: nec.brand.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: nec.brand.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(CupertinoIcons.location_fill,
+                            size: 13, color: nec.brand),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Coordinates: ${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: nec.brand,
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => _openMapPicker(context),
+                          child: Text(
+                            'Edit',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: nec.brand,
+                            ),
+                          ),
+                        ),
+                        if (onClearCoordinates != null) ...[
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: onClearCoordinates,
+                            child: Icon(CupertinoIcons.clear_circled,
+                                size: 14, color: nec.textTertiary),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () => _openMapPicker(context),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: nec.bg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: nec.separator.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(CupertinoIcons.map,
+                              size: 14, color: nec.textSecondary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Tap to select & pin on interactive map',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: nec.textSecondary,
+                              ),
+                            ),
+                          ),
+                          Icon(CupertinoIcons.chevron_right,
+                              size: 12, color: nec.textTertiary),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

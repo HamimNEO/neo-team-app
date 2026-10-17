@@ -1,3 +1,9 @@
+import '../../../core/services/phone_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../data/work_queue_mapper.dart';
+import '../../team/domain/models/employee.dart';
+import '../../leads/data/lead_store.dart';
+import '../../tasks/data/work_item_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +35,7 @@ class FollowUpDetailsScreen extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => FollowUpOptionsSheet(
+        followUpId: followUpId,
         leadId: leadId,
         leadName: leadName,
         currentSchedule: scheduleText,
@@ -41,7 +48,10 @@ class FollowUpDetailsScreen extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => CompleteFollowUpSheet(leadName: leadName),
+      builder: (_) => CompleteFollowUpSheet(
+          leadName: leadName,
+          onSave: (result) =>
+              WorkItemStore.instance.completeFollowUp(followUpId, result)),
     );
   }
 
@@ -57,43 +67,71 @@ class FollowUpDetailsScreen extends StatelessWidget {
       builder: (_) => RescheduleFollowUpSheet(
         currentSchedule: scheduleText,
         leadName: leadName,
+        onSave: (date, time) =>
+            WorkItemStore.instance.rescheduleFollowUp(followUpId, date, time),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+        future:
+            WorkItemStore.instance.fetchDetails(followUpId, type: 'followup'),
+        builder: (context, snapshot) => snapshot.hasError
+            ? Scaffold(
+                appBar: AppBar(title: const Text('Follow-up')),
+                body: Center(
+                    child: Text(WorkItemStore.messageFor(snapshot.error!))))
+            : snapshot.connectionState != ConnectionState.done
+                ? const Scaffold(
+                    body: Center(child: CircularProgressIndicator()))
+                : AnimatedBuilder(
+                    animation: WorkItemStore.instance,
+                    builder: (context, _) => _buildDetails(context)),
+      );
+
+  Widget _buildDetails(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final isWhatsAppMethod = followUpId == 'fu_002';
-
-    const leadId = 'lead_1';
-    final leadName = isWhatsAppMethod ? 'Ocean Nest Hotel' : 'Sea Pearl Resort';
-    final leadStatus = isWhatsAppMethod ? 'Contacted' : 'Follow-up';
-    final leadStatusColor =
-        isWhatsAppMethod ? AppColors.leadContacted : AppColors.warning;
-
-    final methodTitle = isWhatsAppMethod ? 'WhatsApp' : 'Call';
+    final item = WorkItemStore.instance.byId(followUpId)!;
+    final leadId = item.leadId ?? '';
+    final lead = LeadStore.instance.byId(leadId);
+    final contact = item.metadata['contact_person'] is Map
+        ? item.metadata['contact_person'] as Map
+        : {};
+    final leadName = item.leadName ?? item.title;
+    final leadStatus = lead?.status ?? '';
+    const leadStatusColor = AppColors.warning;
+    final methodTitle = item.metadata['method']?.toString() ?? 'Other';
+    final isWhatsAppMethod = methodTitle.toLowerCase() == 'whatsapp';
     final methodIcon = isWhatsAppMethod
         ? CupertinoIcons.chat_bubble_fill
         : CupertinoIcons.phone_fill;
     const methodIconColor = AppColors.success;
-
-    final scheduledText = isWhatsAppMethod ? 'Today' : 'Yesterday';
-    final scheduledTime = isWhatsAppMethod ? '9:00 AM' : '4:00 PM';
-    final overdueNote = isWhatsAppMethod ? 'Overdue by 3h' : 'Overdue by 20h';
-
-    final purpose = isWhatsAppMethod
-        ? 'Follow-up after initial call'
-        : 'Pricing discussion';
-
-    final assigneeInitials = isWhatsAppMethod ? 'Y' : 'SA';
-    final assigneeName = isWhatsAppMethod ? 'Yeapas' : 'Shahina Akter';
-
-    final contactInitials = isWhatsAppMethod ? 'R' : 'K';
-    final contactName = isWhatsAppMethod ? 'Rafiq Islam' : 'Karim Ahmed';
-    final contactPhone = isWhatsAppMethod ? '01711-222222' : '01711-111111';
+    final scheduledText = WorkQueueMapper.date(item.scheduledAt);
+    final scheduledTime = WorkQueueMapper.time(item.scheduledAt);
+    final overdueNote = item.scheduledAt != null &&
+            item.scheduledAt!.isBefore(DateTime.now()) &&
+            !item.isCompleted
+        ? 'Overdue by ${DateTime.now().difference(item.scheduledAt!).inHours}h'
+        : '';
+    final actions = item.metadata['actions'] is Map
+        ? item.metadata['actions'] as Map
+        : const {};
+    final canComplete = actions['can_complete'] is bool
+        ? actions['can_complete'] == true
+        : !item.isCompleted;
+    final canReschedule = actions['can_reschedule'] is bool
+        ? actions['can_reschedule'] == true
+        : !item.isCompleted;
+    final purpose = item.metadata['purpose']?.toString() ?? item.title;
+    final assigneeName = item.assigneeName ?? 'Unassigned';
+    final assigneeInitials = Employee.initialsFor(assigneeName);
+    final contactName =
+        (contact['name'] ?? lead?.contactName ?? 'Not provided').toString();
+    final contactPhone = (contact['phone'] ?? lead?.phone ?? '').toString();
+    final contactInitials = Employee.initialsFor(contactName);
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -679,7 +717,7 @@ class FollowUpDetailsScreen extends StatelessWidget {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    'Simulated Queue',
+                                    'Scheduled reminder',
                                     style: TextStyle(
                                         fontSize: 10, color: nec.textTertiary),
                                   ),
@@ -701,15 +739,25 @@ class FollowUpDetailsScreen extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
-                              smsStore.recordSimulatedDispatch();
-                              NecToast.show(
-                                context,
-                                message:
-                                    'Simulated Auto-SMS sent to $contactPhone',
-                                type: NecToastType.success,
-                              );
-                            },
+                            onPressed: !smsStore.canManage
+                                ? null
+                                : () async {
+                                    try {
+                                      final message = await smsStore
+                                          .sendTestSms(contactPhone);
+                                      if (!context.mounted) return;
+                                      NecToast.show(context,
+                                          message: message,
+                                          type: NecToastType.success);
+                                    } catch (error) {
+                                      if (!context.mounted) return;
+                                      NecToast.show(context,
+                                          message: error is FormatException
+                                              ? error.message
+                                              : 'Unable to send test SMS.',
+                                          type: NecToastType.error);
+                                    }
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
@@ -827,7 +875,7 @@ class FollowUpDetailsScreen extends StatelessWidget {
                               Container(
                                 width: 5,
                                 height: 5,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: leadStatusColor,
                                   shape: BoxShape.circle,
                                 ),
@@ -835,7 +883,7 @@ class FollowUpDetailsScreen extends StatelessWidget {
                               const SizedBox(width: 5),
                               Text(
                                 leadStatus,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: leadStatusColor,
@@ -852,7 +900,9 @@ class FollowUpDetailsScreen extends StatelessWidget {
                     size: 16,
                     color: nec.textTertiary,
                   ),
-                  onTap: () => context.push('/leads/$leadId'),
+                  onTap: leadId.isEmpty
+                      ? null
+                      : () => context.push('/leads/$leadId'),
                 ),
               ),
               const SizedBox(height: 24),
@@ -861,13 +911,15 @@ class FollowUpDetailsScreen extends StatelessWidget {
                 height: 52,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    NecToast.show(
-                      context,
-                      message: isWhatsAppMethod
-                          ? 'Opening WhatsApp for $contactName...'
-                          : 'Calling $contactName ($contactPhone)...',
-                      type: NecToastType.info,
-                    );
+                    if (contactPhone.isEmpty) return;
+                    if (isWhatsAppMethod) {
+                      launchUrl(
+                          Uri.parse(
+                              'https://wa.me/${contactPhone.replaceAll(RegExp(r'[^0-9]'), '')}'),
+                          mode: LaunchMode.externalApplication);
+                    } else {
+                      PhoneService.call(context, contactPhone);
+                    }
                   },
                   icon: Icon(
                     isWhatsAppMethod
@@ -900,7 +952,9 @@ class FollowUpDetailsScreen extends StatelessWidget {
                     child: SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () => _openCompleteSheet(context, leadName),
+                        onPressed: canComplete
+                            ? () => _openCompleteSheet(context, leadName)
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: nec.surface,
                           elevation: 0,
@@ -927,11 +981,14 @@ class FollowUpDetailsScreen extends StatelessWidget {
                     child: SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () => _openRescheduleSheet(
-                          context,
-                          leadName: leadName,
-                          scheduleText: '$scheduledText · $scheduledTime',
-                        ),
+                        onPressed: canReschedule
+                            ? () => _openRescheduleSheet(
+                                  context,
+                                  leadName: leadName,
+                                  scheduleText:
+                                      '$scheduledText · $scheduledTime',
+                                )
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: nec.surface,
                           elevation: 0,

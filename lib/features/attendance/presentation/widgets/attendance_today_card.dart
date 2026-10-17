@@ -20,7 +20,9 @@ class AttendanceTodayCard extends StatefulWidget {
 
 class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
   Timer? _timer;
-  bool _busy = false;
+  String? _activeAction;
+  final _summaryController = TextEditingController();
+  final _workNotesController = TextEditingController();
 
   @override
   void initState() {
@@ -35,41 +37,158 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
   @override
   void dispose() {
     _timer?.cancel();
+    _summaryController.dispose();
+    _workNotesController.dispose();
     super.dispose();
   }
 
-  Future<void> _act(String action) async {
-    if (_busy) {
+  Future<bool> _confirmCheckOut(BuildContext context, String elapsed) async {
+    final nec = Theme.of(context).extension<NecColors>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: nec.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color:
+                    isDark ? const Color(0xFF382318) : const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                CupertinoIcons.clock_fill,
+                color: Color(0xFFD97706),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Finish Workday?',
+                style: TextStyle(
+                  color: nec.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+            child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your check-out time will be recorded. Are you sure you want to end your workday session?',
+              style: TextStyle(
+                color: nec.textSecondary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _summaryController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                    labelText: 'Workday summary (optional)')),
+            TextField(
+                controller: _workNotesController,
+                maxLines: 2,
+                decoration:
+                    const InputDecoration(labelText: 'Work notes (optional)')),
+            if (elapsed.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      'Time Worked Today:',
+                      style: TextStyle(color: nec.textTertiary, fontSize: 13),
+                    ),
+                    const Spacer(),
+                    Text(
+                      elapsed,
+                      style: TextStyle(
+                        color: nec.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(
+              'Keep Working',
+              style: TextStyle(
+                color: nec.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE11D48),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text(
+              'Check Out',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _act(String action, {String elapsed = ''}) async {
+    if (_activeAction != null) {
       return;
     }
-    final store = AttendanceStore.instance;
     if (action == 'out') {
-      final confirm = await showCupertinoDialog<bool>(
-          context: context,
-          builder: (dialogContext) => CupertinoAlertDialog(
-                  title: const Text('Finish your workday?'),
-                  content: const Text(
-                      'Your check-out time and worked hours will be recorded. You can request a correction if needed.'),
-                  actions: [
-                    CupertinoDialogAction(
-                        onPressed: () => Navigator.pop(dialogContext, false),
-                        child: const Text('Keep Working')),
-                    CupertinoDialogAction(
-                        isDefaultAction: true,
-                        onPressed: () => Navigator.pop(dialogContext, true),
-                        child: const Text('Check Out'))
-                  ]));
-      if (!mounted || confirm != true) {
+      final confirm = await _confirmCheckOut(context, elapsed);
+      if (!mounted || !confirm) {
         return;
       }
     }
-    setState(() => _busy = true);
+    setState(() => _activeAction = action);
     try {
+      final store = AttendanceStore.instance;
       switch (action) {
         case 'in':
           await store.checkIn(widget.employeeId);
         case 'out':
-          await store.checkOut(widget.employeeId);
+          await store.checkOut(widget.employeeId,
+              summary: _summaryController.text.trim(),
+              workNotes: _workNotesController.text.trim());
         case 'break':
           await store.toggleBreak(widget.employeeId);
       }
@@ -87,7 +206,7 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
       }
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() => _activeAction = null);
       }
     }
   }
@@ -198,14 +317,17 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
               child: NecButton(
                   label: active.onBreak ? 'Resume Work' : 'Start Break',
                   variant: NecButtonVariant.tertiary,
-                  loading: _busy,
-                  onPressed: () => _act('break'))),
+                  loading: _activeAction == 'break',
+                  onPressed:
+                      _activeAction != null ? null : () => _act('break'))),
           const SizedBox(width: 12),
           Expanded(
               child: NecButton(
                   label: 'Check Out',
-                  loading: _busy,
-                  onPressed: () => _act('out')))
+                  loading: _activeAction == 'out',
+                  onPressed: _activeAction != null
+                      ? null
+                      : () => _act('out', elapsed: elapsed)))
         ])
       else
         NecButton(
@@ -217,8 +339,9 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
                         ? 'Marked Absent'
                         : 'Check In',
             fullWidth: true,
-            loading: _busy,
-            onPressed: canCheckIn ? () => _act('in') : null,
+            loading: _activeAction == 'in',
+            onPressed:
+                canCheckIn && _activeAction == null ? () => _act('in') : null,
             icon: const Icon(CupertinoIcons.arrow_right_circle,
                 size: 20, color: Colors.white)),
       const SizedBox(height: 10),

@@ -5,6 +5,8 @@ import 'shell_safe_router.dart';
 import 'app_navigation.dart';
 import '../../features/messages/presentation/messages_screen.dart';
 import '../../features/messages/presentation/conversation_screen.dart';
+import '../../features/messages/presentation/group_conversation_screen.dart';
+import '../../features/messages/presentation/group_chat_details_screen.dart';
 import '../services/demo_session.dart';
 import '../../features/team/data/employee_store.dart';
 import '../../features/settings/presentation/change_password_screen.dart';
@@ -14,6 +16,8 @@ import '../../features/settings/presentation/staff_access_screen.dart';
 
 import '../../features/audit/presentation/audit_detail_screen.dart';
 import '../../features/audit/presentation/audit_logs_screen.dart';
+import '../../features/certificates/presentation/admin_certificates_screen.dart';
+import '../../features/certificates/presentation/employee_certificates_screen.dart';
 import '../../features/meals/presentation/meal_screen.dart';
 import '../../features/attendance/presentation/attendance_screen.dart';
 import '../../features/attendance/presentation/attendance_admin_screen.dart';
@@ -31,6 +35,7 @@ import '../../features/more/presentation/activity_screen.dart';
 import '../../features/more/presentation/follow_up_details_screen.dart';
 import '../../features/more/presentation/follow_ups_screen.dart';
 import '../../features/more/presentation/issues_screen.dart';
+import '../../features/more/presentation/issue_details_screen.dart';
 import '../../features/more/presentation/more_screen.dart';
 import '../../features/more/presentation/notifications_screen.dart';
 import '../../features/more/presentation/search_screen.dart';
@@ -53,6 +58,7 @@ import '../../features/settings/presentation/lead_statuses_screen.dart';
 import '../../features/settings/presentation/lost_reasons_screen.dart';
 import '../../features/settings/presentation/module_manager_screen.dart';
 import '../../features/settings/presentation/new_role_screen.dart';
+import '../../features/settings/data/user_settings_store.dart';
 import '../../features/settings/presentation/notification_preferences_screen.dart';
 import '../../features/settings/presentation/operations_settings_screen.dart';
 import '../../features/settings/presentation/task_settings_screen.dart';
@@ -62,6 +68,7 @@ import '../../features/settings/presentation/profile_screen.dart';
 import '../../features/settings/presentation/edit_profile_screen.dart';
 import '../../features/settings/presentation/role_details_screen.dart';
 import '../../features/settings/presentation/role_permissions_screen.dart';
+import '../../features/settings/presentation/permission_catalog_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/system_settings_screen.dart';
 import '../../features/shell/presentation/shell_screen.dart';
@@ -84,6 +91,12 @@ final GlobalKey<NavigatorState> _shellNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'shell');
 
 Page<dynamic> _buildPage(GoRouterState state, Widget child) {
+  if (UserSettingsStore.instance.reduceMotion) {
+    return NoTransitionPage<dynamic>(
+      key: state.pageKey,
+      child: child,
+    );
+  }
   return MaterialPage<dynamic>(
     key: state.pageKey,
     child: child,
@@ -114,9 +127,14 @@ String? _redirectLocation(String location) {
     '/password-reset-success',
   };
   if (publicPaths.contains(path)) {
-    return path == '/login' && DemoSession.instance.signedIn ? '/home' : null;
+    return path == '/login' && DemoSession.instance.signedIn
+        ? UserSettingsStore.instance.defaultViewRoute
+        : null;
   }
   if (!DemoSession.instance.signedIn) return '/login';
+  if (DemoSession.instance.mustChangePassword && path != '/change-password') {
+    return '/change-password';
+  }
   if (path.startsWith('/employee/') &&
       path.endsWith('/password') &&
       !DemoSession.instance.isAdmin) {
@@ -124,6 +142,7 @@ String? _redirectLocation(String location) {
   }
   if (path == '/employee/${DemoSession.instance.employeeId}') return '/profile';
   if (DemoSession.instance.isAdmin) {
+    if (path == '/edit-profile') return '/profile';
     if (path == '/attendance') return '/attendance/admin';
     if (path == '/meals') return '/meals/admin';
     if (path.startsWith('/attendance/employee/') &&
@@ -160,6 +179,11 @@ Widget? _stackedScreen(Uri destination) {
     '/task-settings' => const TaskSettingsScreen(),
     '/issue-settings' => const IssueSettingsScreen(),
     '/audit-logs' => const AuditLogsScreen(),
+    '/certificates' => DemoSession.instance.isAdmin
+        ? const AdminCertificatesScreen()
+        : const EmployeeCertificatesScreen(),
+    '/certificates/admin' => const AdminCertificatesScreen(),
+    '/certificates/my' => const EmployeeCertificatesScreen(),
     '/system-settings' => const SystemSettingsScreen(),
     '/system-settings/organization' => const OrganizationInformationScreen(),
     '/leads' =>
@@ -190,8 +214,11 @@ class _StackedTabScreen extends StatelessWidget {
 final GoRouter appRouter = ShellSafeRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
-  refreshListenable:
-      Listenable.merge([DemoSession.instance, StaffAccessStore.instance]),
+  refreshListenable: Listenable.merge([
+    DemoSession.instance,
+    StaffAccessStore.instance,
+    UserSettingsStore.instance,
+  ]),
   redirect: (context, state) => _redirectLocation(state.uri.toString()),
   resolveLocation: (location) => _redirectLocation(location) ?? location,
   routes: [
@@ -229,6 +256,18 @@ final GoRouter appRouter = ShellSafeRouter(
         state,
         ConversationScreen(employeeId: state.pathParameters['id'] ?? ''),
       ),
+    ),
+    GoRoute(
+      path: '/message-groups/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(state,
+          GroupConversationScreen(groupId: state.pathParameters['id'] ?? '')),
+    ),
+    GoRoute(
+      path: '/message-groups/:id/details',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(state,
+          GroupChatDetailsScreen(groupId: state.pathParameters['id'] ?? '')),
     ),
     GoRoute(
         path: '/staff-access',
@@ -330,6 +369,25 @@ final GoRouter appRouter = ShellSafeRouter(
                   employeeId: state.pathParameters['id'] ?? '',
                   initialMonth: DateTime.tryParse(
                       state.uri.queryParameters['month'] ?? ''))),
+        ),
+        GoRoute(
+          path: '/certificates',
+          pageBuilder: (context, state) => _buildPage(
+            state,
+            DemoSession.instance.isAdmin
+                ? const AdminCertificatesScreen()
+                : const EmployeeCertificatesScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/certificates/admin',
+          pageBuilder: (context, state) =>
+              _buildPage(state, const AdminCertificatesScreen()),
+        ),
+        GoRoute(
+          path: '/certificates/my',
+          pageBuilder: (context, state) =>
+              _buildPage(state, const EmployeeCertificatesScreen()),
         ),
         GoRoute(
           path: '/home',
@@ -526,6 +584,11 @@ final GoRouter appRouter = ShellSafeRouter(
           _buildPage(state, const RolePermissionsScreen()),
     ),
     GoRoute(
+        path: '/permission-catalog',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) =>
+            _buildPage(state, const PermissionCatalogScreen())),
+    GoRoute(
       path: '/role-details/:id',
       parentNavigatorKey: _rootNavigatorKey,
       pageBuilder: (context, state) => _buildPage(
@@ -627,7 +690,10 @@ final GoRouter appRouter = ShellSafeRouter(
     GoRoute(
       path: '/team',
       parentNavigatorKey: _rootNavigatorKey,
-      pageBuilder: (context, state) => _buildPage(state, const TeamScreen()),
+      pageBuilder: (context, state) => _buildPage(
+        state,
+        TeamScreen(initialTab: state.uri.queryParameters['tab']),
+      ),
     ),
     GoRoute(
       path: '/department/:id',
@@ -710,6 +776,12 @@ final GoRouter appRouter = ShellSafeRouter(
       path: '/issues',
       parentNavigatorKey: _rootNavigatorKey,
       pageBuilder: (context, state) => _buildPage(state, const IssuesScreen()),
+    ),
+    GoRoute(
+      path: '/issues/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => _buildPage(
+          state, IssueDetailsScreen(issueId: state.pathParameters['id'] ?? '')),
     ),
     GoRoute(
       path: '/report-issue',

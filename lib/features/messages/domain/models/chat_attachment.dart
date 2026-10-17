@@ -15,13 +15,15 @@ class ChatAttachment {
   final int size;
   final bool isImage;
   final String? inlineData;
+  final String? url;
 
   const ChatAttachment(
       {required this.id,
       required this.name,
       required this.size,
       required this.isImage,
-      this.inlineData});
+      this.inlineData,
+      this.url});
 
   String get sizeLabel => size < 1024
       ? '$size B'
@@ -34,7 +36,8 @@ class ChatAttachment {
         'name': name,
         'size': size,
         'isImage': isImage,
-        if (inlineData != null) 'inlineData': inlineData
+        if (inlineData != null) 'inlineData': inlineData,
+        if (url != null) 'url': url,
       };
 
   factory ChatAttachment.fromJson(Map<String, dynamic> json) {
@@ -43,7 +46,8 @@ class ChatAttachment {
         name: json['name'] as String,
         size: json['size'] as int,
         isImage: json['isImage'] as bool,
-        inlineData: json['inlineData'] as String?);
+        inlineData: json['inlineData'] as String?,
+        url: json['url'] as String?);
     if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(item.id) ||
         item.size < 0 ||
         item.name.isEmpty) {

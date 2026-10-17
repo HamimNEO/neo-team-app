@@ -1,21 +1,20 @@
-import '../../../../core/router/app_navigation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class TeamWorkOverviewCard extends StatelessWidget {
-  final int activeLeads;
-  final int followUpsDue;
-  final int visitsToday;
-  final int openTasks;
+  final int? activeLeads;
+  final int? followUpsDue;
+  final int? visitsToday;
+  final int? openTasks;
 
   const TeamWorkOverviewCard({
     super.key,
-    this.activeLeads = 10,
-    this.followUpsDue = 5,
-    this.visitsToday = 1,
-    this.openTasks = 6,
+    this.activeLeads,
+    this.followUpsDue,
+    this.visitsToday,
+    this.openTasks,
   });
 
   Widget _buildRowItem({
@@ -103,34 +102,31 @@ class TeamWorkOverviewCard extends StatelessWidget {
             icon: CupertinoIcons.person_2,
             iconColor: AppColors.brandLight,
             title: 'Active Leads',
-            valueText: '$activeLeads',
+            valueText: activeLeads?.toString() ?? '—',
             valueColor: AppColors.brandLight,
-            onTap: () => context.pushAppRoute('/leads'),
           ),
           _buildRowItem(
             context: context,
             icon: CupertinoIcons.arrow_turn_down_left,
             iconColor: AppColors.warning,
             title: 'Follow-ups Due',
-            valueText: '$followUpsDue',
+            valueText: followUpsDue?.toString() ?? '—',
             valueColor: AppColors.warning,
-            onTap: () => context.pushAppRoute('/follow-ups'),
           ),
           _buildRowItem(
             context: context,
             icon: CupertinoIcons.house_fill,
             iconColor: AppColors.leadVisit,
             title: 'Visits Today',
-            valueText: '$visitsToday',
+            valueText: visitsToday?.toString() ?? '—',
             valueColor: AppColors.leadVisit,
-            onTap: () => context.pushAppRoute('/visits'),
           ),
           _buildRowItem(
             context: context,
             icon: CupertinoIcons.checkmark_rectangle,
             iconColor: AppColors.leadContacted,
             title: 'Open Tasks',
-            valueText: '$openTasks',
+            valueText: openTasks?.toString() ?? '—',
             valueColor: AppColors.leadContacted,
             showDivider: false,
           ),

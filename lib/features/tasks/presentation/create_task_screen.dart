@@ -1,3 +1,4 @@
+import '../../more/data/work_queue_mapper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +10,11 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_button.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../team/data/employee_store.dart';
+import '../data/work_item_store.dart';
 import 'widgets/task_assign_sheet.dart';
 import 'widgets/task_related_sheet.dart';
+import '../../leads/data/lead_store.dart';
+import '../../more/presentation/widgets/select_lead_sheet.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   final String? taskId;
@@ -33,6 +37,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   String _assignedTo = 'None';
   String _relatedTo = 'None';
   String? _attachedFileName;
+  String? _leadId;
+  String? _ownerId;
 
   final priorities = ['Low', 'Normal', 'High', 'Urgent'];
   final dueDates = ['Today', 'Tomorrow', 'Next Week', 'No Due Date'];
@@ -41,14 +47,28 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   void initState() {
     super.initState();
     if (widget.taskId != null) {
-      _titleController.text = 'Prepare Blue Wave Resort demo';
-      _descController.text =
-          'Create product demo presentation for the upcoming meeting with Blue Wave Resort management team.';
-      _selectedPriority = 'High';
-      _selectedDueDate = 'Today';
-      _assignedTo = 'Most. Shahina Akter';
-      _relatedTo = 'Lead';
-      _attachedFileName = 'demo_presentation.pdf';
+      final existing = WorkItemStore.instance.byId(widget.taskId!);
+      if (existing != null) {
+        _titleController.text = existing.title;
+        _descController.text = existing.details ?? '';
+        _selectedPriority = existing.priority.toLowerCase() == 'high'
+            ? 'High'
+            : (existing.priority.toLowerCase() == 'urgent'
+                ? 'Urgent'
+                : (existing.priority.toLowerCase() == 'low'
+                    ? 'Low'
+                    : 'Normal'));
+        _assignedTo = existing.assigneeName ?? 'None';
+        _ownerId = existing.assigneeEmployeeId;
+        _leadId = existing.leadId;
+        _relatedTo = existing.leadId != null ? 'Lead' : 'Internal';
+        _selectedDueDate = existing.scheduledAt
+                ?.toLocal()
+                .toIso8601String()
+                .split('T')
+                .first ??
+            'No Due Date';
+      }
     } else if (!DemoSession.instance.isAdmin) {
       _assignedTo = EmployeeStore.instance.currentEmployee.name;
     }
@@ -79,26 +99,47 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         onSelected: (val) {
           setState(() {
             _assignedTo = val;
+            _ownerId = EmployeeStore.instance.employees
+                .where((e) => e.name == val)
+                .firstOrNull
+                ?.id;
           });
         },
       ),
     );
   }
 
-  void _openRelatedSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => TaskRelatedSheet(
-        selectedRelated: _relatedTo,
-        onSelected: (val) {
-          setState(() {
-            _relatedTo = val;
-          });
-        },
-      ),
-    );
+  Future<void> _openRelatedSheet() async {
+    String? selected;
+    await showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => TaskRelatedSheet(
+            selectedRelated: _relatedTo, onSelected: (val) => selected = val));
+    if (!mounted || selected == null) return;
+    if (selected == 'Lead') {
+      final name = await showModalBottomSheet<String>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => SelectLeadSheet(
+              currentLeadName:
+                  LeadStore.instance.byId(_leadId ?? '')?.company));
+      if (!mounted || name == null) return;
+      final lead =
+          LeadStore.instance.leads.where((l) => l.company == name).firstOrNull;
+      if (lead == null) return;
+      setState(() {
+        _relatedTo = 'Lead';
+        _leadId = lead.id;
+      });
+    } else {
+      setState(() {
+        _relatedTo = selected!;
+        _leadId = null;
+      });
+    }
   }
 
   void _pickAttachment() {
@@ -634,8 +675,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               padding: const EdgeInsets.all(16),
               child: NecButton(
                 label: isEditMode ? 'Save Changes' : 'Create Task',
-                onPressed: () {
-                  if (_titleController.text.trim().isEmpty) {
+                onPressed: () async {
+                  final title = _titleController.text.trim();
+                  if (title.isEmpty) {
                     NecToast.show(
                       context,
                       message: 'Please enter a task title',
@@ -643,14 +685,68 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     );
                     return;
                   }
-                  context.pop();
-                  NecToast.show(
-                    context,
-                    message: isEditMode
-                        ? 'Task updated successfully'
-                        : 'Task created successfully',
-                    type: NecToastType.success,
-                  );
+                  try {
+                    final priority = _selectedPriority == 'Normal'
+                        ? 'medium'
+                        : _selectedPriority.toLowerCase();
+                    final employee = EmployeeStore.instance.employees
+                        .where((e) => e.name == _assignedTo)
+                        .firstOrNull;
+                    final due = _selectedDueDate == 'No Due Date'
+                        ? null
+                        : WorkQueueMapper.scheduled(
+                            _selectedDueDate, '11:59 PM');
+                    final common = <String, dynamic>{
+                      'title': title,
+                      'priority': priority,
+                      'scheduled_at': due?.toIso8601String(),
+                      if (['Today', 'Tomorrow', 'Next Week', 'No Due Date']
+                          .contains(_selectedDueDate))
+                        'due_preset': switch (_selectedDueDate) {
+                          'Today' => 'today',
+                          'Tomorrow' => 'tomorrow',
+                          'Next Week' => 'next_week',
+                          _ => 'none'
+                        },
+                      'description': _descController.text.trim(),
+                      'details': {'description': _descController.text.trim()},
+                      'related_to': _relatedTo == 'None'
+                          ? 'internal'
+                          : _relatedTo.toLowerCase(),
+                      'lead_id':
+                          _leadId == null ? null : int.tryParse(_leadId!),
+                      'assignee_employee_id': employee != null
+                          ? int.tryParse(employee.backendId ?? '')
+                          : _ownerId == null
+                              ? null
+                              : int.tryParse(
+                                  _ownerId!.replaceFirst('api_emp_', ''))
+                    };
+                    if (isEditMode) {
+                      await WorkItemStore.instance
+                          .update(widget.taskId!, common);
+                    } else {
+                      await WorkItemStore.instance
+                          .create({'type': 'task', ...common});
+                    }
+                    if (!context.mounted) return;
+                    context.pop();
+                    NecToast.show(
+                      context,
+                      message: isEditMode
+                          ? 'Task updated successfully'
+                          : 'Task created successfully',
+                      type: NecToastType.success,
+                    );
+                  } catch (e) {
+                    if (context.mounted) {
+                      NecToast.show(
+                        context,
+                        message: WorkItemStore.messageFor(e),
+                        type: NecToastType.error,
+                      );
+                    }
+                  }
                 },
                 fullWidth: true,
               ),

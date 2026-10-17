@@ -5,6 +5,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
 import '../../domain/models/employee.dart';
+import '../../data/employee_store.dart';
+import 'department_navigation.dart';
 
 class EmployeeOverviewTab extends StatelessWidget {
   final Employee employee;
@@ -179,7 +181,8 @@ class EmployeeOverviewTab extends StatelessWidget {
                       color: nec.textPrimary,
                     ),
                   ),
-                  onTap: () => context.push('/department/marketing'),
+                  onTap: () =>
+                      openDepartmentByName(context, employee.department),
                 ),
                 _buildRowItem(
                   context: context,
@@ -192,7 +195,10 @@ class EmployeeOverviewTab extends StatelessWidget {
                       color: nec.textPrimary,
                     ),
                   ),
-                  onTap: () => context.push('/team-details/marketing_team'),
+                  onTap: employee.team.isEmpty
+                      ? null
+                      : () => context.push(
+                          '/team-details/${Uri.encodeComponent(employee.team)}'),
                 ),
                 if (employee.reportsTo != null)
                   _buildRowItem(
@@ -202,7 +208,16 @@ class EmployeeOverviewTab extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         NecAvatar(
-                          initials: employee.reportsToAvatar ?? 'MH',
+                          initials: employee.reportsToAvatar ??
+                              Employee.initialsFor(employee.reportsTo!),
+                          photoUrl: EmployeeStore.instance
+                              .byId(employee.reportsToId ?? '')
+                              ?.photoUrl,
+                          assetPath: employee.reportsToId == null
+                              ? null
+                              : EmployeeStore.instance
+                                  .byId(employee.reportsToId!)
+                                  ?.avatarAsset,
                           size: 26,
                         ),
                         const SizedBox(width: 8),
@@ -297,6 +312,11 @@ class EmployeeOverviewTab extends StatelessWidget {
                         ),
                         leading: NecAvatar(
                           initials: report.avatarInitials,
+                          photoUrl:
+                              EmployeeStore.instance.byId(report.id)?.photoUrl,
+                          assetPath: EmployeeStore.instance
+                              .byId(report.id)
+                              ?.avatarAsset,
                           size: 38,
                         ),
                         title: Text(

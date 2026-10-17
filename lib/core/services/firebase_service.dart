@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -11,17 +13,43 @@ class FirebaseService {
   static final FirebaseService instance = FirebaseService._();
 
   FirebaseAnalytics? _analytics;
+  Future<void>? _initializing;
+  Timer? _retry;
+  int _attempts = 0;
 
   FirebaseAnalytics? get analytics => _analytics;
 
   /// Initializes Firebase, Crashlytics, Analytics, and Notifications
-  Future<void> initialize() async {
+  Future<void> initialize() => _initializing ??= _initialize();
+
+  Future<void> _initialize() async {
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
       debugPrint('[FirebaseService] Firebase initialized successfully');
 
+      await NotificationService.instance.initialize();
+      _retry?.cancel();
+      _attempts = 0;
+    } catch (error) {
+      _initializing = null;
+      final code = error is FirebaseException ? error.code : 'initialization';
+      debugPrint('[FirebaseService] Push initialization failed ($code).');
+      NotificationService.instance.status.value =
+          'Unable to connect notifications. Retrying…';
+      if (_attempts < 6 && !(_retry?.isActive ?? false)) {
+        final seconds = 5 * (1 << _attempts++);
+        _retry = Timer(Duration(seconds: seconds > 120 ? 120 : seconds), () {
+          initialize().ignore();
+        });
+      }
+      return;
+    }
+
+    try {
       _analytics = FirebaseAnalytics.instance;
 
       if (!kIsWeb) {
@@ -36,10 +64,8 @@ class FirebaseService {
         await FirebaseCrashlytics.instance
             .setCrashlyticsCollectionEnabled(!kDebugMode);
       }
-
-      await NotificationService.instance.initialize();
-    } catch (e, stack) {
-      debugPrint('[FirebaseService] Initialization failed: $e\n$stack');
+    } catch (_) {
+      debugPrint('[FirebaseService] Optional analytics setup unavailable.');
     }
   }
 

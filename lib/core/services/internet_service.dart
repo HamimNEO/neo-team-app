@@ -23,11 +23,12 @@ class InternetService extends ChangeNotifier {
 
   bool get isConnected => _state == InternetConnectionState.connected;
 
+  bool get isDisconnected => _state == InternetConnectionState.disconnected;
+
   bool get isChecking => _checking;
 
   void start() {
     if (_subscription != null) return;
-    _state = InternetConnectionState.checking;
     _subscription = _connection.onStatusChange.listen(
       (status) {
         _revision++;
@@ -49,7 +50,7 @@ class InternetService extends ChangeNotifier {
     var connected = false;
     try {
       connected = await _connection.hasInternetAccess.timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: 4),
       );
     } catch (_) {
       connected = false;

@@ -59,25 +59,11 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
     }
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _hasError = false;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 1000));
-    if (!mounted) return;
-
-    setState(() {
       _isLoading = false;
+      _hasError = true;
+      _errorMessage =
+          'Password reset is not available yet. Contact your administrator.';
     });
-
-    NecToast.show(
-      context,
-      message: 'Password reset successfully!',
-      type: NecToastType.success,
-    );
-
-    context.go('/password-reset-success');
   }
 
   @override

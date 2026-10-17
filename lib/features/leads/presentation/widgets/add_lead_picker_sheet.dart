@@ -143,6 +143,7 @@ class _AddLeadPickerSheetState extends State<AddLeadPickerSheet> {
                       final label = item['label'] as String;
                       final value = item['value'] as String? ?? label;
                       final subtitle = item['subtitle'] as String?;
+                      final avatar = item['avatar'] as Widget?;
                       final icon = item['icon'] as IconData?;
                       final iconColor = item['color'] as Color?;
                       final emoji = item['emoji'] as String?;
@@ -173,7 +174,10 @@ class _AddLeadPickerSheetState extends State<AddLeadPickerSheet> {
                                   horizontal: 8, vertical: 14),
                               child: Row(
                                 children: [
-                                  if (icon != null) ...[
+                                  if (avatar != null) ...[
+                                    avatar,
+                                    const SizedBox(width: 12)
+                                  ] else if (icon != null) ...[
                                     Container(
                                       width: 32,
                                       height: 32,

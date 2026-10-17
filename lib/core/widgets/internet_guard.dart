@@ -24,6 +24,8 @@ class _InternetGuardState extends State<InternetGuard>
   bool _wasConnected = false;
   bool _didConnect = false;
 
+  bool get _blocked => _internet.isDisconnected;
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +35,8 @@ class _InternetGuardState extends State<InternetGuard>
   }
 
   void _handleConnection() {
-    if (_wasConnected && !_internet.isConnected) {
+    if (_internet.state == InternetConnectionState.checking) return;
+    if (_wasConnected && _internet.isDisconnected) {
       FocusManager.instance.primaryFocus?.unfocus();
     }
     _wasConnected = _internet.isConnected;
@@ -60,7 +63,7 @@ class _InternetGuardState extends State<InternetGuard>
   }
 
   @override
-  Future<bool> didPopRoute() async => !_internet.isConnected;
+  Future<bool> didPopRoute() async => _blocked;
 
   @override
   void dispose() {
@@ -75,7 +78,7 @@ class _InternetGuardState extends State<InternetGuard>
     return ListenableBuilder(
       listenable: _internet,
       builder: (context, _) {
-        final blocked = !_internet.isConnected;
+        final blocked = _blocked;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -88,8 +91,7 @@ class _InternetGuardState extends State<InternetGuard>
             ),
             if (blocked)
               NoInternetScreen(
-                initialCheck:
-                    _internet.state == InternetConnectionState.checking,
+                initialCheck: false,
                 isChecking: _internet.isChecking,
                 onRetry: _internet.recheck,
               ),

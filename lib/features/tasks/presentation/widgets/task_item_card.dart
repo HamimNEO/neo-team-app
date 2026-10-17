@@ -14,7 +14,9 @@ class TaskItemCard extends StatelessWidget {
   final String assigneeInitials;
   final String assigneeName;
   final bool isCompleted;
+  final String? status;
   final ValueChanged<bool?>? onToggle;
+  final ValueChanged<String>? onStatusChange;
   final VoidCallback onTap;
 
   const TaskItemCard({
@@ -28,7 +30,9 @@ class TaskItemCard extends StatelessWidget {
     required this.assigneeInitials,
     required this.assigneeName,
     this.isCompleted = false,
+    this.status,
     this.onToggle,
+    this.onStatusChange,
     required this.onTap,
   });
 
@@ -92,36 +96,40 @@ class TaskItemCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      if (relatedText != null) ...[
+                      if (relatedText?.isNotEmpty == true) ...[
                         Icon(
                           CupertinoIcons.person_2,
                           size: 13,
                           color: nec.brand,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          relatedText!,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            color: nec.brand,
+                        Flexible(
+                          child: Text(
+                            relatedText!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: nec.brand,
+                            ),
                           ),
                         ),
-                        Text(
-                          ' · ',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: nec.textTertiary,
-                          ),
-                        ),
+                        if (subtitle.isNotEmpty)
+                          Text(' · ',
+                              style: TextStyle(
+                                  fontSize: 12.5, color: nec.textTertiary)),
                       ],
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: nec.textTertiary,
+                      if (subtitle.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12.5, color: nec.textTertiary),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -149,14 +157,117 @@ class TaskItemCard extends StatelessWidget {
                         size: 18,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        assigneeName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: nec.textSecondary,
+                      Expanded(
+                        child: Text(
+                          assigneeName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: nec.textSecondary,
+                          ),
                         ),
                       ),
+                      if (status != null) ...[
+                        const SizedBox(width: 8),
+                        if (status == 'to_do' && onStatusChange != null)
+                          InkWell(
+                            onTap: () => onStatusChange!('in_progress'),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF5856D6)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFF5856D6)
+                                      .withValues(alpha: 0.35),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(CupertinoIcons.play_fill,
+                                      size: 9, color: Color(0xFF5856D6)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'In Progress',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF5856D6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (status == 'in_progress' &&
+                            onStatusChange != null)
+                          InkWell(
+                            onTap: () => onStatusChange!('to_do'),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF9500)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFFFF9500)
+                                      .withValues(alpha: 0.35),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(CupertinoIcons.flame_fill,
+                                      size: 10, color: Color(0xFFFF9500)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'In Progress',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFFF9500),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (isCompleted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(CupertinoIcons.checkmark_alt,
+                                    size: 11, color: AppColors.success),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Done',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ],
                   ),
                 ],

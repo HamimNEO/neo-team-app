@@ -34,18 +34,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-
-    setState(() {
       _isLoading = false;
+      _errorMessage =
+          'Password reset is not available yet. Contact your administrator.';
     });
-
-    context.push('/otp-verification?email=${Uri.encodeComponent(email)}');
   }
 
   @override

@@ -24,6 +24,25 @@ class AttendanceMonthView extends StatefulWidget {
 
 class _AttendanceMonthViewState extends State<AttendanceMonthView> {
   late DateTime _month;
+  String? _remoteError;
+
+  Future<void> _fetchMonth() async {
+    try {
+      await AttendanceStore.instance.loadMonth(widget.employeeId, _month);
+      if (mounted) setState(() => _remoteError = null);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _remoteError = e is FormatException
+            ? e.message
+            : 'Attendance history could not be loaded.');
+      }
+    }
+  }
+
+  void _setMonth(DateTime month) {
+    setState(() => _month = month);
+    _fetchMonth();
+  }
 
   @override
   void initState() {
@@ -34,6 +53,7 @@ class _AttendanceMonthViewState extends State<AttendanceMonthView> {
             ? AttendanceClock.today
             : candidate;
     _month = DateTime.utc(today.year, today.month);
+    _fetchMonth();
   }
 
   @override
@@ -57,13 +77,16 @@ class _AttendanceMonthViewState extends State<AttendanceMonthView> {
     final first = _month.weekday % 7;
     final weeks = ((first + days.length) / 7).ceil();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (_remoteError != null) ...[
+        Text(_remoteError!, style: const TextStyle(color: Colors.red)),
+        TextButton(onPressed: _fetchMonth, child: const Text('Retry history'))
+      ],
       Row(children: [
         IconButton(
             tooltip: 'Previous month',
             onPressed: _month.year <= 2000 && _month.month == 1
                 ? null
-                : () => setState(
-                    () => _month = DateTime.utc(_month.year, _month.month - 1)),
+                : () => _setMonth(DateTime.utc(_month.year, _month.month - 1)),
             icon:
                 Icon(CupertinoIcons.chevron_left, color: nec.brand, size: 20)),
         Expanded(
@@ -72,8 +95,7 @@ class _AttendanceMonthViewState extends State<AttendanceMonthView> {
                 onPressed: () async {
                   final date = await pickAttendanceDate(context, _month);
                   if (mounted && date != null) {
-                    setState(
-                        () => _month = DateTime.utc(date.year, date.month));
+                    _setMonth(DateTime.utc(date.year, date.month));
                   }
                 },
                 child: Text(DateFormat('MMMM yyyy').format(_month),
@@ -86,8 +108,7 @@ class _AttendanceMonthViewState extends State<AttendanceMonthView> {
             onPressed: _month.year >= AttendanceClock.today.year + 3 &&
                     _month.month == 12
                 ? null
-                : () => setState(
-                    () => _month = DateTime.utc(_month.year, _month.month + 1)),
+                : () => _setMonth(DateTime.utc(_month.year, _month.month + 1)),
             icon:
                 Icon(CupertinoIcons.chevron_right, color: nec.brand, size: 20))
       ]),

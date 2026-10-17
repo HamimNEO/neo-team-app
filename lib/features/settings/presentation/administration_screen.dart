@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_navigation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/admin_settings_store.dart';
 
 class AdministrationScreen extends StatefulWidget {
   const AdministrationScreen({super.key});
@@ -18,6 +19,8 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
   @override
   void initState() {
     super.initState();
+    AdminSettingsStore.instance.addListener(_refresh);
+    AdminSettingsStore.instance.loadAll();
     _searchController.addListener(() {
       setState(() {});
     });
@@ -25,8 +28,20 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
 
   @override
   void dispose() {
+    AdminSettingsStore.instance.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  String _summarySubtitle(String key, String fallback) {
+    final response = AdminSettingsStore.instance.summary;
+    final counts = response?['summary'] ?? response?['counts'] ?? response;
+    final value = counts is Map ? counts[key] : null;
+    return value is int ? '$value $key · $fallback' : fallback;
   }
 
   @override
@@ -106,6 +121,12 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
                 nec: nec,
               ),
               const SizedBox(height: 20),
+              if (AdminSettingsStore.instance.summaryError != null)
+                ListTile(
+                    title: Text(AdminSettingsStore.instance.summaryError!),
+                    trailing: TextButton(
+                        onPressed: AdminSettingsStore.instance.loadAll,
+                        child: const Text('Retry'))),
               if (_matchesSection(query, [
                 'employees',
                 'departments',
@@ -146,8 +167,9 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
                         icon: CupertinoIcons.person_2_fill,
                         iconColor: const Color(0xFF5856D6),
                         title: 'Employees',
-                        subtitle: 'Manage employee accounts and access',
-                        onTap: () => context.push('/team'),
+                        subtitle: _summarySubtitle(
+                            'employees', 'Manage employee accounts and access'),
+                        onTap: () => context.push('/team?tab=Employees'),
                       ),
                     if (_matchesItem(
                         query, 'departments', 'organize company departments'))
@@ -155,16 +177,18 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
                         icon: CupertinoIcons.briefcase_fill,
                         iconColor: const Color(0xFF30B0C7),
                         title: 'Departments',
-                        subtitle: 'Organize company departments',
-                        onTap: () => context.push('/departments'),
+                        subtitle: _summarySubtitle(
+                            'departments', 'Organize company departments'),
+                        onTap: () => context.push('/team?tab=Departments'),
                       ),
                     if (_matchesItem(query, 'teams', 'reporting structure'))
                       AdminRowItem(
                         icon: CupertinoIcons.person_3_fill,
                         iconColor: AppColors.brandLight,
                         title: 'Teams',
-                        subtitle: 'Manage teams and reporting structure',
-                        onTap: () => context.push('/team'),
+                        subtitle: _summarySubtitle(
+                            'teams', 'Manage teams and reporting structure'),
+                        onTap: () => context.push('/team?tab=Teams'),
                       ),
                   ],
                 ),
@@ -179,7 +203,8 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
                       icon: CupertinoIcons.shield_fill,
                       iconColor: const Color(0xFFAF52DE),
                       title: 'Roles & Permissions',
-                      subtitle: 'Configure what each role can access',
+                      subtitle: _summarySubtitle(
+                          'roles', 'Configure what each role can access'),
                       onTap: () => context.push('/role-permissions'),
                     ),
                   ],

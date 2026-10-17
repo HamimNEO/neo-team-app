@@ -8,7 +8,7 @@ import '../../domain/models/employee.dart';
 
 class EmployeePhotoField extends StatefulWidget {
   final String name;
-  final String? photoBase64;
+  final String? photoBase64, photoUrl;
   final ValueChanged<String?> onChanged;
   final ValueChanged<bool>? onBusyChanged;
 
@@ -16,6 +16,7 @@ class EmployeePhotoField extends StatefulWidget {
       {super.key,
       required this.name,
       required this.photoBase64,
+      this.photoUrl,
       required this.onChanged,
       this.onBusyChanged});
 
@@ -28,7 +29,7 @@ class _EmployeePhotoFieldState extends State<EmployeePhotoField> {
 
   Future<void> _choose() async {
     final source = await EmployeePhotoPicker.chooseSource(context,
-        hasPhoto: widget.photoBase64 != null);
+        hasPhoto: widget.photoBase64 != null && widget.photoUrl == null);
     if (source == null || !mounted) return;
     if (source == EmployeePhotoSource.remove) {
       widget.onChanged(null);
@@ -69,7 +70,8 @@ class _EmployeePhotoFieldState extends State<EmployeePhotoField> {
                 initials: Employee.initialsFor(widget.name),
                 size: 88,
                 backgroundColor: nec.brand,
-                photoBase64: widget.photoBase64),
+                photoBase64: widget.photoBase64,
+                photoUrl: widget.photoUrl),
             Positioned(
                 right: 0,
                 bottom: 0,
@@ -91,7 +93,10 @@ class _EmployeePhotoFieldState extends State<EmployeePhotoField> {
       CupertinoButton(
           padding: const EdgeInsets.symmetric(vertical: 8),
           onPressed: _busy ? null : _choose,
-          child: Text(widget.photoBase64 == null ? 'Add Photo' : 'Change Photo',
+          child: Text(
+              widget.photoBase64 == null && widget.photoUrl == null
+                  ? 'Add Photo'
+                  : 'Change Photo',
               style: TextStyle(fontSize: 13, color: nec.brand))),
     ]);
   }

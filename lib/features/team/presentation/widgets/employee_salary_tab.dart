@@ -13,7 +13,6 @@ class EmployeeSalaryTab extends StatelessWidget {
   Widget _benefitsCard(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
     final monthlyReserve = employee.rotationalReserveAmount;
-    final annualReserve = monthlyReserve * 12;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -63,101 +62,104 @@ class EmployeeSalaryTab extends StatelessWidget {
           const SizedBox(height: 14),
           Divider(height: 1, color: nec.separator),
           const SizedBox(height: 14),
-
-          // Meal Policy Row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: employee.isMealFree
-                      ? Colors.teal.withValues(alpha: 0.12)
-                      : const Color(0xFFFF9500).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+          if (employee.companyMealEnabled) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: employee.isMealFree
+                        ? Colors.teal.withValues(alpha: 0.12)
+                        : const Color(0xFFFF9500).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    CupertinoIcons.cart_fill,
+                    size: 18,
+                    color: employee.isMealFree
+                        ? Colors.teal
+                        : const Color(0xFFFF9500),
+                  ),
                 ),
-                child: Icon(
-                  CupertinoIcons.cart_fill,
-                  size: 18,
-                  color: employee.isMealFree ? Colors.teal : const Color(0xFFFF9500),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Company Meal Policy',
-                          style: TextStyle(
-                            color: nec.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Company Meal Policy',
+                            style: TextStyle(
+                              color: nec.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const Spacer(),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: employee.isMealFree
+                                  ? Colors.teal.withValues(alpha: 0.15)
+                                  : const Color(0xFFFF9500)
+                                      .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              employee.isMealFree
+                                  ? '100% Free'
+                                  : '${employee.mealCoPayPercent}% Co-Pay',
+                              style: TextStyle(
+                                color: employee.isMealFree
+                                    ? Colors.teal
+                                    : const Color(0xFFFF9500),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        employee.isMealFree
+                            ? 'Company covers 100% of lunch & meals (৳${(employee.totalMealCost / 100).toStringAsFixed(0)} / mo). Zero salary deduction.'
+                            : 'Total Meal Cost: ৳${(employee.totalMealCost / 100).toStringAsFixed(0)} / mo · Employee pays ${employee.mealCoPayPercent}% (৳${(employee.mealEmployeePayAmount / 100).toStringAsFixed(0)} deducted from salary) · Company sponsors ৳${(employee.mealCompanyPayAmount / 100).toStringAsFixed(0)}.',
+                        style:
+                            TextStyle(color: nec.textSecondary, fontSize: 12),
+                      ),
+                      if (!employee.isMealFree) ...[
+                        const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                              horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: employee.isMealFree
-                                ? Colors.teal.withValues(alpha: 0.15)
-                                : const Color(0xFFFF9500).withValues(alpha: 0.15),
+                            color:
+                                const Color(0xFFFF9500).withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            employee.isMealFree
-                                ? '100% Free'
-                                : '${employee.mealCoPayPercent}% Co-Pay',
-                            style: TextStyle(
-                              color: employee.isMealFree
-                                  ? Colors.teal
-                                  : const Color(0xFFFF9500),
+                            'Monthly Payroll Deduction: ৳${(employee.mealEmployeePayAmount / 100).toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Color(0xFFFF9500),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      employee.isMealFree
-                          ? 'Company covers 100% of lunch & meals (৳${(employee.totalMealCost / 100).toStringAsFixed(0)} / mo). Zero salary deduction.'
-                          : 'Total Meal Cost: ৳${(employee.totalMealCost / 100).toStringAsFixed(0)} / mo · Employee pays ${employee.mealCoPayPercent}% (৳${(employee.mealEmployeePayAmount / 100).toStringAsFixed(0)} deducted from salary) · Company sponsors ৳${(employee.mealCompanyPayAmount / 100).toStringAsFixed(0)}.',
-                      style: TextStyle(color: nec.textSecondary, fontSize: 12),
-                    ),
-                    if (!employee.isMealFree) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF9500).withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Monthly Payroll Deduction: ৳${(employee.mealEmployeePayAmount / 100).toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: Color(0xFFFF9500),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-          Divider(height: 1, color: nec.separator),
-          const SizedBox(height: 14),
-
-          // Rotational Reserve Row
+              ],
+            ),
+            const SizedBox(height: 14),
+            Divider(height: 1, color: nec.separator),
+            const SizedBox(height: 14),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -220,7 +222,7 @@ class EmployeeSalaryTab extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       employee.hasRotationalReserve
-                          ? '৳${(monthlyReserve / 100).toStringAsFixed(0)} withheld per month. Accumulated ৳${(annualReserve / 100).toStringAsFixed(0)} withdrawable in December.'
+                          ? '৳${(monthlyReserve / 100).toStringAsFixed(0)} configured to be withheld each month.'
                           : 'Rotational reserve is not enabled for this employee account.',
                       style: TextStyle(color: nec.textSecondary, fontSize: 12),
                     ),
@@ -239,7 +241,7 @@ class EmployeeSalaryTab extends StatelessWidget {
                                 size: 14, color: nec.brand),
                             const SizedBox(width: 6),
                             Text(
-                              'Withdrawal Month: December (Year-End Payout)',
+                              'Monthly reserve deduction',
                               style: TextStyle(
                                 color: nec.brand,
                                 fontSize: 11,
@@ -268,7 +270,9 @@ class EmployeeSalaryTab extends StatelessWidget {
       return Padding(
           padding: const EdgeInsets.all(20),
           child: Column(children: [
-            _benefitsCard(context),
+            if (employee.benefitsKnown &&
+                (employee.companyMealEnabled || employee.hasRotationalReserve))
+              _benefitsCard(context),
             const SizedBox(height: 16),
             Icon(CupertinoIcons.money_dollar_circle,
                 size: 44, color: nec.textTertiary),
@@ -293,7 +297,9 @@ class EmployeeSalaryTab extends StatelessWidget {
           const SizedBox(height: 12),
           EmployeeSalarySummary(salary: salary),
           const SizedBox(height: 16),
-          _benefitsCard(context),
+          if (employee.benefitsKnown &&
+              (employee.companyMealEnabled || employee.hasRotationalReserve))
+            _benefitsCard(context),
           EmployeeDetailsSection(
               title: 'Additions',
               rows: salary.additions.isEmpty
@@ -310,21 +316,34 @@ class EmployeeSalaryTab extends StatelessWidget {
                       .toList()),
           EmployeeDetailsSection(title: 'Payment information', rows: [
             ('Pay Frequency', salary.frequency),
-            ('Effective From', salary.effectiveDate),
-            if (salary.frequency == 'Monthly')
+            if (salary.effectiveDate.isNotEmpty)
+              ('Effective From', salary.effectiveDate),
+            if (salary.frequency == 'Monthly' && salary.payday > 0)
               ('Payment Day', 'Day ${salary.payday} of each month'),
             ('Payment Method', salary.paymentMethod),
             if (salary.paymentMethod != 'Cash')
-              ('Account Holder', salary.accountHolder),
+              (
+                'Account Holder',
+                salary.accountHolder.isNotEmpty
+                    ? salary.accountHolder
+                    : employee.name
+              ),
             if (salary.paymentMethod == 'Bank transfer') ...[
-              ('Bank', salary.bankName),
-              ('Account Number', salary.accountNumber),
-              ('Branch', salary.branch),
-              ('Routing / SWIFT', salary.routingNumber),
+              if (salary.bankName.isNotEmpty) ...[
+                ('Bank', salary.bankName),
+                ('Account Number', salary.accountNumber),
+                if (salary.branch.isNotEmpty) ('Branch', salary.branch),
+                if (salary.routingNumber.isNotEmpty)
+                  ('Routing / SWIFT', salary.routingNumber),
+              ] else ...[
+                ('Disbursement Channel', 'Direct Bank Transfer (On file)'),
+              ],
             ],
             if (salary.paymentMethod == 'Mobile banking') ...[
-              ('Provider', salary.walletProvider),
-              ('Account Number', salary.walletNumber),
+              if (salary.walletProvider.isNotEmpty)
+                ('Provider', salary.walletProvider),
+              if (salary.walletNumber.isNotEmpty)
+                ('Account Number', salary.walletNumber),
             ],
           ]),
           if (salary.notes.isNotEmpty)

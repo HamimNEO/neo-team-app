@@ -1,9 +1,36 @@
+import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/staff_access_store.dart';
+import '../../../core/storage/preferences_store.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../leads/data/lead_store.dart';
+import '../../tasks/data/work_item_store.dart';
+import '../../team/data/employee_store.dart';
+
+class SearchResultItem {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String category;
+  final String route;
+  final String? badgeText;
+  final Color? badgeColor;
+  final List<String> searchTokens;
+
+  const SearchResultItem({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.category,
+    required this.route,
+    required this.searchTokens,
+    this.badgeText,
+    this.badgeColor,
+  });
+}
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -14,120 +41,121 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
+  static const _recentSearchesKey = 'nec_recent_searches_v1';
+  final _prefs = const PreferencesStore();
 
-  final List<String> _recentSearches = [
-    'Blue Wave Resort',
-    'Shahina Akter',
-    'NEC-128',
-    'Site visit',
-  ];
-
-  final List<Map<String, String>> _allSearchableItems = [
-    {
-      'title': 'Blue Wave Resort',
-      'subtitle': 'Lead · Cox\'s Bazar · Resort',
-      'category': 'Leads',
-      'route': '/leads/lead_1',
-    },
-    {
-      'title': 'Sea Pearl Resort',
-      'subtitle': 'Lead · Cox\'s Bazar · Resort',
-      'category': 'Leads',
-      'route': '/leads/lead_2',
-    },
-    {
-      'title': 'Green Palm Hotel',
-      'subtitle': 'Lead · Sylhet · Hotel',
-      'category': 'Leads',
-      'route': '/leads/lead_3',
-    },
-    {
-      'title': 'Ocean Nest Hotel',
-      'subtitle': 'Lead · Dhaka · Hotel',
-      'category': 'Leads',
-      'route': '/leads/lead_4',
-    },
-    {
-      'title': 'Shahina Akter',
-      'subtitle': 'People · Digital Marketing Executive',
-      'category': 'People',
-      'route': '/employee/emp_shahina',
-    },
-    {
-      'title': 'Mahmud Hasan',
-      'subtitle': 'People · General Manager',
-      'category': 'People',
-      'route': '/employee/emp_mahmud',
-    },
-    {
-      'title': 'Md. Yeapas',
-      'subtitle': 'People · Senior Software Engineer',
-      'category': 'People',
-      'route': '/employee/emp_yeapas',
-    },
-    {
-      'title': 'Send Enterprise proposal',
-      'subtitle': 'Task · High Priority · Due Today',
-      'category': 'Tasks',
-      'route': '/tasks/t-001',
-    },
-    {
-      'title': 'Demo call preparation',
-      'subtitle': 'Task · High Priority · In Progress',
-      'category': 'Tasks',
-      'route': '/tasks/t-002',
-    },
-    {
-      'title': 'NEC-127 Push notifications not received',
-      'subtitle': 'Issue · Resolved · Mobile App',
-      'category': 'Issues',
-      'route': '/issues',
-    },
-    {
-      'title': 'NEC-132 Hotel website booking form not submitting',
-      'subtitle': 'Issue · Urgent · Website',
-      'category': 'Issues',
-      'route': '/issues',
-    },
-    {
-      'title': 'NEC-133 Restaurant order status not updating',
-      'subtitle': 'Issue · High · Backend',
-      'category': 'Issues',
-      'route': '/issues',
-    },
-  ];
+  List<String> _recentSearches = [];
+  String _selectedCategoryFilter = 'All';
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {});
-    });
+    _searchController.addListener(_onSearchChanged);
+    _loadRecentSearches();
+
+    LeadStore.instance.addListener(_onStoreUpdated);
+    EmployeeStore.instance.addListener(_onStoreUpdated);
+    WorkItemStore.instance.addListener(_onStoreUpdated);
+
+    LeadStore.instance.load();
+    EmployeeStore.instance.load();
+    WorkItemStore.instance.load();
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    LeadStore.instance.removeListener(_onStoreUpdated);
+    EmployeeStore.instance.removeListener(_onStoreUpdated);
+    WorkItemStore.instance.removeListener(_onStoreUpdated);
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
+  }
+
+  void _onStoreUpdated() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadRecentSearches() async {
+    try {
+      final raw = await _prefs.read(_recentSearchesKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          final list = decoded.map((e) => e.toString()).toList();
+          if (list.isNotEmpty && mounted) {
+            setState(() {
+              _recentSearches = list;
+            });
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _recentSearches = _initialRealSuggestions();
+      });
+    }
+  }
+
+  List<String> _initialRealSuggestions() {
+    final list = <String>[];
+    for (final l in LeadStore.instance.leads.take(2)) {
+      if (!list.contains(l.company)) list.add(l.company);
+    }
+    for (final e in EmployeeStore.instance.employees.take(1)) {
+      if (!list.contains(e.name)) list.add(e.name);
+    }
+    for (final t in WorkItemStore.instance.tasks.take(1)) {
+      if (!list.contains(t.title)) list.add(t.title);
+    }
+    if (list.isEmpty) {
+      return ['Sea Pearl Resort', 'Yeapas', 'Client Meeting'];
+    }
+    return list;
+  }
+
+  Future<void> _saveRecentSearches() async {
+    try {
+      await _prefs.write(_recentSearchesKey, jsonEncode(_recentSearches));
+    } catch (_) {}
+  }
+
+  void _addRecentSearch(String term) {
+    if (term.trim().isEmpty) return;
+    setState(() {
+      _recentSearches.remove(term);
+      _recentSearches.insert(0, term);
+      if (_recentSearches.length > 8) {
+        _recentSearches = _recentSearches.sublist(0, 8);
+      }
+    });
+    _saveRecentSearches();
   }
 
   void _clearRecentSearches() {
     setState(() {
       _recentSearches.clear();
     });
+    _saveRecentSearches();
   }
 
   void _removeRecentSearch(String item) {
     setState(() {
       _recentSearches.remove(item);
     });
+    _saveRecentSearches();
   }
 
   void _selectSearchTerm(String term) {
     _searchController.text = term;
-    _searchController.selection = TextSelection.fromPosition(
-      TextPosition(offset: term.length),
-    );
+    _searchController.selection = TextSelection.collapsed(offset: term.length);
   }
 
   void _navigateTo(String route) {
@@ -142,6 +170,184 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  List<SearchResultItem> _getAllItems() {
+    final items = <SearchResultItem>[];
+
+    for (final lead in LeadStore.instance.leads) {
+      final sub = [
+        if (lead.location.isNotEmpty) lead.location,
+        if (lead.type.isNotEmpty) lead.type,
+        if (lead.contactName != null && lead.contactName!.trim().isNotEmpty)
+          'Contact: ${lead.contactName!.trim()}',
+      ].join(' · ');
+
+      items.add(
+        SearchResultItem(
+          id: lead.id,
+          title: lead.company,
+          subtitle: sub.isNotEmpty ? sub : 'Lead',
+          category: 'Leads',
+          route: '/leads/${lead.id}',
+          badgeText: lead.status,
+          badgeColor: AppColors.brandLight,
+          searchTokens: [
+            lead.company,
+            lead.contactName ?? '',
+            lead.phone ?? '',
+            lead.location,
+            lead.type,
+            lead.status,
+          ],
+        ),
+      );
+    }
+
+    for (final emp in EmployeeStore.instance.employees) {
+      final sub = [
+        emp.designation.isNotEmpty ? emp.designation : emp.role,
+        if (emp.department.isNotEmpty) emp.department,
+        if (emp.phone.isNotEmpty) emp.phone,
+      ].join(' · ');
+
+      items.add(
+        SearchResultItem(
+          id: emp.id,
+          title: emp.name,
+          subtitle: sub.isNotEmpty ? sub : 'Team Member',
+          category: 'People',
+          route: '/employee/${emp.id}',
+          badgeText: emp.role.toUpperCase(),
+          badgeColor: AppColors.leadContacted,
+          searchTokens: [
+            emp.name,
+            emp.designation,
+            emp.role,
+            emp.department,
+            emp.phone,
+            emp.email,
+          ],
+        ),
+      );
+    }
+
+    for (final task in WorkItemStore.instance.tasks) {
+      final sub = [
+        'Task',
+        if (task.priority.isNotEmpty) task.priority.toUpperCase(),
+        task.status,
+        if (task.leadName != null && task.leadName!.isNotEmpty) task.leadName!,
+      ].join(' · ');
+
+      items.add(
+        SearchResultItem(
+          id: task.id,
+          title: task.title,
+          subtitle: sub,
+          category: 'Tasks',
+          route: '/tasks/${task.id}',
+          badgeText: task.status,
+          badgeColor: AppColors.brandLight,
+          searchTokens: [
+            task.title,
+            task.description,
+            task.priority,
+            task.status,
+            task.leadName ?? '',
+          ],
+        ),
+      );
+    }
+
+    for (final visit in WorkItemStore.instance.visits) {
+      final visitLocation =
+          visit.metadata['location']?.toString() ?? visit.leadLocation ?? '';
+      final sub = [
+        'Visit',
+        if (visit.leadName != null && visit.leadName!.isNotEmpty)
+          visit.leadName!
+        else if (visitLocation.isNotEmpty)
+          visitLocation,
+        visit.status,
+      ].join(' · ');
+
+      items.add(
+        SearchResultItem(
+          id: visit.id,
+          title: visit.title,
+          subtitle: sub,
+          category: 'Visits',
+          route: '/visit-details/${visit.id}',
+          badgeText: visit.status,
+          badgeColor: AppColors.warning,
+          searchTokens: [
+            visit.title,
+            visitLocation,
+            visit.leadName ?? '',
+            visit.status,
+          ],
+        ),
+      );
+    }
+
+    final followUps = WorkItemStore.instance.followUps;
+    for (final f in followUps) {
+      final title = f.title.isNotEmpty
+          ? f.title
+          : 'Follow-up with ${f.leadName ?? "Client"}';
+      final sub = [
+        'Follow-up',
+        if (f.leadName != null && f.leadName!.isNotEmpty) f.leadName!,
+        f.status,
+      ].join(' · ');
+
+      items.add(
+        SearchResultItem(
+          id: f.id,
+          title: title,
+          subtitle: sub,
+          category: 'Follow-ups',
+          route: '/follow-up-details/${f.id}',
+          badgeText: f.status,
+          badgeColor: const Color(0xFF6355F6),
+          searchTokens: [
+            f.title,
+            f.description,
+            f.leadName ?? '',
+            f.status,
+          ],
+        ),
+      );
+    }
+
+    for (final issue in WorkItemStore.instance.issues) {
+      final sub = [
+        'Issue',
+        if (issue.priority.isNotEmpty) issue.priority.toUpperCase(),
+        issue.status,
+      ].join(' · ');
+
+      items.add(
+        SearchResultItem(
+          id: issue.id,
+          title: issue.title,
+          subtitle: sub,
+          category: 'Issues',
+          route: '/issues/${issue.id}',
+          badgeText: issue.status,
+          badgeColor: AppColors.error,
+          searchTokens: [
+            issue.title,
+            issue.description,
+            issue.priority,
+            issue.status,
+          ],
+        ),
+      );
+    }
+
+    return items;
+  }
+
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'Leads':
@@ -150,6 +356,10 @@ class _SearchScreenState extends State<SearchScreen> {
         return CupertinoIcons.person_fill;
       case 'Tasks':
         return CupertinoIcons.checkmark_square_fill;
+      case 'Visits':
+        return CupertinoIcons.placemark_fill;
+      case 'Follow-ups':
+        return CupertinoIcons.phone_fill;
       case 'Issues':
       default:
         return CupertinoIcons.exclamationmark_circle_fill;
@@ -164,6 +374,10 @@ class _SearchScreenState extends State<SearchScreen> {
         return AppColors.leadContacted;
       case 'Tasks':
         return AppColors.brandLight;
+      case 'Visits':
+        return AppColors.warning;
+      case 'Follow-ups':
+        return const Color(0xFF6355F6);
       case 'Issues':
       default:
         return AppColors.error;
@@ -176,16 +390,45 @@ class _SearchScreenState extends State<SearchScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final query = _searchController.text.trim().toLowerCase();
 
+    final allItems = _getAllItems();
+
     final matchingResults = query.isEmpty
-        ? <Map<String, String>>[]
-        : _allSearchableItems.where((item) {
-            final titleMatch = item['title']!.toLowerCase().contains(query);
-            final subtitleMatch =
-                item['subtitle']!.toLowerCase().contains(query);
-            final catMatch = item['category']!.toLowerCase().contains(query);
-            return StaffAccessStore.instance.canOpen(item['route']!) &&
-                (titleMatch || subtitleMatch || catMatch);
+        ? <SearchResultItem>[]
+        : allItems.where((item) {
+            final accessGranted = StaffAccessStore.instance.canOpen(item.route);
+            if (!accessGranted) return false;
+
+            if (_selectedCategoryFilter != 'All' &&
+                item.category != _selectedCategoryFilter) {
+              return false;
+            }
+
+            final titleMatch = item.title.toLowerCase().contains(query);
+            final subtitleMatch = item.subtitle.toLowerCase().contains(query);
+            final catMatch = item.category.toLowerCase().contains(query);
+            final tokenMatch =
+                item.searchTokens.any((t) => t.toLowerCase().contains(query));
+
+            return titleMatch || subtitleMatch || catMatch || tokenMatch;
           }).toList();
+
+    final categoriesWithCounts = <String, int>{'All': 0};
+    if (query.isNotEmpty) {
+      for (final item in allItems) {
+        if (!StaffAccessStore.instance.canOpen(item.route)) continue;
+        final titleMatch = item.title.toLowerCase().contains(query);
+        final subtitleMatch = item.subtitle.toLowerCase().contains(query);
+        final catMatch = item.category.toLowerCase().contains(query);
+        final tokenMatch =
+            item.searchTokens.any((t) => t.toLowerCase().contains(query));
+
+        if (titleMatch || subtitleMatch || catMatch || tokenMatch) {
+          categoriesWithCounts['All'] = (categoriesWithCounts['All'] ?? 0) + 1;
+          categoriesWithCounts[item.category] =
+              (categoriesWithCounts[item.category] ?? 0) + 1;
+        }
+      }
+    }
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -293,12 +536,20 @@ class _SearchScreenState extends State<SearchScreen> {
                           border: InputBorder.none,
                           isDense: true,
                         ),
+                        onSubmitted: (term) {
+                          if (term.trim().isNotEmpty) {
+                            _addRecentSearch(term.trim());
+                          }
+                        },
                       ),
                     ),
                     if (_searchController.text.isNotEmpty)
                       GestureDetector(
                         onTap: () {
                           _searchController.clear();
+                          setState(() {
+                            _selectedCategoryFilter = 'All';
+                          });
                         },
                         child: Icon(
                           CupertinoIcons.clear_thick_circled,
@@ -309,8 +560,62 @@ class _SearchScreenState extends State<SearchScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               if (query.isNotEmpty) ...[
+                if (categoriesWithCounts.length > 2) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: categoriesWithCounts.entries.map((entry) {
+                        final cat = entry.key;
+                        final count = entry.value;
+                        final isSelected = _selectedCategoryFilter == cat;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedCategoryFilter = cat;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.brandLight
+                                    : (isDark
+                                        ? nec.surface
+                                        : nec.separator
+                                            .withValues(alpha: 0.12)),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.brandLight
+                                      : nec.separator.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: Text(
+                                '$cat ($count)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : nec.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Text(
                   'RESULTS (${matchingResults.length})',
                   style: TextStyle(
@@ -332,7 +637,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       children: List.generate(matchingResults.length, (index) {
                         final item = matchingResults[index];
                         final isLast = index == matchingResults.length - 1;
-                        final cat = item['category']!;
+                        final cat = item.category;
 
                         return Column(
                           children: [
@@ -352,7 +657,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ),
                               ),
                               title: Text(
-                                item['title']!,
+                                item.title,
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -360,19 +665,45 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ),
                               ),
                               subtitle: Text(
-                                item['subtitle']!,
+                                item.subtitle,
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   color: nec.textTertiary,
                                 ),
                               ),
-                              trailing: Icon(
-                                CupertinoIcons.chevron_right,
-                                size: 16,
-                                color: nec.textTertiary,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (item.badgeText != null &&
+                                      item.badgeText!.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: (item.badgeColor ?? nec.brand)
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        item.badgeText!,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: item.badgeColor ?? nec.brand,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    CupertinoIcons.chevron_right,
+                                    size: 15,
+                                    color: nec.textTertiary,
+                                  ),
+                                ],
                               ),
                               onTap: () {
-                                _navigateTo(item['route']!);
+                                _addRecentSearch(item.title);
+                                _navigateTo(item.route);
                               },
                             ),
                             if (!isLast)
@@ -500,14 +831,6 @@ class _SearchScreenState extends State<SearchScreen> {
                         iconColor: AppColors.brandLight,
                         onTap: () => _navigateTo('/leads'),
                       ),
-                    if (StaffAccessStore.instance.canOpen('/team'))
-                      _buildBrowseCard(
-                        nec,
-                        title: 'People',
-                        icon: CupertinoIcons.person_fill,
-                        iconColor: AppColors.leadContacted,
-                        onTap: () => _navigateTo('/team'),
-                      ),
                     if (StaffAccessStore.instance.canOpen('/tasks'))
                       _buildBrowseCard(
                         nec,
@@ -516,6 +839,22 @@ class _SearchScreenState extends State<SearchScreen> {
                         iconColor: AppColors.brandLight,
                         onTap: () => _navigateTo('/tasks'),
                       ),
+                    if (StaffAccessStore.instance.canOpen('/visits'))
+                      _buildBrowseCard(
+                        nec,
+                        title: 'Visits',
+                        icon: CupertinoIcons.placemark_fill,
+                        iconColor: AppColors.warning,
+                        onTap: () => _navigateTo('/visits'),
+                      ),
+                    if (StaffAccessStore.instance.canOpen('/follow-ups'))
+                      _buildBrowseCard(
+                        nec,
+                        title: 'Follow-ups',
+                        icon: CupertinoIcons.phone_fill,
+                        iconColor: const Color(0xFF6355F6),
+                        onTap: () => _navigateTo('/follow-ups'),
+                      ),
                     if (StaffAccessStore.instance.canOpen('/issues'))
                       _buildBrowseCard(
                         nec,
@@ -523,6 +862,14 @@ class _SearchScreenState extends State<SearchScreen> {
                         icon: CupertinoIcons.exclamationmark_circle_fill,
                         iconColor: AppColors.error,
                         onTap: () => _navigateTo('/issues'),
+                      ),
+                    if (StaffAccessStore.instance.canOpen('/team'))
+                      _buildBrowseCard(
+                        nec,
+                        title: 'People',
+                        icon: CupertinoIcons.person_fill,
+                        iconColor: AppColors.leadContacted,
+                        onTap: () => _navigateTo('/team'),
                       ),
                   ],
                 ),

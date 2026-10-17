@@ -58,6 +58,8 @@ class AttendanceRequestTile extends StatelessWidget {
                             NecAvatar(
                                 initials: employee?.avatarInitials,
                                 photoBase64: employee?.photoBase64,
+                                photoUrl: employee?.photoUrl,
+                                assetPath: employee?.avatarAsset,
                                 size: 36),
                             const SizedBox(width: 12)
                           ],

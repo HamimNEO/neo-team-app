@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/demo_session.dart';
+import '../../../core/services/permission_service.dart';
 import '../../../core/widgets/app_logo.dart';
+import '../../settings/data/user_settings_store.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,9 +33,23 @@ class _SplashScreenState extends State<SplashScreen>
 
     _ctrl.forward();
 
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      if (mounted) context.go('/login');
-    });
+    _startAppSequence();
+  }
+
+  Future<void> _startAppSequence() async {
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    if (mounted) {
+      await PermissionService.instance.requestInitialPermissions();
+    }
+
+    if (mounted) {
+      if (DemoSession.instance.signedIn) {
+        context.go(UserSettingsStore.instance.defaultViewRoute);
+      } else {
+        context.go('/login');
+      }
+    }
   }
 
   @override

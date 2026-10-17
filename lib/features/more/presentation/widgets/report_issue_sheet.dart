@@ -1,3 +1,6 @@
+import '../../../team/data/employee_store.dart';
+import '../../../tasks/data/work_item_store.dart';
+import '../../data/work_queue_mapper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +11,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_avatar.dart';
 import '../../../../core/widgets/nec_button.dart';
 import '../../../../core/widgets/nec_toast.dart';
-import '../../domain/models/issue.dart';
 
 class ReportIssueSheet extends StatefulWidget {
   const ReportIssueSheet({super.key});
@@ -21,10 +23,10 @@ class _ReportIssueSheetState extends State<ReportIssueSheet> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
 
+  bool _saving = false;
   String _selectedPriority = 'Normal';
   String? _selectedCategory;
   String? _selectedAssignee = 'Auto-assign';
-  String? _selectedAssigneeInitials;
   String? _selectedRelatedTo = 'None';
   String? _attachedFileName;
 
@@ -136,48 +138,15 @@ class _ReportIssueSheetState extends State<ReportIssueSheet> {
       return;
     }
     final assignees = [
-      (
-        'Auto-assign',
-        '',
-        '',
-        CupertinoIcons.minus_circle,
-      ),
-      (
-        'Mahmud Hasan',
-        'General Manager',
-        'MH',
-        null,
-      ),
-      (
-        'Most. Shahina Akter',
-        'Digital Marketing Executive',
-        'MS',
-        null,
-      ),
-      (
-        'Md. Yeapas',
-        'Senior Software Engineer',
-        'MY',
-        null,
-      ),
-      (
-        'Rashidul Islam',
-        'Sales Executive',
-        'RI',
-        null,
-      ),
-      (
-        'MD. Abdul Hamim',
-        'Flutter Developer',
-        'MA',
-        null,
-      ),
-      (
-        'Tania Rahman',
-        'Support Lead',
-        'TR',
-        null,
-      ),
+      ('Auto-assign', '', '', CupertinoIcons.minus_circle as IconData?),
+      for (final employee in EmployeeStore.instance.employees
+          .where((e) => e.status == 'Active'))
+        (
+          employee.name,
+          employee.designation,
+          employee.avatarInitials,
+          null as IconData?
+        ),
     ];
 
     showModalBottomSheet(
@@ -263,7 +232,6 @@ class _ReportIssueSheetState extends State<ReportIssueSheet> {
                           onTap: () {
                             setState(() {
                               _selectedAssignee = name;
-                              _selectedAssigneeInitials = initials;
                             });
                             Navigator.pop(context);
                           },
@@ -519,46 +487,47 @@ class _ReportIssueSheetState extends State<ReportIssueSheet> {
     }
   }
 
-  void _submitIssue() {
+  Future<void> _submitIssue() async {
+    if (_saving) return;
     if (_titleController.text.trim().isEmpty) {
-      NecToast.show(
-        context,
-        message: 'Please enter an issue title',
-        type: NecToastType.error,
-      );
+      NecToast.show(context,
+          message: 'Please enter an issue title', type: NecToastType.error);
       return;
     }
-
-    final newIssue = Issue(
-      id: 'NEC-${135 + (DateTime.now().millisecondsSinceEpoch % 100)}',
-      title: _titleController.text.trim(),
-      description: _descController.text.trim(),
-      priority: _selectedPriority,
-      status: 'Reported',
-      category: _selectedCategory ?? 'Mobile App',
-      project: _selectedRelatedTo != null && _selectedRelatedTo != 'None'
-          ? _selectedRelatedTo!
-          : 'NEC TEAM App',
-      assigneeName:
-          _selectedAssignee == 'Auto-assign' ? null : _selectedAssignee,
-      assigneeInitials: _selectedAssigneeInitials,
-      date: 'Sep 28, 2026',
-      scopeMine: true,
-      scopeTeam: true,
-      hasRedDot: _selectedPriority == 'Urgent' || _selectedPriority == 'High',
-    );
-
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context, newIssue);
-    } else {
-      context.pop(newIssue);
+    final assignee = EmployeeStore.instance.employees
+        .where((e) => e.name == _selectedAssignee)
+        .firstOrNull;
+    setState(() => _saving = true);
+    try {
+      final category = (_selectedCategory ?? 'other')
+          .toLowerCase()
+          .replaceAll(RegExp(r'[/\s]+'), '_');
+      final description = _descController.text.trim();
+      final saved = await WorkItemStore.instance.create({
+        'type': 'issue',
+        'title': _titleController.text.trim(),
+        'description': description,
+        'details': {'description': description, 'category': category},
+        'category': category,
+        'priority': _selectedPriority == 'Normal'
+            ? 'medium'
+            : _selectedPriority.toLowerCase(),
+        if (assignee != null)
+          'assignee_employee_id': int.tryParse(assignee.backendId!),
+        'related_to': 'internal',
+      });
+      if (!mounted) return;
+      Navigator.pop(context, WorkQueueMapper.issue(saved));
+      NecToast.show(context,
+          message: 'Issue reported successfully', type: NecToastType.success);
+    } catch (error) {
+      if (mounted) {
+        NecToast.show(context,
+            message: WorkItemStore.messageFor(error), type: NecToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-
-    NecToast.show(
-      context,
-      message: 'Issue reported successfully',
-      type: NecToastType.success,
-    );
   }
 
   @override
@@ -859,7 +828,8 @@ class _ReportIssueSheetState extends State<ReportIssueSheet> {
                                     DemoSession.instance.isAdmin
                                         ? CupertinoIcons.chevron_right
                                         : CupertinoIcons.lock_fill,
-                                    size: DemoSession.instance.isAdmin ? 16 : 13,
+                                    size:
+                                        DemoSession.instance.isAdmin ? 16 : 13,
                                     color: nec.textTertiary,
                                   ),
                                 ],
@@ -998,7 +968,7 @@ class _ReportIssueSheetState extends State<ReportIssueSheet> {
                 padding: const EdgeInsets.all(16),
                 child: NecButton(
                   label: 'Submit Issue',
-                  onPressed: _submitIssue,
+                  onPressed: _saving ? null : _submitIssue,
                   fullWidth: true,
                 ),
               ),

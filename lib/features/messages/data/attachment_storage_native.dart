@@ -26,13 +26,38 @@ Future<ChatAttachment> save(PendingChatAttachment pending, String id) async {
 
 Future<Uint8List> read(ChatAttachment attachment) async {
   if (attachment.inlineData != null) {
-    return base64Decode(attachment.inlineData!);
+    try {
+      return base64Decode(attachment.inlineData!);
+    } catch (_) {
+      return Uint8List(0);
+    }
   }
-  final file = await _file(attachment.id);
-  if (!await file.exists()) {
-    throw const FormatException('This attachment is no longer available.');
-  }
-  return file.readAsBytes();
+  try {
+    final file = await _file(attachment.id);
+    if (await file.exists()) {
+      return await file.readAsBytes();
+    }
+    if (attachment.url != null && attachment.url!.isNotEmpty) {
+      final client = HttpClient();
+      try {
+        final request = await client.getUrl(Uri.parse(attachment.url!));
+        request.headers.set('User-Agent', 'Mozilla/5.0');
+        final response = await request.close();
+        if (response.statusCode == 200) {
+          final bytes = await response
+              .fold<List<int>>([], (prev, elem) => prev..addAll(elem));
+          final uint8 = Uint8List.fromList(bytes);
+          try {
+            await file.writeAsBytes(uint8, flush: true);
+          } catch (_) {}
+          return uint8;
+        }
+      } finally {
+        client.close();
+      }
+    }
+  } catch (_) {}
+  return Uint8List(0);
 }
 
 Future<void> remove(ChatAttachment attachment) async {

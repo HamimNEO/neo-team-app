@@ -4,7 +4,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_toast.dart';
 import '../../domain/models/employee.dart';
+import '../../services/employee_report_pdf_service.dart';
 import 'employee_credentials_card.dart';
+import 'employee_details_section.dart';
 
 class EmployeeMoreTab extends StatelessWidget {
   final Employee employee;
@@ -83,6 +85,43 @@ class EmployeeMoreTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
 
+    if (employee.backendId != null) {
+      return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            EmployeeDetailsSection(title: 'Employee information', rows: [
+              ('Name', employee.name),
+              ('Email', employee.email),
+              ('Employee ID', employee.displayCode),
+              ('Role', employee.systemRole),
+              ('Access Scope', employee.accessScope ?? '—')
+            ]),
+            if (employee.accessModules.isNotEmpty)
+              EmployeeDetailsSection(
+                  title: 'Module access',
+                  rows: employee.accessModules
+                      .map((module) => (
+                            module['label']?.toString() ??
+                                module['key'].toString(),
+                            '${module['granted']}/${module['total']} granted'
+                          ))
+                      .toList()),
+            EmployeeCredentialsCard(employee: employee),
+            const SizedBox(height: 16),
+            Material(
+              color: nec.surface,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                leading: Icon(CupertinoIcons.doc_text_fill, color: nec.brand),
+                title: const Text('Download employee details report'),
+                trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
+                onTap: () => EmployeeReportPdfService.downloadAndOpenReport(
+                    context, employee),
+              ),
+            ),
+          ]));
+    }
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -284,6 +323,65 @@ class EmployeeMoreTab extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Divider(
+                  height: 1,
+                  color: nec.separator.withValues(alpha: 0.3),
+                  indent: 16,
+                ),
+                InkWell(
+                  onTap: () => EmployeeReportPdfService.downloadAndOpenReport(
+                      context, employee),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: nec.brand.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.doc_text_fill,
+                            color: nec.brand,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Employee Details Report',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: nec.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'PDF · Complete official company report',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: nec.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          CupertinoIcons.arrow_down_to_line,
+                          size: 18,
+                          color: nec.brand,
                         ),
                       ],
                     ),

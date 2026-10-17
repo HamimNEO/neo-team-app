@@ -156,6 +156,8 @@ class _EmployeePasswordScreenState extends State<EmployeePasswordScreen> {
                                       NecAvatar(
                                           initials: employee.avatarInitials,
                                           photoBase64: employee.photoBase64,
+                                          photoUrl: employee.photoUrl,
+                                          assetPath: employee.avatarAsset,
                                           size: 48),
                                       const SizedBox(width: 12),
                                       Expanded(

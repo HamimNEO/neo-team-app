@@ -7,6 +7,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/nec_toast.dart';
 import 'task_assign_sheet.dart';
+import 'task_completion_dialog.dart';
+import '../../data/work_item_store.dart';
+import '../../../team/data/employee_store.dart';
 
 class TaskOptionsSheet extends StatelessWidget {
   final String taskId;
@@ -17,6 +20,48 @@ class TaskOptionsSheet extends StatelessWidget {
     required this.taskId,
     required this.taskTitle,
   });
+
+  Future<void> _updateStatus(BuildContext context, String newStatus) async {
+    Navigator.pop(context);
+    try {
+      await WorkItemStore.instance.update(taskId, {'status': newStatus});
+      if (!context.mounted) return;
+      final label = newStatus == 'in_progress'
+          ? 'In Progress'
+          : (newStatus == 'completed' ? 'Completed' : 'To Do');
+      NecToast.show(
+        context,
+        message: 'Task moved to $label',
+        type: NecToastType.success,
+      );
+    } catch (error) {
+      if (context.mounted) {
+        NecToast.show(
+          context,
+          message: WorkItemStore.messageFor(error),
+          type: NecToastType.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _completeWithCelebration(BuildContext context) async {
+    Navigator.pop(context);
+    final confirmed = await TaskCompletionDialog.show(
+      context,
+      taskTitle: taskTitle,
+      onConfirm: () async {
+        await WorkItemStore.instance.update(taskId, {'status': 'completed'});
+      },
+    );
+    if (confirmed == true && context.mounted) {
+      NecToast.show(
+        context,
+        message: 'Task completed successfully! 🎉',
+        type: NecToastType.success,
+      );
+    }
+  }
 
   void _confirmCancel(BuildContext context) {
     if (!DemoSession.instance.isAdmin) {
@@ -41,14 +86,26 @@ class TaskOptionsSheet extends StatelessWidget {
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.pop();
-              NecToast.show(
-                context,
-                message: 'Task cancelled',
-                type: NecToastType.info,
-              );
+            onPressed: () async {
+              try {
+                await WorkItemStore.instance
+                    .update(taskId, {'status': 'cancelled'});
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                if (!context.mounted) return;
+                context.pop();
+                NecToast.show(
+                  context,
+                  message: 'Task cancelled',
+                  type: NecToastType.info,
+                );
+              } catch (error) {
+                if (ctx.mounted) {
+                  NecToast.show(ctx,
+                      message: WorkItemStore.messageFor(error),
+                      type: NecToastType.error);
+                }
+              }
             },
             child: const Text('Cancel Task'),
           ),
@@ -67,13 +124,30 @@ class TaskOptionsSheet extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => TaskAssignSheet(
-        selectedAssignee: 'Most. Shahina Akter',
-        onSelected: (newAssignee) {
-          NecToast.show(
-            context,
-            message: 'Task reassigned to $newAssignee',
-            type: NecToastType.success,
-          );
+        selectedAssignee:
+            WorkItemStore.instance.byId(taskId)?.assigneeName ?? 'None',
+        onSelected: (newAssignee) async {
+          try {
+            final employee = EmployeeStore.instance.employees
+                .where((e) => e.name == newAssignee)
+                .firstOrNull;
+            await WorkItemStore.instance.update(taskId, {
+              'assignee_employee_id': employee == null
+                  ? null
+                  : int.tryParse(employee.backendId ?? '')
+            });
+            if (context.mounted) {
+              NecToast.show(context,
+                  message: 'Task reassigned to $newAssignee',
+                  type: NecToastType.success);
+            }
+          } catch (error) {
+            if (context.mounted) {
+              NecToast.show(context,
+                  message: WorkItemStore.messageFor(error),
+                  type: NecToastType.error);
+            }
+          }
         },
       ),
     );
@@ -101,7 +175,99 @@ class TaskOptionsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            if (StaffAccessStore.instance.allows(StaffPermission.editTask))
+            Builder(
+              builder: (ctx) {
+                final task = WorkItemStore.instance.byId(taskId);
+                final status = task?.status ?? 'to_do';
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (status != 'in_progress')
+                      InkWell(
+                        onTap: () => _updateStatus(context, 'in_progress'),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(CupertinoIcons.flame_fill,
+                                  size: 18, color: Color(0xFFF59E0B)),
+                              SizedBox(width: 8),
+                              Text(
+                                'Start Task (In Progress)',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFF59E0B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (status != 'to_do') ...[
+                      Divider(
+                          height: 1,
+                          color: nec.separator.withValues(alpha: 0.3)),
+                      InkWell(
+                        onTap: () => _updateStatus(context, 'to_do'),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(CupertinoIcons.circle,
+                                  size: 18, color: nec.brand),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Move to To Do',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: nec.brand,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (status != 'completed') ...[
+                      Divider(
+                          height: 1,
+                          color: nec.separator.withValues(alpha: 0.3)),
+                      InkWell(
+                        onTap: () => _completeWithCelebration(context),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(CupertinoIcons.checkmark_seal_fill,
+                                  size: 18, color: AppColors.success),
+                              SizedBox(width: 8),
+                              Text(
+                                'Mark as Done',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.success,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+            if (StaffAccessStore.instance.allows(StaffPermission.editTask)) ...[
+              Divider(height: 1, color: nec.separator.withValues(alpha: 0.3)),
               InkWell(
                 onTap: () {
                   Navigator.pop(context);
@@ -121,6 +287,7 @@ class TaskOptionsSheet extends StatelessWidget {
                   ),
                 ),
               ),
+            ],
             if (DemoSession.instance.isAdmin) ...[
               Divider(height: 1, color: nec.separator.withValues(alpha: 0.3)),
               InkWell(
