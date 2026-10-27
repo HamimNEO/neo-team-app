@@ -43,7 +43,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
 
       - name: 🔍 Read App Version from pubspec.yaml
         id: app_version
