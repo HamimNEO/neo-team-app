@@ -107,16 +107,7 @@ jobs:
               printf '%s' "$PLAY_STORE_SECRET" > "$RUNNER_TEMP/service_account.json"
               echo "✅ Written raw service_account.json"
             fi
-            python3 - <<'PY'
-import json, os
-path = os.path.join(os.environ["RUNNER_TEMP"], "service_account.json")
-with open(path, "r", encoding="utf-8") as f:
-    creds = json.load(f)
-for k in ["type", "project_id", "private_key", "client_email"]:
-    if not creds.get(k):
-        raise SystemExit(f"❌ Missing required credential field: {k}")
-print(f"✅ Verified Google Play Service Account: {creds['client_email']}")
-PY
+            python3 -c "import json, os; p = os.path.join(os.environ['RUNNER_TEMP'], 'service_account.json'); c = json.load(open(p)); missing = [k for k in ['type', 'project_id', 'private_key', 'client_email'] if not c.get(k)]; (print(f'❌ Missing: {missing}') or exit(1)) if missing else print('✅ Verified Google Play Service Account:', c['client_email'])"
             echo "HAS_PLAY_KEY=true" >> $GITHUB_ENV
           fi
 
