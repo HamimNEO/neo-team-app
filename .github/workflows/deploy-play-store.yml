@@ -100,9 +100,24 @@ jobs:
 
           # 6. Prepare Google Play Service Account JSON file safely
           if [ -n "$PLAY_STORE_SECRET" ]; then
-            echo "$PLAY_STORE_SECRET" > "$RUNNER_TEMP/service_account.json"
+            if echo "$PLAY_STORE_SECRET" | base64 --decode 2>/dev/null | grep -q "service_account"; then
+              echo "$PLAY_STORE_SECRET" | base64 --decode > "$RUNNER_TEMP/service_account.json"
+              echo "✅ Decoded base64 service_account.json"
+            else
+              printf '%s' "$PLAY_STORE_SECRET" > "$RUNNER_TEMP/service_account.json"
+              echo "✅ Written raw service_account.json"
+            fi
+            python3 - <<'PY'
+import json, os
+path = os.path.join(os.environ["RUNNER_TEMP"], "service_account.json")
+with open(path, "r", encoding="utf-8") as f:
+    creds = json.load(f)
+for k in ["type", "project_id", "private_key", "client_email"]:
+    if not creds.get(k):
+        raise SystemExit(f"❌ Missing required credential field: {k}")
+print(f"✅ Verified Google Play Service Account: {creds['client_email']}")
+PY
             echo "HAS_PLAY_KEY=true" >> $GITHUB_ENV
-            echo "✅ Google Play service_account.json written safely to runner temp"
           fi
 
       - name: 📦 Install Flutter Dependencies
