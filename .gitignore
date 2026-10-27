@@ -60,8 +60,6 @@ macos/Runner/GoogleService-Info.plist
 !**/GoogleService-Info.plist.example
 firebase.json
 .firebase/
-lib/firebase_options.dart
-!lib/firebase_options.dart.example
 
 # Binaries & release outputs
 *.apk
