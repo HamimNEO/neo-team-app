@@ -5,7 +5,10 @@ import '../../domain/models/certificate_request.dart';
 class CertificateStatusBadge extends StatelessWidget {
   final CertificateStatus status;
 
-  const CertificateStatusBadge({super.key, required this.status});
+  final String? apiStatus;
+
+  const CertificateStatusBadge(
+      {super.key, required this.status, this.apiStatus});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +41,7 @@ class CertificateStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        status.label,
+        apiStatus == null ? status.label : apiStatus!.replaceAll('_', ' '),
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,

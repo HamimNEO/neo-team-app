@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/config/app_config.dart';
+import '../../auth/presentation/controllers/auth_session.dart';
 import '../domain/models/group_chat.dart';
 
-/// Separate demo cache; existing direct conversations are never migrated/deleted.
 class GroupChatCache {
   String get _key =>
-      'nec_group_chats_demo_v1_${Uri.encodeComponent(AppConfig.apiBaseUrl)}';
+      'nec_group_chats_api_v3_${AuthSession.instance.user?.id ?? 'signed_out'}_${Uri.encodeComponent(AppConfig.apiBaseUrl)}';
 
   Future<({List<GroupChat> groups, Set<String> seeded})> read() async {
-    final raw = (await SharedPreferences.getInstance()).getString(_key);
+    final key = _key;
+    final raw = (await SharedPreferences.getInstance()).getString(key);
     if (raw == null) return (groups: <GroupChat>[], seeded: <String>{});
     final data = jsonDecode(raw) as Map;
     return (
@@ -21,8 +22,9 @@ class GroupChatCache {
   }
 
   Future<void> save(List<GroupChat> groups, Set<String> seeded) async {
+    final key = _key;
     final saved = await (await SharedPreferences.getInstance()).setString(
-        _key,
+        key,
         jsonEncode({
           'version': 1,
           'groups': groups.map((g) => g.toJson()).toList(),

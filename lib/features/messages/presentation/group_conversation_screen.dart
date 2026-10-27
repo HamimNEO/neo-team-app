@@ -150,21 +150,33 @@ class _GroupConversationScreenState extends State<GroupConversationScreen>
   }
 
   Future<void> _send() async {
-    if (_sending || _picking || !_sameSession) return;
+    final text = _composer.text.trim();
+    if (_sending ||
+        _picking ||
+        !_sameSession ||
+        (text.isEmpty && _attachments.isEmpty)) {
+      return;
+    }
+    final attachmentsToSend = List.of(_attachments);
+    final replyIdToSend = _replyId;
+    _composer.clear();
+    _attachments.clear();
+    _replyId = null;
     setState(() => _sending = true);
     try {
-      await GroupChatStore.instance.send(widget.groupId, _composer.text,
-          attachments: List.of(_attachments), replyToId: _replyId);
-      if (!mounted || !_sameSession) return;
-      _attachments.clear();
-      _replyId = null;
-      _composer.clear();
+      await GroupChatStore.instance.send(widget.groupId, text,
+          attachments: attachmentsToSend, replyToId: replyIdToSend);
       if (_scroll.hasClients) {
         _scroll.animateTo(0,
             duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
       }
     } catch (e) {
-      if (mounted) _error(e);
+      if (mounted) {
+        _composer.text = text;
+        _attachments.addAll(attachmentsToSend);
+        _replyId = replyIdToSend;
+        _error(e);
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }

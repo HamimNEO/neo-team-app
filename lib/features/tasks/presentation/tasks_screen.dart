@@ -170,108 +170,85 @@ class _TasksScreenState extends State<TasksScreen> {
     if (filtered.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(top: 6, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: nec.textSecondary,
-                letterSpacing: 0.5,
+        children: filtered.map((task) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 5),
+            child: Material(
+              color: nec.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: nec.separator.withValues(alpha: 0.2)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: TaskItemCard(
+                title: task['title'] as String,
+                relatedText: task['relatedText'] as String?,
+                subtitle: task['subtitle'] as String,
+                priority: task['priority'] as String,
+                priorityColor: task['priorityColor'] as Color,
+                assigneeInitials: task['assigneeInitials'] as String,
+                assigneeName: task['assigneeName'] as String,
+                isCompleted: task['isCompleted'] as bool,
+                status: task['status'] as String?,
+                onStatusChange: (newStatus) async {
+                  try {
+                    await WorkItemStore.instance.update(
+                      task['id'].toString(),
+                      {'status': newStatus},
+                    );
+                    if (!context.mounted) return;
+                    NecToast.show(
+                      context,
+                      message: newStatus == 'in_progress'
+                          ? 'Task moved to In Progress'
+                          : 'Task moved to To Do',
+                      type: NecToastType.success,
+                    );
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    NecToast.show(context,
+                        message: WorkItemStore.messageFor(error),
+                        type: NecToastType.error);
+                  }
+                },
+                onToggle: (val) async {
+                  if (val == true) {
+                    await TaskCompletionDialog.show(
+                      context,
+                      taskTitle: task['title'] as String,
+                      onConfirm: () async {
+                        await WorkItemStore.instance.update(
+                          task['id'].toString(),
+                          {'status': 'completed'},
+                        );
+                      },
+                    );
+                  } else {
+                    try {
+                      await WorkItemStore.instance.update(
+                        task['id'].toString(),
+                        {'status': 'to_do'},
+                      );
+                      if (!context.mounted) return;
+                      NecToast.show(context,
+                          message: 'Task moved back to To Do',
+                          type: NecToastType.info);
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      NecToast.show(context,
+                          message: WorkItemStore.messageFor(error),
+                          type: NecToastType.error);
+                    }
+                  }
+                },
+                onTap: () => context.push('/tasks/${task['id']}'),
               ),
             ),
-          ),
-          Material(
-            color: nec.surface,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: List.generate(filtered.length, (index) {
-                final task = filtered[index];
-                final isLast = index == filtered.length - 1;
-
-                return Column(
-                  children: [
-                    TaskItemCard(
-                      title: task['title'] as String,
-                      relatedText: task['relatedText'] as String?,
-                      subtitle: task['subtitle'] as String,
-                      priority: task['priority'] as String,
-                      priorityColor: task['priorityColor'] as Color,
-                      assigneeInitials: task['assigneeInitials'] as String,
-                      assigneeName: task['assigneeName'] as String,
-                      isCompleted: task['isCompleted'] as bool,
-                      status: task['status'] as String?,
-                      onStatusChange: (newStatus) async {
-                        try {
-                          await WorkItemStore.instance.update(
-                            task['id'].toString(),
-                            {'status': newStatus},
-                          );
-                          if (!context.mounted) return;
-                          NecToast.show(
-                            context,
-                            message: newStatus == 'in_progress'
-                                ? 'Task moved to In Progress'
-                                : 'Task moved to To Do',
-                            type: NecToastType.success,
-                          );
-                        } catch (error) {
-                          if (!context.mounted) return;
-                          NecToast.show(context,
-                              message: WorkItemStore.messageFor(error),
-                              type: NecToastType.error);
-                        }
-                      },
-                      onToggle: (val) async {
-                        if (val == true) {
-                          await TaskCompletionDialog.show(
-                            context,
-                            taskTitle: task['title'] as String,
-                            onConfirm: () async {
-                              await WorkItemStore.instance.update(
-                                task['id'].toString(),
-                                {'status': 'completed'},
-                              );
-                            },
-                          );
-                        } else {
-                          try {
-                            await WorkItemStore.instance.update(
-                              task['id'].toString(),
-                              {'status': 'to_do'},
-                            );
-                            if (!context.mounted) return;
-                            NecToast.show(context,
-                                message: 'Task moved back to To Do',
-                                type: NecToastType.info);
-                          } catch (error) {
-                            if (!context.mounted) return;
-                            NecToast.show(context,
-                                message: WorkItemStore.messageFor(error),
-                                type: NecToastType.error);
-                          }
-                        }
-                      },
-                      onTap: () => context.push('/tasks/${task['id']}'),
-                    ),
-                    if (!isLast)
-                      Divider(
-                        height: 1,
-                        color: nec.separator.withValues(alpha: 0.3),
-                        indent: 16,
-                      ),
-                  ],
-                );
-              }),
-            ),
-          ),
-        ],
+          );
+        }).toList(),
       ),
     );
   }

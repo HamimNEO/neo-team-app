@@ -166,24 +166,42 @@ class MessageBubble extends StatelessWidget {
                                     height: 1.4)),
                           const SizedBox(height: 6),
                           Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(DateFormat('h:mm a').format(message.sentAt),
-                                style: TextStyle(
-                                    color: message.isDeleted
-                                        ? nec.textTertiary
-                                        : secondary,
-                                    fontSize: 10)),
-                            if (mine && !message.isDeleted) ...[
-                              const SizedBox(width: 5),
-                              Tooltip(
-                                  message:
-                                      message.readAt == null ? 'Sent' : 'Read',
-                                  child: Icon(
-                                      message.readAt == null
-                                          ? CupertinoIcons.checkmark
-                                          : CupertinoIcons
-                                              .checkmark_circle_fill,
+                            if (message.isPending) ...[
+                              Text('sending…',
+                                  style: TextStyle(
                                       color: secondary,
-                                      size: 12)),
+                                      fontSize: 10,
+                                      fontStyle: FontStyle.italic)),
+                              const SizedBox(width: 4),
+                              Icon(CupertinoIcons.clock,
+                                  size: 10, color: secondary),
+                            ] else ...[
+                              Text(DateFormat('h:mm a').format(message.sentAt),
+                                  style: TextStyle(
+                                      color: message.isDeleted
+                                          ? nec.textTertiary
+                                          : secondary,
+                                      fontSize: 10)),
+                              if (mine && !message.isDeleted) ...[
+                                const SizedBox(width: 4),
+                                Text(message.readAt == null ? 'sent' : 'read',
+                                    style: TextStyle(
+                                        color: secondary,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500)),
+                                const SizedBox(width: 3),
+                                Tooltip(
+                                    message: message.readAt == null
+                                        ? 'Sent'
+                                        : 'Read',
+                                    child: Icon(
+                                        message.readAt == null
+                                            ? CupertinoIcons.checkmark
+                                            : CupertinoIcons
+                                                .checkmark_circle_fill,
+                                        color: secondary,
+                                        size: 11)),
+                              ],
                             ],
                           ]),
                         ]),

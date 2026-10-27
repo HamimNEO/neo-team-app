@@ -153,20 +153,29 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                           width: double.infinity,
                           child: CupertinoSlidingSegmentedControl<int>(
                               groupValue: _tab,
-                              thumbColor: nec.surface,
-                              backgroundColor:
-                                  nec.separator.withValues(alpha: .2),
+                              thumbColor: nec.brand,
+                              backgroundColor: nec.brand.withValues(alpha: .15),
                               children: {
                                 for (var index = 0; index < 4; index++)
-                                  index: Text(
-                                      [
-                                        'Overview',
-                                        'Staff',
-                                        'Requests',
-                                        'Reports'
-                                      ][index],
-                                      style: TextStyle(
-                                          color: nec.textPrimary, fontSize: 12))
+                                  index: Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                        [
+                                          'Overview',
+                                          'Staff',
+                                          'Requests',
+                                          'Reports'
+                                        ][index],
+                                        style: TextStyle(
+                                            color: _tab == index
+                                                ? Colors.white
+                                                : nec.brand,
+                                            fontWeight: _tab == index
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                            fontSize: 12)),
+                                  )
                               },
                               onValueChanged: (value) {
                                 if (value != null) {

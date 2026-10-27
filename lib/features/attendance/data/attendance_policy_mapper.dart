@@ -52,6 +52,7 @@ AttendancePolicy attendancePolicyFromApi(
             for (final item in response['holidays'] as List)
               if (item is Map && (item['holiday_date'] ?? item['date']) != null)
                 AttendanceHoliday(
+                    id: item['id']?.toString(),
                     day: (item['holiday_date'] ?? item['date']).toString(),
                     name: item['name']?.toString() ?? '')
           ]

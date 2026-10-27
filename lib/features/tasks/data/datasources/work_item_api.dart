@@ -1,3 +1,4 @@
+import '../../../attendance/data/attendance_context.dart';
 import 'dart:typed_data';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -166,6 +167,20 @@ class WorkItemApi {
     return response;
   }
 
+  Future<Map<String, dynamic>> _journeyContext(bool arrival) async {
+    final context = await AttendanceContext.collect();
+    return {
+      if (context['latitude'] != null)
+        (arrival ? 'arrival_latitude' : 'latitude'): context['latitude'],
+      if (context['longitude'] != null)
+        (arrival ? 'arrival_longitude' : 'longitude'): context['longitude'],
+      if (context['accuracy'] != null)
+        (arrival ? 'arrival_accuracy' : 'accuracy'): context['accuracy'],
+      (arrival ? 'arrived_at' : 'started_at'):
+          DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
   Future<Map<String, dynamic>> startVisitJourney(
     String token,
     String id,
@@ -173,7 +188,7 @@ class WorkItemApi {
     final response = await _client.post(
       ApiEndpoints.startVisitJourney(id),
       token: token,
-      body: const {},
+      body: await _journeyContext(false),
     );
     return response;
   }
@@ -185,7 +200,7 @@ class WorkItemApi {
     final response = await _client.post(
       ApiEndpoints.markVisitArrived(id),
       token: token,
-      body: const {},
+      body: await _journeyContext(true),
     );
     return response;
   }

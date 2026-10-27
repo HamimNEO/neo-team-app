@@ -38,8 +38,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void initState() {
     super.initState();
-    Future.wait([MessageStore.instance.load(), GroupChatStore.instance.load()])
-        .then((_) {
+    final hasData = MessageStore.instance.threads.isNotEmpty ||
+        GroupChatStore.instance.allGroups.isNotEmpty;
+    _loading = !hasData;
+    Future.wait([
+      MessageStore.instance.load(),
+      GroupChatStore.instance.load(),
+      MessageStore.instance.syncRemote(),
+      GroupChatStore.instance.syncRemote(),
+    ]).then((_) {
       if (mounted) setState(() => _loading = false);
     });
   }

@@ -24,7 +24,9 @@ Color requestColor(AttendanceRequestStatus status) => switch (status) {
       AttendanceRequestStatus.pending => AppColors.warning,
       AttendanceRequestStatus.approved => AppColors.success,
       AttendanceRequestStatus.rejected => AppColors.error,
-      AttendanceRequestStatus.cancelled => AppColors.neutral,
+      AttendanceRequestStatus.cancelled ||
+      AttendanceRequestStatus.revoked =>
+        AppColors.neutral,
     };
 
 class AttendanceBadge extends StatelessWidget {

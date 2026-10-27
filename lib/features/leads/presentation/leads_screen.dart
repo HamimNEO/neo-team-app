@@ -132,9 +132,12 @@ class _LeadsScreenState extends State<LeadsScreen> {
         'avatarAsset': employee?.avatarAsset,
         'id': lead.id,
         'company': lead.company,
-        'subtitle': [lead.location, lead.type]
-            .where((part) => part.isNotEmpty)
-            .join(' · '),
+        'subtitle': [
+          if (lead.contactName != null && lead.contactName!.trim().isNotEmpty)
+            lead.contactName!.trim(),
+          if (lead.location.isNotEmpty) lead.location,
+          if (lead.type.isNotEmpty) lead.type,
+        ].join(' · '),
         'status': lead.status,
         'scheduleNote': lead.scheduleNote,
         'isOverdue': lead.isOverdue,

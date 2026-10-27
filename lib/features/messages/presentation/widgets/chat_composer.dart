@@ -37,7 +37,7 @@ class ChatComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
-    final busy = sending || picking;
+    final busy = picking;
     return DecoratedBox(
       decoration: BoxDecoration(
           color: nec.surface,
@@ -201,18 +201,14 @@ class ChatComposer extends StatelessWidget {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                              color: canSend || sending
+                              color: canSend
                                   ? nec.brand
                                   : nec.textTertiary.withValues(alpha: .12),
                               shape: BoxShape.circle),
-                          child: sending
-                              ? const CupertinoActivityIndicator(
-                                  color: Colors.white)
-                              : Icon(CupertinoIcons.paperplane_fill,
-                                  size: 21,
-                                  color: canSend
-                                      ? Colors.white
-                                      : nec.textTertiary)))),
+                          child: Icon(CupertinoIcons.paperplane_fill,
+                              size: 21,
+                              color:
+                                  canSend ? Colors.white : nec.textTertiary)))),
             ]),
           ])),
     );

@@ -34,7 +34,8 @@ enum AttendanceRequestStatus {
   pending('Pending'),
   approved('Approved'),
   rejected('Rejected'),
-  cancelled('Cancelled');
+  cancelled('Cancelled'),
+  revoked('Revoked');
 
   final String label;
 
@@ -72,16 +73,19 @@ class LeaveType {
 }
 
 class AttendanceHoliday {
+  final String? id;
   final String day;
   final String name;
 
-  const AttendanceHoliday({required this.day, required this.name});
+  const AttendanceHoliday({this.id, required this.day, required this.name});
 
-  Map<String, dynamic> toJson() => {'day': day, 'name': name};
+  Map<String, dynamic> toJson() => {'id': id, 'day': day, 'name': name};
 
   factory AttendanceHoliday.fromJson(Map<String, dynamic> json) =>
       AttendanceHoliday(
-          day: json['day'] as String, name: json['name'] as String);
+          id: json['id']?.toString(),
+          day: json['day'] as String,
+          name: json['name'] as String);
 }
 
 class AttendancePolicy {
@@ -208,6 +212,8 @@ class AttendanceBreak {
 }
 
 class AttendanceRecord {
+  final Map<String, dynamic> metadata;
+  final String? serverStatus;
   final String employeeId;
   final String day;
   final DateTime? checkIn;
@@ -226,7 +232,9 @@ class AttendanceRecord {
   final int? reportedWorkedMinutes, reportedBreakMinutes;
 
   const AttendanceRecord(
-      {required this.employeeId,
+      {this.metadata = const {},
+      this.serverStatus,
+      required this.employeeId,
       required this.day,
       this.checkIn,
       this.checkOut,
@@ -244,40 +252,141 @@ class AttendanceRecord {
       this.reportedWorkedMinutes,
       this.reportedBreakMinutes});
 
-  bool get open => checkIn != null && checkOut == null;
+  AttendanceRecord copyWith({
+    Map<String, dynamic>? metadata,
+    String? serverStatus,
+    String? employeeId,
+    String? day,
+    DateTime? checkIn,
+    DateTime? checkOut,
+    List<AttendanceBreak>? breaks,
+    int? offsetMinutes,
+    int? requiredMinutes,
+    DateTime? expectedStart,
+    int? shiftMinutes,
+    int? graceMinutes,
+    int? paidBreakMinutes,
+    int? revision,
+    bool? corrected,
+    String? note,
+    bool? wasWorkingDay,
+    int? reportedWorkedMinutes,
+    int? reportedBreakMinutes,
+  }) =>
+      AttendanceRecord(
+        metadata: metadata ?? this.metadata,
+        serverStatus: serverStatus ?? this.serverStatus,
+        employeeId: employeeId ?? this.employeeId,
+        day: day ?? this.day,
+        checkIn: checkIn ?? this.checkIn,
+        checkOut: checkOut ?? this.checkOut,
+        breaks: breaks ?? this.breaks,
+        offsetMinutes: offsetMinutes ?? this.offsetMinutes,
+        requiredMinutes: requiredMinutes ?? this.requiredMinutes,
+        expectedStart: expectedStart ?? this.expectedStart,
+        shiftMinutes: shiftMinutes ?? this.shiftMinutes,
+        graceMinutes: graceMinutes ?? this.graceMinutes,
+        paidBreakMinutes: paidBreakMinutes ?? this.paidBreakMinutes,
+        revision: revision ?? this.revision,
+        corrected: corrected ?? this.corrected,
+        note: note ?? this.note,
+        wasWorkingDay: wasWorkingDay ?? this.wasWorkingDay,
+        reportedWorkedMinutes:
+            reportedWorkedMinutes ?? this.reportedWorkedMinutes,
+        reportedBreakMinutes: reportedBreakMinutes ?? this.reportedBreakMinutes,
+      );
 
-  bool get onBreak => breaks.isNotEmpty && breaks.last.end == null;
+  bool get open => serverStatus == 'checked_out'
+      ? false
+      : checkIn != null && checkOut == null;
+
+  bool get onBreak => serverStatus == null
+      ? breaks.isNotEmpty && breaks.last.end == null
+      : serverStatus == 'on_break';
 
   int breakSeconds(DateTime now) {
-    if (!onBreak && reportedBreakMinutes != null) {
-      return reportedBreakMinutes!.clamp(0, 1000000).toInt() * 60;
-    }
     if (checkIn == null) {
       return 0;
     }
-    final stop = checkOut ?? now;
-    var seconds = 0;
-    for (final item in breaks) {
-      final start = item.start.isBefore(checkIn!) ? checkIn! : item.start;
-      final end = (item.end ?? stop).isAfter(stop) ? stop : (item.end ?? stop);
-      if (end.isAfter(start)) {
-        seconds += end.difference(start).inSeconds;
+    var effectiveCheckIn = checkIn!;
+    var effectiveCheckOut = checkOut;
+    if (effectiveCheckIn.isAfter(now.add(const Duration(minutes: 1)))) {
+      final adjusted =
+          effectiveCheckIn.subtract(Duration(minutes: offsetMinutes));
+      if (!adjusted.isAfter(now.add(const Duration(minutes: 1)))) {
+        effectiveCheckIn = adjusted;
+        if (effectiveCheckOut != null) {
+          effectiveCheckOut =
+              effectiveCheckOut.subtract(Duration(minutes: offsetMinutes));
+        }
       }
     }
-    return seconds;
+    final stop = effectiveCheckOut ?? now;
+    final totalShiftSeconds = stop.isAfter(effectiveCheckIn)
+        ? stop.difference(effectiveCheckIn).inSeconds
+        : 0;
+
+    if (breaks.isNotEmpty) {
+      var seconds = 0;
+      for (final item in breaks) {
+        final start = item.start.isBefore(effectiveCheckIn)
+            ? effectiveCheckIn
+            : item.start;
+        final end =
+            (item.end ?? stop).isAfter(stop) ? stop : (item.end ?? stop);
+        if (end.isAfter(start)) {
+          seconds += end.difference(start).inSeconds;
+        }
+      }
+      return seconds.clamp(0, totalShiftSeconds);
+    }
+
+    if (checkOut != null &&
+        reportedBreakMinutes != null &&
+        reportedBreakMinutes! > 0) {
+      final repSec = reportedBreakMinutes! * 60;
+      if (repSec < totalShiftSeconds) {
+        return repSec;
+      }
+    }
+
+    return 0;
   }
 
   int workedSeconds(DateTime now) {
-    if ((checkOut != null || onBreak) && reportedWorkedMinutes != null) {
-      return reportedWorkedMinutes!.clamp(0, 1000000).toInt() * 60;
-    }
     if (checkIn == null) {
       return 0;
     }
-    final gross = (checkOut ?? now).difference(checkIn!).inSeconds;
-    final unpaid =
-        (breakSeconds(now) - paidBreakMinutes * 60).clamp(0, 100000000);
-    return (gross - unpaid).clamp(0, 100000000).toInt();
+    var effectiveCheckIn = checkIn!;
+    var effectiveCheckOut = checkOut;
+    if (effectiveCheckIn.isAfter(now.add(const Duration(minutes: 1)))) {
+      final adjusted =
+          effectiveCheckIn.subtract(Duration(minutes: offsetMinutes));
+      if (!adjusted.isAfter(now.add(const Duration(minutes: 1)))) {
+        effectiveCheckIn = adjusted;
+        if (effectiveCheckOut != null) {
+          effectiveCheckOut =
+              effectiveCheckOut.subtract(Duration(minutes: offsetMinutes));
+        }
+      }
+    }
+    final gross =
+        (effectiveCheckOut ?? now).difference(effectiveCheckIn).inSeconds;
+    if (gross <= 0) return 0;
+
+    final unpaid = (breakSeconds(now) - paidBreakMinutes * 60).clamp(0, gross);
+    final calculatedWorked = (gross - unpaid).clamp(0, gross);
+
+    if (checkOut != null &&
+        reportedWorkedMinutes != null &&
+        reportedWorkedMinutes! > 0) {
+      final repWorkedSec = reportedWorkedMinutes! * 60;
+      if (repWorkedSec <= gross) {
+        return repWorkedSec;
+      }
+    }
+
+    return calculatedWorked;
   }
 
   Map<String, dynamic> toJson() => {
@@ -296,6 +405,8 @@ class AttendanceRecord {
         'revision': revision,
         'corrected': corrected,
         'note': note,
+        'metadata': metadata,
+        'serverStatus': serverStatus,
         'reportedWorkedMinutes': reportedWorkedMinutes,
         'reportedBreakMinutes': reportedBreakMinutes,
       };
@@ -303,6 +414,8 @@ class AttendanceRecord {
   factory AttendanceRecord.fromJson(
           Map<String, dynamic> json) =>
       AttendanceRecord(
+          metadata: Map<String, dynamic>.from(json['metadata'] as Map? ?? {}),
+          serverStatus: json['serverStatus'] as String?,
           employeeId: json['employeeId'] as String,
           day: json['day'] as String,
           checkIn:

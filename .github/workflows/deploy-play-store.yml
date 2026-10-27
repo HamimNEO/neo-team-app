@@ -1,0 +1,146 @@
+name: Build & Deploy to Google Play Console (Internal Testing)
+
+on:
+  push:
+    branches:
+      - nec-production
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Google Play Release Track'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    name: Build AAB & Deploy to Play Console
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 💙 Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: 🔍 Read App Version from pubspec.yaml
+        id: app_version
+        run: |
+          FULL_VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | tr -d '\r')
+          VERSION_NAME=$(echo "$FULL_VERSION" | cut -d'+' -f1)
+          VERSION_CODE=$(echo "$FULL_VERSION" | cut -d'+' -f2)
+          echo "full_version=${FULL_VERSION}" >> $GITHUB_OUTPUT
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
+          echo "Tag: v${FULL_VERSION}"
+
+      - name: 🔐 Configure Environment & Secrets
+        env:
+          ENV_SECRET: ${{ secrets.ENV_FILE }}
+          GOOGLE_SERVICES_SECRET: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES_SECRET: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          # 1. Populate .env file
+          if [ -n "$ENV_SECRET" ]; then
+            echo "$ENV_SECRET" > .env
+            echo "✅ .env configured from secrets"
+          elif [ -f ".env.example" ]; then
+            cp .env.example .env
+            echo "⚠️ Using .env.example fallback"
+          fi
+
+          # 2. Populate android/app/google-services.json
+          mkdir -p android/app
+          if [ -n "$GOOGLE_SERVICES_SECRET" ]; then
+            echo "$GOOGLE_SERVICES_SECRET" > android/app/google-services.json
+            echo "✅ android/app/google-services.json configured from secrets"
+          fi
+
+          # 3. Decode Release Keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
+            echo "✅ android/upload-keystore.jks decoded successfully"
+          fi
+
+          # 4. Populate android/key.properties
+          if [ -n "$KEY_PROPERTIES_SECRET" ]; then
+            echo "$KEY_PROPERTIES_SECRET" > android/key.properties
+            echo "✅ android/key.properties configured from secrets"
+          fi
+
+      - name: 📦 Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: 🚀 Build Optimized Android App Bundle (.aab)
+        run: |
+          mkdir -p build/app/outputs/symbols
+          flutter build appbundle --release \
+            --obfuscate \
+            --split-debug-info=build/app/outputs/symbols
+
+      - name: 📱 Build Universal Release APK (For Direct Download)
+        run: |
+          flutter build apk --release \
+            --obfuscate \
+            --split-debug-info=build/app/outputs/symbols
+
+      - name: 📤 Upload Build Artifacts (CI Archive)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nec-team-production-artifacts
+          path: |
+            build/app/outputs/bundle/release/*.aab
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/symbols/
+          retention-days: 14
+
+      - name: 🌐 Deploy to Google Play Console
+        if: env.HAS_PLAY_SECRET == 'true'
+        env:
+          HAS_PLAY_SECRET: ${{ secrets.PLAY_STORE_JSON_KEY != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_JSON_KEY }}
+          packageName: com.neonecy.necteam
+          releaseFiles: build/app/outputs/bundle/release/*.aab
+          track: ${{ github.event.inputs.track || 'internal' }}
+          status: completed
+          inAppUpdatePriority: 2
+          mappingFile: build/app/outputs/mapping/release/mapping.txt
+
+      - name: 🏷️ Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.app_version.outputs.full_version }}
+          name: NEC TEAM CRM v${{ steps.app_version.outputs.version_name }} (Build ${{ steps.app_version.outputs.version_code }})
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            build/app/outputs/bundle/release/*.aab
+            build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

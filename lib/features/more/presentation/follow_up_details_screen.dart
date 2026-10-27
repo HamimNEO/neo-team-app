@@ -1,3 +1,4 @@
+import 'widgets/work_delivery_details.dart';
 import '../../../core/services/phone_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../data/work_queue_mapper.dart';
@@ -209,6 +210,7 @@ class FollowUpDetailsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              WorkDeliveryDetails(metadata: item.metadata),
               Container(
                 width: double.infinity,
                 padding:

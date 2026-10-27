@@ -19,13 +19,17 @@ class MessageApi {
     );
   }
 
-  Future<Map<String, dynamic>> createDirectConversation(int recipientEmployeeId,
-      {String? token}) {
+  Future<Map<String, dynamic>> createDirectConversation(
+      int? recipientEmployeeId,
+      {String? recipientUserId,
+      String? token}) {
     return _client.post(
       ApiEndpoints.messages,
       body: {
         'type': 'direct',
-        'recipient_employee_id': recipientEmployeeId,
+        if (recipientUserId != null) 'recipient_user_id': recipientUserId,
+        if (recipientUserId == null && recipientEmployeeId != null)
+          'recipient_employee_id': recipientEmployeeId,
       },
       token: token,
     );
@@ -127,11 +131,11 @@ class MessageApi {
     String? token,
   }) {
     return _client.multipart(
-      ApiEndpoints.sendMessage(conversationId),
-      fields: {'body': '[Group Avatar]'},
+      '${ApiEndpoints.conversation(conversationId)}/avatar',
+      fields: {},
       files: [
         ApiUpload(
-          field: 'attachment',
+          field: 'avatar',
           bytes: bytes,
           filename: filename,
         ),
@@ -179,4 +183,12 @@ class MessageApi {
           {String? token}) =>
       _client.post('${ApiEndpoints.conversation(conversationId)}/add-member',
           body: {'employee_id': employeeId}, token: token);
+
+  Future<Map<String, dynamic>> removeGroupMember(
+          String conversationId, String userId, {String? token}) =>
+      _client.delete(ApiEndpoints.removeGroupMember(conversationId, userId),
+          token: token);
+
+  Future<Map<String, dynamic>> getRecipients({String? token}) =>
+      _client.get(ApiEndpoints.messageRecipients, token: token);
 }

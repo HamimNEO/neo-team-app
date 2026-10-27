@@ -254,9 +254,11 @@ class Lead {
                     : 'UPCOMING';
     return Lead(
       id: json['id'].toString(),
-      company:
-          text(json['business_name'] ?? json['name'] ?? business['name']) ??
-              'Unnamed Business',
+      company: text(json['company'] ??
+              json['business_name'] ??
+              json['name'] ??
+              business['name']) ??
+          'Unnamed Business',
       type: text(json['business_type'] ?? business['type']) ?? '',
       location: text(json['location'] ?? business['location']) ?? '',
       status: status,
@@ -266,7 +268,8 @@ class Lead {
           DateTime.now(),
       updatedAt: DateTime.tryParse(
           text(json['updated_at'] ?? lifecycle['updated_at']) ?? ''),
-      contactName: text(json['contact_name'] ?? contact['name']),
+      contactName: text(
+          json['contact_person'] ?? json['contact_name'] ?? contact['name']),
       contactRole: text(json['contact_role'] ?? contact['role']),
       phone: text(json['phone'] ?? contact['phone']),
       email: text(json['email'] ?? contact['email']),

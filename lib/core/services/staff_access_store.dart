@@ -37,7 +37,6 @@ enum StaffPermission {
       };
 }
 
-/// Local UI permissions plus the signed-in account's server permissions.
 class StaffAccessStore extends FrameSafeNotifier {
   StaffAccessStore._() {
     DemoSession.instance.addListener(_sessionChanged);
@@ -292,9 +291,8 @@ class StaffAccessStore extends FrameSafeNotifier {
     if (path.startsWith('/employee/')) {
       return true;
     }
-    if (path == '/certificates' ||
-        path == '/certificates/my' ||
-        path == '/certificates/admin') {
+    if (path == '/certificates/admin') return false;
+    if (path == '/certificates' || path == '/certificates/my') {
       return true;
     }
     return const {

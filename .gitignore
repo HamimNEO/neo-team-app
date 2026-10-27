@@ -10,6 +10,7 @@
 .history
 .svn/
 .swiftpm/
+**/xcshareddata/
 migrate_working_dir/
 
 # IntelliJ related
@@ -65,3 +66,6 @@ lib/firebase_options.dart
 # Binaries & release outputs
 *.apk
 *.aab
+
+# Local API audit scratch files
+/tmp/backend_oct25/

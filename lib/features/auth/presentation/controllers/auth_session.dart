@@ -200,6 +200,10 @@ class AuthSession extends ChangeNotifier {
       'nec_lunch_api_',
       'nec_my_workspace_',
       'nec_auto_sms_api_',
+      'nec_expenses_api_',
+      'nec_certificates_api_',
+      'nec_messages_',
+      'nec_group_chats_',
     ]);
   }
 

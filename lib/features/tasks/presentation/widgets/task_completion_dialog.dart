@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/sound_service.dart';
 
 class TaskCompletionDialog extends StatefulWidget {
   final String taskTitle;
@@ -85,6 +86,7 @@ class _TaskCompletionDialogState extends State<TaskCompletionDialog>
       });
 
       HapticFeedback.heavyImpact();
+      SoundService.instance.playTaskDone();
       _celebrationController.forward();
 
       await Future.delayed(const Duration(milliseconds: 1250));

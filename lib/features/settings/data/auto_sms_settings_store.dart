@@ -56,6 +56,10 @@ class AutoSmsSettingsStore extends FrameSafeNotifier {
 
   bool get isAutoSmsEnabled => _enabled;
 
+  String get targetValue => _target;
+
+  String get timingValue => _timing;
+
   String get triggerTiming =>
       _timings.entries.where((e) => e.value == _timing).firstOrNull?.key ??
       _timing;
@@ -105,6 +109,7 @@ class AutoSmsSettingsStore extends FrameSafeNotifier {
     '{{date}}',
     '{{time}}',
     '{{purpose}}',
+    '{{meeting_link}}',
     '{{rep_name}}',
     '{{company}}'
   ];
@@ -240,7 +245,6 @@ class AutoSmsSettingsStore extends FrameSafeNotifier {
   }
 
   void resetToDefaultTemplate() {
-    // Restore the server-confirmed template instead of introducing client defaults.
     _templateTimer?.cancel();
     _template = _confirmed?['template']?.toString() ?? '';
     notifyListeners();
@@ -272,7 +276,8 @@ class AutoSmsSettingsStore extends FrameSafeNotifier {
       required String date,
       required String time,
       required String purpose,
-      required String repName}) {
+      required String repName,
+      String meetingLink = ''}) {
     var result = _template;
     final values = {
       'client_name': clientName,
@@ -280,7 +285,8 @@ class AutoSmsSettingsStore extends FrameSafeNotifier {
       'time': time,
       'purpose': purpose,
       'rep_name': repName,
-      'company': 'NEONECY'
+      'company': 'BinGi',
+      'meeting_link': meetingLink
     };
     for (final entry in values.entries) {
       result = result

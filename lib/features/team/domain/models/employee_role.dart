@@ -8,9 +8,9 @@ class EmployeeRole {
       EmployeeRole(key: 'TEAM_OPERATIONS', name: 'Operations');
 
   factory EmployeeRole.fromJson(Map<String, dynamic> json) {
-    final key = json['key'] ?? json['role_key'];
-    final name = json['name'];
-    if (key is! String || !key.startsWith('TEAM_') || name is! String) {
+    final key = (json['role_key'] ?? json['key'] ?? '').toString();
+    final name = (json['name'] ?? '').toString();
+    if (key.isEmpty || name.isEmpty) {
       throw const FormatException(
           'The server returned an invalid employee role.');
     }

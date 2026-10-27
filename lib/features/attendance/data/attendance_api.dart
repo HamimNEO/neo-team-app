@@ -53,6 +53,16 @@ class AttendanceApi {
           {String? token}) =>
       _client.post(ApiEndpoints.attendanceRequests, body: body, token: token);
 
+  Future<Map<String, dynamic>> allRequests(
+          {required String token, bool admin = false}) async =>
+      {
+        'data': await _client.all(
+            admin
+                ? ApiEndpoints.attendanceAdminRequests
+                : ApiEndpoints.attendanceRequests,
+            token: token),
+      };
+
   Future<Map<String, dynamic>> getAdminOverview({String? date, String? token}) {
     final query = <String, String>{if (date != null) 'date': date};
     return _client.get(
@@ -138,6 +148,25 @@ class AttendanceApi {
           {String? token}) =>
       _client.post(ApiEndpoints.attendanceAdminHolidays,
           body: body, token: token);
+
+  Future<Map<String, dynamic>> cancelRequest(String id, {String? token}) =>
+      _client.delete('${ApiEndpoints.attendanceRequests}/$id', token: token);
+
+  Future<Map<String, dynamic>> revokeOvertime(String id, String reason,
+          {String? token}) =>
+      _client.post(
+          '${ApiEndpoints.attendanceAdminRequests}/$id/revoke-overtime',
+          body: {'reason': reason},
+          token: token);
+
+  Future<Map<String, dynamic>> updateHoliday(
+          String id, Map<String, dynamic> body, {String? token}) =>
+      _client.put('${ApiEndpoints.attendanceAdminHolidays}/$id',
+          body: body, token: token);
+
+  Future<Map<String, dynamic>> deleteHoliday(String id, {String? token}) =>
+      _client.delete('${ApiEndpoints.attendanceAdminHolidays}/$id',
+          token: token);
 
   Future<Map<String, dynamic>> getAdminLunch({String? date, String? token}) {
     final query = <String, String>{if (date != null) 'date': date};

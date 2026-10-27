@@ -132,7 +132,13 @@ class _GroupChatEditorState extends State<_GroupChatEditor> {
           photoBase64: _photo,
           removePhoto: _removedPhoto,
           photoUrl: _photoUrl);
-      if (mounted && _sameSession) Navigator.pop(context, saved);
+      if (mounted && _sameSession) {
+        final warning = GroupChatStore.instance.mutationWarning;
+        if (warning != null) {
+          NecToast.show(context, message: warning, type: NecToastType.info);
+          Navigator.pop(context, saved);
+        }
+      }
     } catch (e) {
       if (mounted) _error(e);
     } finally {

@@ -204,26 +204,21 @@ class EmployeeStore extends FrameSafeNotifier {
       if (!current()) return;
       _employees = fresh.map((item) {
         final old = byId(item.id);
-        final isProbation = (old?.isProbation ?? false) ||
-            item.employmentType == 'probation';
+        final isProbation = item.isProbation;
         return Employee.fromJson({
           ...item.toJson(),
-          'photoBase64': old?.photoBase64 ?? item.photoBase64,
+          'photoBase64': old?.photoUrl == item.photoUrl
+              ? old?.photoBase64 ?? item.photoBase64
+              : item.photoBase64,
           'systemRole': old?.systemRole ?? item.systemRole,
           'roleKey': old?.roleKey ?? item.roleKey,
           'employmentType': isProbation ? 'probation' : item.employmentType,
-          'probationStartDate':
-              old?.probationStartDate ?? item.probationStartDate,
-          'probationEndDate':
-              old?.probationEndDate ?? item.probationEndDate,
-          'agreementPdfName':
-              old?.agreementPdfName ?? item.agreementPdfName,
-          'agreementPdfUrl':
-              old?.agreementPdfUrl ?? item.agreementPdfUrl,
-          'agreementPdfBase64':
-              old?.agreementPdfBase64 ?? item.agreementPdfBase64,
-          'agreementPdfSizeBytes':
-              old?.agreementPdfSizeBytes ?? item.agreementPdfSizeBytes,
+          'probationStartDate': item.probationStartDate,
+          'probationEndDate': item.probationEndDate,
+          'agreementPdfName': item.agreementPdfName,
+          'agreementPdfUrl': item.agreementPdfUrl,
+          'agreementPdfBase64': item.agreementPdfBase64,
+          'agreementPdfSizeBytes': item.agreementPdfSizeBytes,
           'activity': old?.activity ?? item.activity,
           'accessModules': old?.accessModules ?? item.accessModules,
         });

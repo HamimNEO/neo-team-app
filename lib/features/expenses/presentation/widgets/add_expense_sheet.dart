@@ -1,3 +1,5 @@
+import 'package:file_picker/file_picker.dart';
+import '../../../../core/network/api_client.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,11 +33,44 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   late String _selectedPaymentMethod;
   late ExpenseStatus _selectedStatus;
   bool _saving = false;
+  ApiUpload? _receipt;
+
+  Future<void> _pickReceipt() async {
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+          withData: true);
+      if (picked == null || !mounted) return;
+      final file = picked.files.single;
+      if (file.bytes == null || file.size > 10 * 1024 * 1024) {
+        throw const FormatException('Choose a receipt up to 10 MB.');
+      }
+      setState(() => _receipt = ApiUpload(
+          field: 'receipt',
+          bytes: file.bytes!,
+          filename: file.name,
+          mimeType: file.extension?.toLowerCase() == 'pdf'
+              ? 'application/pdf'
+              : file.extension?.toLowerCase() == 'png'
+                  ? 'image/png'
+                  : 'image/jpeg'));
+    } catch (e) {
+      if (mounted) {
+        NecToast.show(context,
+            message: e is FormatException
+                ? e.message
+                : 'Receipt could not be selected.',
+            type: NecToastType.error);
+      }
+    }
+  }
 
   final List<String> _paymentMethods = [
     'Bank Transfer',
     'Company Card',
-    'bKash / Nagad',
+    'bKash',
+    'Nagad',
     'Cash',
   ];
 
@@ -52,13 +87,23 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
           : '',
     );
     _vendorController = TextEditingController(text: e?.vendor ?? '');
-    _paidByController =
-        TextEditingController(text: e?.paidBy ?? 'Company Account');
+    _paidByController = TextEditingController(text: e?.paidBy ?? '');
     _notesController = TextEditingController(text: e?.notes ?? '');
 
     _selectedCategory = e?.category ?? ExpenseCategory.office;
     _selectedDate = e?.date ?? DateTime.now();
-    _selectedPaymentMethod = e?.paymentMethod ?? 'Bank Transfer';
+    _selectedPaymentMethod = {
+          'bank_transfer': 'Bank Transfer',
+          'company_card': 'Company Card',
+          'bkash': 'bKash',
+          'nagad': 'Nagad',
+          'cash': 'Cash'
+        }[e?.paymentMethod] ??
+        e?.paymentMethod ??
+        'Bank Transfer';
+    if (!_paymentMethods.contains(_selectedPaymentMethod)) {
+      _paymentMethods.add(_selectedPaymentMethod);
+    }
     _selectedStatus = e?.status ?? ExpenseStatus.paid;
   }
 
@@ -99,8 +144,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     try {
       final isEdit = widget.expense != null;
       final expense = Expense(
-        id: widget.expense?.id ??
-            'exp_${DateTime.now().millisecondsSinceEpoch}',
+        id: widget.expense?.id ?? '',
         title: _titleController.text.trim(),
         amount: rawAmount,
         category: _selectedCategory,
@@ -108,16 +152,14 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
         paymentMethod: _selectedPaymentMethod,
         status: _selectedStatus,
         vendor: _vendorController.text.trim(),
-        paidBy: _paidByController.text.trim().isNotEmpty
-            ? _paidByController.text.trim()
-            : 'Company Account',
+        paidBy: _paidByController.text.trim(),
         notes: _notesController.text.trim(),
       );
 
       if (isEdit) {
-        await ExpenseStore.instance.updateExpense(expense);
+        await ExpenseStore.instance.updateExpense(expense, receipt: _receipt);
       } else {
-        await ExpenseStore.instance.addExpense(expense);
+        await ExpenseStore.instance.addExpense(expense, receipt: _receipt);
       }
 
       if (mounted) {
@@ -140,6 +182,49 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     }
   }
 
+  InputDecoration _inputDec({
+    required NecColors nec,
+    required String hintText,
+    String? prefixText,
+    Widget? prefixIcon,
+  }) {
+    return InputDecoration(
+      filled: true,
+      fillColor: nec.surfaceSecondary.withValues(alpha: 0.6),
+      isDense: true,
+      prefixText: prefixText,
+      prefixIcon: prefixIcon,
+      prefixStyle: TextStyle(
+        color: nec.textPrimary,
+        fontWeight: FontWeight.w700,
+        fontSize: 15,
+      ),
+      hintText: hintText,
+      hintStyle: TextStyle(
+        color: nec.textTertiary.withValues(alpha: 0.75),
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: nec.separator.withValues(alpha: 0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: nec.separator.withValues(alpha: 0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: nec.brand, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: CupertinoColors.systemRed),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
@@ -147,7 +232,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return SizedBox(
-      height: screenHeight * 0.8,
+      height: screenHeight * 0.88,
       child: Container(
         decoration: BoxDecoration(
           color: nec.surface,
@@ -155,69 +240,78 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
         ),
         child: Column(
           children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 10),
+                decoration: BoxDecoration(
+                  color: nec.separator.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 10),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(20, 0, 16, 8),
+              child: Row(
                 children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: nec.separator,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9500).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.money_dollar_circle_fill,
+                      color: Color(0xFFFF9500),
+                      size: 18,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF9500)
-                                  .withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              CupertinoIcons.money_dollar_circle_fill,
-                              color: Color(0xFFFF9500),
-                              size: 18,
-                            ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isEdit ? 'Edit Expense' : 'Log New Expense',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: nec.textPrimary,
                           ),
-                          const SizedBox(width: 10),
-                          Text(
-                            isEdit ? 'Edit Expense' : 'Log New Expense',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: nec.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: Icon(CupertinoIcons.xmark_circle_fill,
-                            size: 22, color: nec.textTertiary),
-                        onPressed: () => context.pop(),
-                      ),
-                    ],
+                        ),
+                        Text(
+                          'Company financials & expenses',
+                          style:
+                              TextStyle(fontSize: 11, color: nec.textTertiary),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Divider(height: 1, color: nec.separator),
+                  InkWell(
+                    onTap: () => context.pop(),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: nec.surfaceSecondary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(CupertinoIcons.xmark,
+                          size: 13, color: nec.textSecondary),
+                    ),
+                  ),
                 ],
               ),
             ),
+            Divider(height: 1, color: nec.separator.withValues(alpha: 0.25)),
             Expanded(
               child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
                   20,
-                  4,
+                  14,
                   20,
-                  MediaQuery.of(context).viewInsets.bottom + 24,
+                  MediaQuery.of(context).viewInsets.bottom + 20,
                 ),
                 child: Form(
                   key: _formKey,
@@ -227,39 +321,30 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                       Text(
                         'Expense Title *',
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: nec.textSecondary),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
                       TextFormField(
                         controller: _titleController,
-                        decoration: InputDecoration(
-                          hintText: 'e.g. Office Internet Bill or Client Lunch',
-                          hintStyle:
-                              TextStyle(color: nec.textTertiary, fontSize: 14),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
+                        decoration: _inputDec(
+                          nec: nec,
+                          hintText: 'e.g. Internet Bill',
                         ),
                         validator: (val) => val == null || val.trim().isEmpty
                             ? 'Title is required'
                             : null,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Text(
                         'Amount (BDT) *',
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: nec.textSecondary),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
                       TextFormField(
                         controller: _amountController,
                         keyboardType: const TextInputType.numberWithOptions(
@@ -267,23 +352,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
                         ],
-                        decoration: InputDecoration(
+                        decoration: _inputDec(
+                          nec: nec,
                           prefixText: '৳ ',
-                          prefixStyle: TextStyle(
-                              color: nec.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16),
                           hintText: '0.00',
-                          hintStyle:
-                              TextStyle(color: nec.textTertiary, fontSize: 14),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -296,43 +368,100 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Category *',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: nec.textSecondary),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Category *',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: nec.textSecondary),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: nec.brand.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _selectedCategory.label,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: nec.brand,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 7),
                       Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                        spacing: 6,
+                        runSpacing: 6,
                         children: ExpenseCategory.values.map((cat) {
                           final isSel = _selectedCategory == cat;
-                          return ChoiceChip(
-                            avatar: Icon(cat.icon,
-                                size: 14,
-                                color: isSel ? Colors.white : cat.color),
-                            label: Text(cat.label),
-                            selected: isSel,
-                            showCheckmark: false,
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              fontWeight:
-                                  isSel ? FontWeight.w600 : FontWeight.w500,
-                              color: isSel ? Colors.white : nec.textPrimary,
-                            ),
-                            selectedColor: cat.color,
-                            backgroundColor: nec.surfaceSecondary,
-                            side: BorderSide(
-                                color: isSel ? cat.color : nec.separator),
-                            onSelected: (_) =>
+                          return InkWell(
+                            onTap: () =>
                                 setState(() => _selectedCategory = cat),
+                            borderRadius: BorderRadius.circular(8),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 140),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSel
+                                    ? nec.brand
+                                    : nec.surfaceSecondary
+                                        .withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSel
+                                      ? nec.brand
+                                      : nec.separator.withValues(alpha: 0.15),
+                                  width: isSel ? 1.2 : 1,
+                                ),
+                                boxShadow: isSel
+                                    ? [
+                                        BoxShadow(
+                                          color:
+                                              nec.brand.withValues(alpha: 0.22),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        )
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    cat.icon,
+                                    size: 13,
+                                    color: isSel ? Colors.white : cat.color,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    cat.shortLabel,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isSel
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      color: isSel
+                                          ? Colors.white
+                                          : nec.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
@@ -341,29 +470,35 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                               children: [
                                 Text('Expense Date',
                                     style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: nec.textSecondary)),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 5),
                                 InkWell(
                                   onTap: _pickDate,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(10),
                                   child: Container(
+                                    height: 42,
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 12),
+                                        horizontal: 11),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: nec.separator),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: nec.surfaceSecondary
+                                          .withValues(alpha: 0.6),
+                                      border: Border.all(
+                                          color: nec.separator
+                                              .withValues(alpha: 0.2)),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Row(
                                       children: [
                                         Icon(CupertinoIcons.calendar,
-                                            size: 16, color: nec.brand),
+                                            size: 15, color: nec.brand),
                                         const SizedBox(width: 8),
                                         Text(
                                           '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
                                           style: TextStyle(
-                                              fontSize: 14,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
                                               color: nec.textPrimary),
                                         ),
                                       ],
@@ -373,38 +508,43 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('Payment Status',
                                     style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: nec.textSecondary)),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 5),
                                 Container(
+                                  height: 42,
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: nec.separator),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: nec.surfaceSecondary
+                                        .withValues(alpha: 0.6),
+                                    border: Border.all(
+                                        color: nec.separator
+                                            .withValues(alpha: 0.2)),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<ExpenseStatus>(
                                       value: _selectedStatus,
                                       isExpanded: true,
                                       icon: Icon(CupertinoIcons.chevron_down,
-                                          size: 14, color: nec.textTertiary),
+                                          size: 13, color: nec.textTertiary),
                                       items: ExpenseStatus.values.map((s) {
                                         return DropdownMenuItem(
                                           value: s,
                                           child: Row(
                                             children: [
                                               Container(
-                                                  width: 8,
-                                                  height: 8,
+                                                  width: 7,
+                                                  height: 7,
                                                   decoration: BoxDecoration(
                                                       color: s.color,
                                                       shape: BoxShape.circle)),
@@ -412,6 +552,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                               Text(s.label,
                                                   style: TextStyle(
                                                       fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                       color: nec.textPrimary)),
                                             ],
                                           ),
@@ -430,7 +572,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
@@ -439,29 +581,36 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                               children: [
                                 Text('Payment Method',
                                     style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: nec.textSecondary)),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 5),
                                 Container(
+                                  height: 42,
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: nec.separator),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: nec.surfaceSecondary
+                                        .withValues(alpha: 0.6),
+                                    border: Border.all(
+                                        color: nec.separator
+                                            .withValues(alpha: 0.2)),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
                                       value: _selectedPaymentMethod,
                                       isExpanded: true,
                                       icon: Icon(CupertinoIcons.chevron_down,
-                                          size: 14, color: nec.textTertiary),
+                                          size: 13, color: nec.textTertiary),
                                       items: _paymentMethods
                                           .map((m) => DropdownMenuItem(
                                               value: m,
                                               child: Text(m,
                                                   style: TextStyle(
                                                       fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                       color: nec.textPrimary))))
                                           .toList(),
                                       onChanged: (val) {
@@ -476,33 +625,22 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('Vendor / Payee',
                                     style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: nec.textSecondary)),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 5),
                                 TextFormField(
                                   controller: _vendorController,
-                                  decoration: InputDecoration(
+                                  decoration: _inputDec(
+                                    nec: nec,
                                     hintText: 'e.g. Star Tech',
-                                    hintStyle: TextStyle(
-                                        color: nec.textTertiary, fontSize: 13),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 12),
-                                    border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide:
-                                            BorderSide(color: nec.separator)),
-                                    enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide:
-                                            BorderSide(color: nec.separator)),
                                   ),
                                 ),
                               ],
@@ -510,60 +648,114 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Text(
                         'Paid By / Account',
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: nec.textSecondary),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
                       TextFormField(
                         controller: _paidByController,
-                        decoration: InputDecoration(
-                          hintText:
-                              'e.g. Company Account, Mahmud Hasan, Petty Cash',
-                          hintStyle:
-                              TextStyle(color: nec.textTertiary, fontSize: 14),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
+                        decoration: _inputDec(
+                          nec: nec,
+                          hintText: 'e.g. Company Account',
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Receipt / Invoice',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: nec.textSecondary),
+                      ),
+                      const SizedBox(height: 5),
+                      InkWell(
+                        onTap: _saving ? null : _pickReceipt,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: nec.surfaceSecondary.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: (_receipt != null ||
+                                      widget.expense?.receiptName != null)
+                                  ? nec.brand.withValues(alpha: 0.5)
+                                  : nec.separator.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.paperclip,
+                                size: 16,
+                                color: (_receipt != null ||
+                                        widget.expense?.receiptName != null)
+                                    ? nec.brand
+                                    : nec.textSecondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _receipt?.filename ??
+                                      widget.expense?.receiptName ??
+                                      'Attach receipt (optional)',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: (_receipt != null ||
+                                            widget.expense?.receiptName != null)
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: (_receipt != null ||
+                                            widget.expense?.receiptName != null)
+                                        ? nec.textPrimary
+                                        : nec.textTertiary,
+                                  ),
+                                ),
+                              ),
+                              if (_receipt != null)
+                                GestureDetector(
+                                  onTap: () => setState(() => _receipt = null),
+                                  child: Icon(
+                                      CupertinoIcons.clear_circled_solid,
+                                      size: 15,
+                                      color: nec.textTertiary),
+                                )
+                              else
+                                Text(
+                                  '10 MB max',
+                                  style: TextStyle(
+                                      fontSize: 11, color: nec.textTertiary),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Text(
                         'Notes & Justification',
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: nec.textSecondary),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
                       TextFormField(
                         controller: _notesController,
                         maxLines: 2,
-                        decoration: InputDecoration(
-                          hintText:
-                              'Add invoice details, purpose, or remarks...',
-                          hintStyle:
-                              TextStyle(color: nec.textTertiary, fontSize: 13),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: nec.separator)),
+                        decoration: _inputDec(
+                          nec: nec,
+                          hintText: 'Add optional notes...',
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       NecButton(
                         label: _saving
                             ? 'Saving...'

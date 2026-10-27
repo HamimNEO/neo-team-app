@@ -56,6 +56,26 @@ class AttendanceDayDetail extends StatelessWidget {
                     facts.status.label, attendanceColor(facts.status))
               ]),
               const SizedBox(height: 20),
+              if (record?.serverStatus != null)
+                Text(record!.serverStatus!.replaceAll('_', ' ')),
+              if (record != null)
+                AttendanceValues(rows: [
+                  for (final key in [
+                    'location',
+                    'latitude',
+                    'longitude',
+                    'accuracy',
+                    'device_id',
+                    'wifi_ssid',
+                    'summary',
+                    'work_notes'
+                  ])
+                    if (record.metadata[key] != null)
+                      (
+                        key.replaceAll('_', ' '),
+                        record.metadata[key].toString()
+                      )
+                ]),
               AttendanceValues(rows: [
                 (
                   'Check-in',

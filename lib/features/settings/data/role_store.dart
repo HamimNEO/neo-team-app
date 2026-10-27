@@ -231,6 +231,10 @@ class RoleStore extends FrameSafeNotifier {
             final result = await _api.getRoles(token);
             if (token != _token) return;
             _records = _maps(result['roles'] ?? result['data']);
+            if (result['permission_modules'] is List &&
+                (result['permission_modules'] as List).isNotEmpty) {
+              _catalog = _maps(result['permission_modules']);
+            }
             _detailsLoaded.clear();
             _remap();
             notifyListeners();

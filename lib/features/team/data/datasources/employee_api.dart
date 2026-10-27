@@ -102,14 +102,18 @@ class EmployeeApi {
 
   Future<Map<String, dynamic>> create(
           String token, EmployeeSubmission submission) async =>
-      _employee(await _write(token, ApiEndpoints.addEmployee,
-          submission.createPayload(), submission.employee.photoBase64));
+      _employee(await _write(token, '/team-operations/employees',
+          submission.createPayload(), submission.employee.photoBase64,
+          agreement: submission.employee.agreementPdfBase64,
+          agreementName: submission.employee.agreementPdfName));
 
   Future<Map<String, dynamic>> update(
       String token, String id, EmployeeSubmission submission) async {
     final record = _employee(await _write(token, ApiEndpoints.employee(id),
         submission.profilePayload(), submission.employee.photoBase64,
-        patch: true));
+        patch: true,
+        agreement: submission.employee.agreementPdfBase64,
+        agreementName: submission.employee.agreementPdfName));
     if (record['id'].toString() != id) {
       throw const ApiException('The server returned a different employee.');
     }
@@ -144,8 +148,8 @@ class EmployeeApi {
 
   Future<Map<String, dynamic>> _write(
       String token, String path, Map<String, dynamic> body, String? photo,
-      {bool patch = false}) {
-    if (photo == null) {
+      {bool patch = false, String? agreement, String? agreementName}) {
+    if (photo == null && agreement == null) {
       return patch
           ? _client.patch(path, body: body, token: token)
           : _client.post(path, body: body, token: token);
@@ -171,8 +175,17 @@ class EmployeeApi {
 
     body.forEach(flatten);
     return _client.multipart(path, fields: fields, token: token, files: [
-      ApiUpload(
-          field: 'photo', bytes: base64Decode(photo), filename: 'employee.png')
+      if (photo != null)
+        ApiUpload(
+            field: 'photo',
+            bytes: base64Decode(photo),
+            filename: 'employee.png'),
+      if (agreement != null)
+        ApiUpload(
+            field: 'agreement_pdf',
+            bytes: base64Decode(agreement),
+            filename: agreementName ?? 'agreement.pdf',
+            mimeType: 'application/pdf')
     ]);
   }
 

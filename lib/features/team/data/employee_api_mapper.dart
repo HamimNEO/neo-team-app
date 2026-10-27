@@ -121,13 +121,31 @@ Employee employeeFromApi(Map<String, dynamic> record, String baseUrl) {
         : ((mealCost - contribution) * 100 / mealCost).round().clamp(0, 100),
     hasRotationalReserve: record['rotational_reserve_enabled'] == true,
     rotationalReserveAmount: apiMoney(record['rotational_reserve_deduction']),
-    employmentType: nullable(record['employment_type'])?.toLowerCase() == 'probation'
-        ? 'probation'
-        : 'permanent',
-    probationStartDate: (nullable(record['probation_start_date']) ?? '').split('T').first.isNotEmpty
+    probationMetrics: {
+      if (record['probation'] is Map)
+        ...Map<String, dynamic>.from(record['probation'] as Map),
+      for (final key in [
+        'probation_days_total',
+        'probation_days_completed',
+        'probation_days_remaining',
+        'probation_progress_percent'
+      ])
+        if (record[key] != null) key: record[key]
+    },
+    employmentType:
+        nullable(record['employment_type'])?.toLowerCase() == 'probation'
+            ? 'probation'
+            : 'permanent',
+    probationStartDate: (nullable(record['probation_start_date']) ?? '')
+            .split('T')
+            .first
+            .isNotEmpty
         ? (nullable(record['probation_start_date']) ?? '').split('T').first
         : null,
-    probationEndDate: (nullable(record['probation_end_date']) ?? '').split('T').first.isNotEmpty
+    probationEndDate: (nullable(record['probation_end_date']) ?? '')
+            .split('T')
+            .first
+            .isNotEmpty
         ? (nullable(record['probation_end_date']) ?? '').split('T').first
         : null,
     agreementPdfName: nullable(record['agreement_pdf_name'] ??
@@ -139,8 +157,10 @@ Employee employeeFromApi(Map<String, dynamic> record, String baseUrl) {
             record['agreement_url']),
         baseUrl),
     agreementPdfBase64: nullable(record['agreement_pdf_base64']),
-    agreementPdfSizeBytes: record['agreement_pdf_size_bytes'] is int
-        ? record['agreement_pdf_size_bytes'] as int
+    agreementPdfSizeBytes: (record['agreement_pdf_size_bytes'] ??
+            record['agreement_pdf_size']) is int
+        ? (record['agreement_pdf_size_bytes'] ?? record['agreement_pdf_size'])
+            as int
         : null,
     salary: !salaryEnabled
         ? null

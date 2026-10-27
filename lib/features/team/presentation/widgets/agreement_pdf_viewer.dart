@@ -1,3 +1,4 @@
+import '../../../../core/widgets/protected_document_screen.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
@@ -63,6 +64,9 @@ class AgreementPdfViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
     final resolvedBytes = _resolveBytes();
+    if (resolvedBytes == null && url != null && url!.isNotEmpty) {
+      return ProtectedDocumentScreen(title: title, url: url!);
+    }
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -111,34 +115,30 @@ class AgreementPdfViewer extends StatelessWidget {
                 resolvedBytes,
                 sourceName: title,
               )
-            : (url != null && url!.isNotEmpty)
-                ? PdfViewer.uri(
-                    Uri.parse(url!),
-                  )
-                : Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            CupertinoIcons.doc_text,
-                            size: 48,
-                            color: nec.textTertiary,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Agreement document is not available for preview.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: nec.textSecondary,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+            : Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        CupertinoIcons.doc_text,
+                        size: 48,
+                        color: nec.textTertiary,
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Agreement document is not available for preview.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: nec.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+              ),
       ),
     );
   }

@@ -89,15 +89,17 @@ class EmployeeSalaryTab extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            'Company Meal Policy',
-                            style: TextStyle(
-                              color: nec.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Text(
+                              'Company Meal Policy',
+                              style: TextStyle(
+                                color: nec.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
@@ -186,15 +188,17 @@ class EmployeeSalaryTab extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'Rotational Reserve Fund',
-                          style: TextStyle(
-                            color: nec.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Rotational Reserve Fund',
+                            style: TextStyle(
+                              color: nec.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
@@ -236,16 +240,19 @@ class EmployeeSalaryTab extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(CupertinoIcons.calendar,
                                 size: 14, color: nec.brand),
                             const SizedBox(width: 6),
-                            Text(
-                              'Monthly reserve deduction',
-                              style: TextStyle(
-                                color: nec.brand,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Text(
+                                'Monthly reserve deduction',
+                                style: TextStyle(
+                                  color: nec.brand,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],

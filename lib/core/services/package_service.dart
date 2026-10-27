@@ -13,13 +13,13 @@ class PackageService {
     if (_packageInfo != null && _packageInfo!.version.isNotEmpty) {
       return _packageInfo!.version;
     }
-    return '2.0.0';
+    return '2.1.0';
   }
 
   static String get buildNumber {
     if (_packageInfo != null && _packageInfo!.buildNumber.isNotEmpty) {
       return _packageInfo!.buildNumber;
     }
-    return '2026.1';
+    return '5';
   }
 }

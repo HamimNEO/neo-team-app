@@ -162,29 +162,31 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   Future<void> _send() async {
     final text = _composer.text.trim();
-    if (_sending ||
-        _picking ||
+    if (_picking ||
         (text.isEmpty && _attachments.isEmpty) ||
         _ownerId != DemoSession.instance.employeeId) {
       return;
     }
+    final attachmentsToSend = List.of(_attachments);
+    final replyIdToSend = _replyToId;
+    _composer.clear();
+    _attachments.clear();
+    _replyToId = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scroll.hasClients) {
+        _scroll.animateTo(0,
+            duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+      }
+    });
     setState(() => _sending = true);
     try {
       await MessageStore.instance.send(widget.employeeId, text,
-          attachments: List.of(_attachments), replyToId: _replyToId);
-      if (!mounted) return;
-      _attachments.clear();
-      _replyToId = null;
-      _composer.clear();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) {
-          _scroll.animateTo(0,
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut);
-        }
-      });
+          attachments: attachmentsToSend, replyToId: replyIdToSend);
     } catch (error) {
       if (mounted) {
+        _composer.text = text;
+        _attachments.addAll(attachmentsToSend);
+        _replyToId = replyIdToSend;
         _error(error is FormatException
             ? error.message
             : 'Unable to send. Your draft is still here.');
@@ -437,11 +439,8 @@ class _ConversationScreenState extends State<ConversationScreen>
     final messages = store.conversation(employee.id);
     final pinned = store.pinned(employee.id);
     final reply = _replyToId == null ? null : store.messageById(_replyToId!);
-    final enabled = !_loading &&
-        store.loadError == null &&
-        _ownerId == DemoSession.instance.employeeId;
+    final enabled = !_loading && _ownerId == DemoSession.instance.employeeId;
     final canSend = enabled &&
-        !_sending &&
         !_picking &&
         (_composer.text.trim().isNotEmpty || _attachments.isNotEmpty);
     return Scaffold(
@@ -491,10 +490,11 @@ class _ConversationScreenState extends State<ConversationScreen>
       body: SafeArea(
           top: false,
           child: Column(children: [
-            if (store.loadError != null)
+            if (store.loadError != null && messages.isEmpty)
               Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(store.loadError!,
+                      textAlign: TextAlign.center,
                       style:
                           const TextStyle(color: CupertinoColors.systemRed))),
             if (pinned.isNotEmpty)

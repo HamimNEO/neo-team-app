@@ -118,7 +118,8 @@ class _EmployeeOffboardingSheetState extends State<EmployeeOffboardingSheet> {
         e.backendId != null &&
         e.id != widget.employee.id &&
         e.status == 'Active');
-    final raw = _summary?['summary'] ??
+    final raw = _summary?['open_work'] ??
+        _summary?['summary'] ??
         _summary?['workload'] ??
         _summary?['data'] ??
         _summary;

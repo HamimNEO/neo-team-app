@@ -5,6 +5,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/notifiers/frame_safe_notifier.dart';
 import '../../../core/services/demo_session.dart';
 import '../../auth/presentation/controllers/auth_session.dart';
+import '../../more/data/notification_store.dart';
 import '../../settings/data/profile_store.dart';
 import '../../team/data/department_store.dart';
 import '../../team/data/employee_store.dart';
@@ -22,7 +23,19 @@ import 'message_store.dart';
 /// Live Group Chat Store for Teams and Departments connected to backend API.
 class GroupChatStore extends FrameSafeNotifier {
   GroupChatStore._() {
-    DemoSession.instance.addListener(notifyListeners);
+    _token = _session.accessToken;
+    DemoSession.instance.addListener(() {
+      if (_token != _session.accessToken) {
+        _token = _session.accessToken;
+        _groups = [];
+        _seeded = {};
+        _memberIds.clear();
+        _hydrated = false;
+        _loading = null;
+        error = null;
+      }
+      notifyListeners();
+    });
     EmployeeStore.instance.addListener(notifyListeners);
     TeamStore.instance.addListener(notifyListeners);
     DepartmentStore.instance.addListener(notifyListeners);
@@ -36,7 +49,10 @@ class GroupChatStore extends FrameSafeNotifier {
   Future<void>? _loading;
   Future<void> _pending = Future.value();
   bool _hydrated = false;
-  String? error;
+  String? error, _token;
+  String? mutationWarning;
+  final Map<String, List<String>> _memberIds = {};
+  final Map<String, Map<String, String>> _memberUserIds = {};
 
   final MessageApi _api = MessageApi(ApiClient(
     baseUrl: () => AppConfig.apiBaseUrl,
@@ -178,6 +194,7 @@ class GroupChatStore extends FrameSafeNotifier {
     try {
       if (!_hydrated) {
         final cached = await _cache.read();
+        if (token != _session.accessToken) return;
         _groups = cached.groups
             .where((g) => !g.id.startsWith('demo_group_'))
             .toList();
@@ -210,9 +227,11 @@ class GroupChatStore extends FrameSafeNotifier {
 
   Future<void> syncRemote() async {
     if (!_session.signedIn) return;
+    final token = _session.accessToken;
     try {
-      final teamResFuture = _api.listConversations(scope: 'team');
-      final deptResFuture = _api.listConversations(scope: 'department');
+      final teamResFuture = _api.listConversations(scope: 'team', token: token);
+      final deptResFuture =
+          _api.listConversations(scope: 'department', token: token);
       final results = await Future.wait([teamResFuture, deptResFuture]);
 
       final teamConvs = (results[0]['conversations'] as List? ?? []);
@@ -224,7 +243,24 @@ class GroupChatStore extends FrameSafeNotifier {
       for (final c in allConvs) {
         final convId = c['id'].toString();
         try {
-          final details = await _api.getConversation(convId);
+          final details = await _api.getConversation(convId, token: token);
+          if (token != _session.accessToken) return;
+          final participantUserMap = <String, String>{};
+          final participantEmpIds = <String>[];
+          for (final member in details['participants'] as List? ?? []) {
+            if (member is Map) {
+              final rawId =
+                  member['id']?.toString() ?? member['employee_id']?.toString();
+              if (rawId != null) {
+                final empKey = 'api_emp_$rawId';
+                participantEmpIds.add(empKey);
+                final userId = member['user_id']?.toString() ?? rawId;
+                participantUserMap[empKey] = userId;
+              }
+            }
+          }
+          _memberIds[convId] = participantEmpIds;
+          _memberUserIds[convId] = participantUserMap;
           final convData =
               details['conversation'] as Map<String, dynamic>? ?? {};
           final msgs =
@@ -258,7 +294,7 @@ class GroupChatStore extends FrameSafeNotifier {
           final rawDesc = convData['description']?.toString() ??
               c['description']?.toString() ??
               '';
-          String? photoUrl;
+          String? photoUrl = convData['avatar_url']?.toString();
           final avatarMatch =
               RegExp(r'\[avatar:(https?://[^\]]+)\]').firstMatch(rawDesc);
           if (avatarMatch != null) {
@@ -376,7 +412,8 @@ class GroupChatStore extends FrameSafeNotifier {
                     DateTime.now(),
             messages: parsedMessages,
             readThrough: existing?.readThrough ?? const {},
-            archivedBy: existing?.archivedBy ?? const [],
+            archivedBy:
+                convData['is_archived'] == true ? [_session.employeeId] : [],
           );
           updatedGroups.add(groupChat);
         } catch (_) {
@@ -384,16 +421,24 @@ class GroupChatStore extends FrameSafeNotifier {
         }
       }
 
+      if (token != _session.accessToken) return;
+      error = null;
       final idSet = updatedGroups.map((g) => g.id).toSet();
       _groups = [
-        ..._groups.where(
-            (g) => !idSet.contains(g.id) && !g.id.startsWith('demo_group_')),
+        ..._groups.where((g) =>
+            !idSet.contains(g.id) &&
+            allConvs.any((c) => c['id'].toString() == g.id)),
         ...updatedGroups,
       ];
       await _cache.save(_groups, _seeded);
       notifyListeners();
-    } catch (_) {
-      // Offline fallback
+    } catch (e) {
+      if (token == _session.accessToken) {
+        error = e is FormatException
+            ? e.message
+            : 'Messages could not be refreshed.';
+        notifyListeners();
+      }
     }
   }
 
@@ -419,8 +464,10 @@ class GroupChatStore extends FrameSafeNotifier {
         _authorize(actor, token);
         await _cache.save(_groups, _seeded);
       } catch (_) {
-        _groups = previous;
-        _seeded = seeded;
+        if (token == _session.accessToken) {
+          _groups = previous;
+          _seeded = seeded;
+        }
         rethrow;
       }
       notifyListeners();
@@ -432,7 +479,7 @@ class GroupChatStore extends FrameSafeNotifier {
 
   ChatScope _managementScope(String key) {
     for (final scope in scopes) {
-      if (scope.key == key && (canManage(scope) || canParticipate(scope))) {
+      if (scope.key == key && canManage(scope)) {
         return scope;
       }
     }
@@ -448,7 +495,7 @@ class GroupChatStore extends FrameSafeNotifier {
       }
     }
     throw const FormatException(
-        'You must be a member or manager of this group to make changes.');
+        'Only the administrator or unit lead can manage this group.');
   }
 
   Future<GroupChat> save(
@@ -460,6 +507,11 @@ class GroupChatStore extends FrameSafeNotifier {
       bool removePhoto = false,
       String? photoUrl}) async {
     final actor = _session.employeeId, token = _session.accessToken;
+    mutationWarning = null;
+    if (removePhoto && group?.photoUrl != null) {
+      throw const FormatException(
+          'The API does not document removing an existing group photo yet. You can replace it by selecting a new photo.');
+    }
     GroupChat? saved;
     await _write(actor, token, () async {
       _managementScope(scope.key);
@@ -470,132 +522,83 @@ class GroupChatStore extends FrameSafeNotifier {
             'Use a name of 1-120 characters and a description up to 1,000 characters.');
       }
 
-      String? uploadedUrl = photoUrl;
-      if (removePhoto) {
-        uploadedUrl = null;
-      }
-
+      final cleanDesc = description.trim();
+      String id;
+      GroupChat? current;
       if (group != null) {
-        final current = byId(group.id);
-        if (current == null) {
-          throw const FormatException('This group is no longer available.');
-        }
-
-        if (photoBase64 != null && photoBase64.isNotEmpty) {
-          try {
-            final bytes = base64Decode(photoBase64);
-            final uploadRes = await _api.uploadGroupPhoto(current.id, bytes);
-            final item = uploadRes['item'] as Map<String, dynamic>? ??
-                uploadRes['message'] as Map<String, dynamic>?;
-            final cdnUrl = item?['attachment']?['url']?.toString();
-            if (cdnUrl != null && cdnUrl.isNotEmpty) {
-              uploadedUrl = cdnUrl;
-            }
-          } catch (_) {}
-        }
-
-        final cleanDesc =
-            description.trim().replaceAll(RegExp(r'\s*\[avatar:[^\]]+\]'), '');
-        final descWithAvatar = uploadedUrl != null
-            ? '$cleanDesc [avatar:$uploadedUrl]'
-            : cleanDesc;
-
-        try {
-          await _api.editGroup(
-            current.id,
-            {'name': name.trim(), 'description': descWithAvatar},
-          );
-        } catch (_) {
-          if (uploadedUrl != null && uploadedUrl != current.photoUrl) {
-            try {
-              await _api.sendMessage(
-                current.id,
-                '[avatar:$uploadedUrl]',
-              );
-            } catch (_) {}
-          }
-        }
-
-        saved = current.copyWith(
-            name: name.trim(),
-            description: cleanDesc,
-            photoBase64: photoBase64,
-            removePhoto: removePhoto || photoBase64 == null,
-            photoUrl: uploadedUrl,
-            removePhotoUrl: removePhoto);
-        _groups[_groups.indexWhere((g) => g.id == current.id)] = saved!;
+        current = _require(group.id);
+        id = current.id;
+        await _api.editGroup(id, {
+          'name': name.trim(),
+          'description': cleanDesc,
+        });
       } else {
-        String newId =
-            'group_${DateTime.now().microsecondsSinceEpoch}_${_groups.length}';
-        final cleanDesc =
-            description.trim().replaceAll(RegExp(r'\s*\[avatar:[^\]]+\]'), '');
-        try {
-          if (scope.kind == GroupChatKind.team) {
-            final res = await _api.createTeamConversation(
-              team: scope.id,
-              name: name.trim(),
-              description: cleanDesc,
-            );
-            if (res['conversation']?['id'] != null) {
-              newId = res['conversation']['id'].toString();
-            }
-          } else {
-            final deptId = int.tryParse(scope.id) ?? 1;
-            final res = await _api.createDepartmentConversation(
-              departmentId: deptId,
-              name: name.trim(),
-              description: cleanDesc,
-            );
-            if (res['conversation']?['id'] != null) {
-              newId = res['conversation']['id'].toString();
-            }
+        Map<String, dynamic> response;
+        if (scope.kind == GroupChatKind.team) {
+          response = await _api.createTeamConversation(
+              team: scope.id, name: name.trim(), description: cleanDesc);
+        } else {
+          final departmentId = int.tryParse(scope.id);
+          if (departmentId == null) {
+            throw const FormatException(
+                'Refresh the department directory before creating a group.');
           }
-        } catch (_) {}
-
-        if (photoBase64 != null && photoBase64.isNotEmpty) {
-          try {
-            final bytes = base64Decode(photoBase64);
-            final uploadRes = await _api.uploadGroupPhoto(newId, bytes);
-            final item = uploadRes['item'] as Map<String, dynamic>? ??
-                uploadRes['message'] as Map<String, dynamic>?;
-            final cdnUrl = item?['attachment']?['url']?.toString();
-            if (cdnUrl != null && cdnUrl.isNotEmpty) {
-              uploadedUrl = cdnUrl;
-              final descWithAvatar = '$cleanDesc [avatar:$uploadedUrl]';
-              try {
-                await _api.editGroup(
-                  newId,
-                  {'name': name.trim(), 'description': descWithAvatar},
-                );
-              } catch (_) {}
-            }
-          } catch (_) {}
+          response = await _api.createDepartmentConversation(
+              departmentId: departmentId,
+              name: name.trim(),
+              description: cleanDesc);
         }
-
-        saved = GroupChat(
-            id: newId,
-            scopeKey: scope.key,
-            name: name.trim(),
-            description: cleanDesc,
-            photoBase64: photoBase64,
-            photoUrl: uploadedUrl,
-            createdBy: actor,
-            createdAt: DateTime.now());
-        _groups.add(saved!);
-        _seeded.add(scope.key);
+        final raw = response['conversation'];
+        if (raw is! Map || raw['id'] == null) {
+          throw const FormatException(
+              'Group accepted without a conversation ID. Refresh Messages before retrying.');
+        }
+        id = raw['id'].toString();
       }
+      String? uploadedUrl = removePhoto ? null : photoUrl ?? current?.photoUrl;
+      try {
+        if (photoBase64 != null && photoBase64.isNotEmpty) {
+          final response =
+              await _api.uploadGroupPhoto(id, base64Decode(photoBase64));
+          final raw = response['conversation'];
+          uploadedUrl =
+              (raw is Map ? raw['avatar_url'] : response['avatar_url'])
+                  ?.toString();
+          if (uploadedUrl == null) {
+            throw const FormatException(
+                'Photo accepted. Refresh the conversation to view the updated avatar.');
+          }
+        }
+      } catch (_) {
+        if (current != null) rethrow;
+        mutationWarning =
+            'Group created, but its photo could not be confirmed. Open Group Info to retry the photo upload.';
+      }
+
+      saved = current != null
+          ? current.copyWith(
+              name: name.trim(),
+              description: cleanDesc,
+              photoUrl: uploadedUrl,
+              removePhoto: true,
+              removePhotoUrl: removePhoto)
+          : GroupChat(
+              id: id,
+              scopeKey: scope.key,
+              name: name.trim(),
+              description: cleanDesc,
+              photoUrl: uploadedUrl,
+              createdBy: actor,
+              createdAt: DateTime.now());
+      _groups = [..._groups.where((g) => g.id != id), saved!];
     });
     return saved!;
   }
 
   Future<void> delete(String id) async {
     final actor = _session.employeeId, token = _session.accessToken;
-    if (!_session.isAdmin) {
-      throw const FormatException('Only administrators can delete groups.');
-    }
-    try {
-      await _api.deleteConversation(id);
-    } catch (_) {}
+    _managementScope(_require(id).scopeKey);
+    await _api.deleteConversation(id);
     List<ChatAttachment> cleanup = [];
     await _write(actor, token, () {
       final group = _require(id);
@@ -613,10 +616,37 @@ class GroupChatStore extends FrameSafeNotifier {
   }
 
   Future<void> leaveGroup(String id) async {
-    try {
-      await _api.leaveGroup(id);
-    } catch (_) {}
-    await archive(id, true);
+    final actor = _session.employeeId, token = _session.accessToken;
+    await _api.leaveGroup(id, token: token);
+    await _write(actor, token, () {
+      _groups.removeWhere((g) => g.id == id);
+    });
+  }
+
+  Future<void> addMember(String id, Employee employee) async {
+    _managementScope(_require(id).scopeKey);
+    final employeeId = int.tryParse(employee.backendId ?? '');
+    if (employeeId == null) {
+      throw const FormatException('Choose an employee from the directory.');
+    }
+    await _api.addMember(id, employeeId);
+    await syncRemote();
+  }
+
+  Future<void> removeMember(String id, Employee employee) async {
+    final group = _require(id);
+    _managementScope(group.scopeKey);
+    if (employee.id == group.createdBy) {
+      throw const FormatException('The group creator cannot be removed.');
+    }
+    if (employee.id == _session.employeeId) {
+      throw const FormatException('Use leave group to remove yourself.');
+    }
+    final userId = _memberUserIds[id]?[employee.id] ??
+        employee.backendId ??
+        employee.id.replaceFirst('api_emp_', '');
+    await _api.removeGroupMember(id, userId, token: _session.accessToken);
+    await syncRemote();
   }
 
   GroupChat _require(String id) =>
@@ -631,9 +661,7 @@ class GroupChatStore extends FrameSafeNotifier {
       });
 
   Future<void> archive(String id, bool archived) async {
-    try {
-      await _api.archiveConversation(id);
-    } catch (_) {}
+    await _api.archiveConversation(id);
     return _update(id, (g) {
       final owners = [...g.archivedBy]..remove(_session.employeeId);
       if (archived) owners.add(_session.employeeId);
@@ -661,6 +689,12 @@ class GroupChatStore extends FrameSafeNotifier {
         }
       });
 
+  List<Employee> conversationMembers(GroupChat group) => [
+        for (final id in _memberIds[group.id] ?? <String>[])
+          if (EmployeeStore.instance.byId(id) != null)
+            EmployeeStore.instance.byId(id)!
+      ];
+
   List<Employee> members(ChatScope scope) {
     final current = EmployeeStore.instance.byId(_session.employeeId);
     return {
@@ -687,9 +721,7 @@ class GroupChatStore extends FrameSafeNotifier {
   }
 
   Future<void> react(String id, String messageId, String emoji) async {
-    try {
-      await _api.reactToMessage(messageId, emoji);
-    } catch (_) {}
+    await _api.reactToMessage(messageId, emoji);
     return _update(id, (g) {
       if (!ChatMessage.reactionOptions.contains(emoji)) {
         throw const FormatException('Choose a supported reaction.');
@@ -709,9 +741,7 @@ class GroupChatStore extends FrameSafeNotifier {
   }
 
   Future<void> deleteMessage(String id, String messageId) async {
-    try {
-      await _api.deleteMessage(messageId);
-    } catch (_) {}
+    await _api.deleteMessage(messageId);
     return _update(
         id,
         (g) => g.copyWith(
@@ -763,70 +793,53 @@ class GroupChatStore extends FrameSafeNotifier {
           throw const FormatException(
               'Attach up to 5 files within the file-size limit.');
         }
-        final now = DateTime.now();
-        var messageId = 'gm_${DateTime.now().microsecondsSinceEpoch}';
-
-        if (attachments.isNotEmpty) {
-          try {
-            final first = attachments.first;
-            final sent = await _api.sendMessageWithAttachment(
-              id,
-              value.isEmpty ? 'Sent an attachment' : value,
-              first.bytes,
-              first.name,
-              replyToMessageId: int.tryParse(replyToId ?? ''),
-            );
-            final item = sent['item'] as Map<String, dynamic>?;
-            if (item != null && item['id'] != null) {
-              messageId = item['id'].toString();
-              final att = item['attachment'] as Map<String, dynamic>?;
-              if (att != null && att['url'] != null) {
-                saved.add(ChatAttachment(
-                  id: 'att_${item['id']}',
-                  name: att['name']?.toString() ?? 'image.png',
-                  size: 0,
-                  isImage: true,
-                  url: att['url'].toString(),
-                ));
-              }
-            }
-          } catch (_) {}
-        } else if (value.isNotEmpty) {
-          try {
-            final sent = await _api.sendMessage(
-              id,
-              value,
-              replyToMessageId: int.tryParse(replyToId ?? ''),
-            );
-            final item = sent['item'] as Map<String, dynamic>?;
-            if (item != null && item['id'] != null) {
-              messageId = item['id'].toString();
-            }
-          } catch (_) {}
-        }
-
-        if (saved.isEmpty) {
-          for (var i = 0; i < attachments.length; i++) {
-            saved.add(await AttachmentStorage.save(
-                attachments[i], '${messageId}_$i'));
+        final outgoing = <ChatMessage>[];
+        final uploads = attachments.isEmpty
+            ? <PendingChatAttachment?>[null]
+            : attachments.cast<PendingChatAttachment?>();
+        for (final attachment in uploads) {
+          final body = outgoing.isEmpty ? value : '';
+          final response = attachment == null
+              ? await _api.sendMessage(id, body,
+                  replyToMessageId: int.tryParse(replyToId ?? ''), token: token)
+              : await _api.sendMessageWithAttachment(
+                  id, body, attachment.bytes, attachment.name,
+                  replyToMessageId: int.tryParse(replyToId ?? ''),
+                  token: token);
+          final item = response['item'] ?? response['message'];
+          if (item is! Map || item['id'] == null) {
+            throw const FormatException(
+                'Message accepted without confirmation. Refresh before retrying.');
           }
-        }
-        _authorize(actor, token);
-        _require(id);
-        final owners = [...group.archivedBy]..remove(actor);
-        final updated = group.copyWith(messages: [
-          ...group.messages,
-          ChatMessage(
+          final messageId = item['id'].toString(), att = item['attachment'];
+          final attached = <ChatAttachment>[];
+          if (att is Map && att['url'] != null) {
+            attached.add(ChatAttachment(
+                id: 'att_$messageId',
+                name:
+                    att['name']?.toString() ?? attachment?.name ?? 'Attachment',
+                size: attachment?.bytes.length ?? 0,
+                isImage: att['mime']?.toString().startsWith('image/') ?? false,
+                url: att['url'].toString()));
+          }
+          outgoing.add(ChatMessage(
               id: messageId,
               senderId: actor,
               recipientId: id,
-              text: value,
-              sentAt: now,
-              attachments: saved,
-              reply: reply)
-        ], archivedBy: owners);
-        _groups[_groups.indexWhere((g) => g.id == id)] = updated;
+              text: item['body']?.toString() ?? body,
+              sentAt: DateTime.tryParse(item['created_at']?.toString() ?? '') ??
+                  DateTime.now(),
+              attachments: attached,
+              reply: reply));
+        }
+        _authorize(actor, token);
+        final current = _require(id);
+        _groups[_groups.indexWhere((g) => g.id == id)] = current.copyWith(
+            messages: [...current.messages, ...outgoing],
+            archivedBy: [...current.archivedBy]..remove(actor));
       });
+      await syncRemote();
+      NotificationStore.instance.load(filter: 'all', force: true).ignore();
     } catch (_) {
       for (final attachment in saved) {
         try {

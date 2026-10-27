@@ -182,15 +182,24 @@ class AttendanceStore extends FrameSafeNotifier {
                   final start = AttendanceClock.instant(
                       targetDay, policy.startMinutes, offset);
 
+                  final effectiveAdminOut = checkOutDt ??
+                      (serverStatus == 'checked_out'
+                          ? (existing?.checkOut ?? AttendanceClock.now)
+                          : existing?.checkOut);
+
                   updatedRecords.add(AttendanceRecord(
-                    reportedWorkedMinutes:
-                        (att['worked_minutes'] as num?)?.toInt(),
-                    reportedBreakMinutes:
-                        (att['break_minutes'] as num?)?.toInt(),
+                    metadata: Map<String, dynamic>.from(att),
+                    serverStatus: serverStatus,
+                    reportedWorkedMinutes: effectiveAdminOut != null
+                        ? (att['worked_minutes'] as num?)?.toInt()
+                        : null,
+                    reportedBreakMinutes: effectiveAdminOut != null
+                        ? (att['break_minutes'] as num?)?.toInt()
+                        : null,
                     employeeId: empId,
                     day: targetDay,
                     checkIn: checkInDt,
-                    checkOut: checkOutDt,
+                    checkOut: effectiveAdminOut,
                     breaks: breaks,
                     offsetMinutes: offset,
                     requiredMinutes: (att['target_minutes'] as num?)?.toInt() ??
@@ -212,8 +221,7 @@ class AttendanceStore extends FrameSafeNotifier {
         }
 
         try {
-          final pendingRes =
-              await _api.getAdminRequests(status: 'pending', token: token);
+          final pendingRes = await _api.allRequests(admin: true, token: token);
           if (token != AuthSession.instance.accessToken) return;
           final rawReqs = pendingRes['data'];
           if (rawReqs is List) {
@@ -262,7 +270,8 @@ class AttendanceStore extends FrameSafeNotifier {
                   _matchesEmployee(r.employeeId, myEmpId) && r.day == targetDay)
               .firstOrNull;
 
-          final effectiveCheckIn = checkInDt ?? existing?.checkIn;
+          final effectiveCheckIn = checkInDt ??
+              (serverStatus == 'not_checked_in' ? null : existing?.checkIn);
           if (effectiveCheckIn != null) {
             final breaks =
                 _remoteBreaks(existing, serverStatus, breakStartDt, breakEndDt);
@@ -274,14 +283,24 @@ class AttendanceStore extends FrameSafeNotifier {
             final start =
                 AttendanceClock.instant(targetDay, policy.startMinutes, offset);
 
+            final effectiveCheckOut = checkOutDt ??
+                (serverStatus == 'checked_out'
+                    ? (existing?.checkOut ?? AttendanceClock.now)
+                    : (checkInDt != null ? existing?.checkOut : null));
+
             updatedRecords.add(AttendanceRecord(
-              reportedWorkedMinutes: (today['worked_minutes'] as num?)?.toInt(),
-              reportedBreakMinutes: (today['break_minutes'] as num?)?.toInt(),
+              metadata: Map<String, dynamic>.from(today),
+              serverStatus: serverStatus,
+              reportedWorkedMinutes: effectiveCheckOut != null
+                  ? (today['worked_minutes'] as num?)?.toInt()
+                  : null,
+              reportedBreakMinutes: effectiveCheckOut != null
+                  ? (today['break_minutes'] as num?)?.toInt()
+                  : null,
               employeeId: myEmpId,
               day: targetDay,
               checkIn: effectiveCheckIn,
-              checkOut:
-                  checkOutDt ?? (checkInDt != null ? existing?.checkOut : null),
+              checkOut: effectiveCheckOut,
               breaks: breaks,
               offsetMinutes: offset,
               requiredMinutes: (today['target_minutes'] as num?)?.toInt() ??
@@ -292,6 +311,13 @@ class AttendanceStore extends FrameSafeNotifier {
               paidBreakMinutes: policy.paidBreakMinutes,
               wasWorkingDay: true,
             ));
+            _state = _state.copyWith(records: updatedRecords);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(storageKey, jsonEncode(_state.toJson()));
+            notifyListeners();
+          } else if (serverStatus == 'not_checked_in') {
+            updatedRecords.removeWhere((r) =>
+                _matchesEmployee(r.employeeId, myEmpId) && r.day == targetDay);
             _state = _state.copyWith(records: updatedRecords);
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString(storageKey, jsonEncode(_state.toJson()));
@@ -350,7 +376,7 @@ class AttendanceStore extends FrameSafeNotifier {
         }
 
         try {
-          final myReqRes = await _api.getRequests(token: token);
+          final myReqRes = await _api.allRequests(token: token);
           final rawReqs = myReqRes['data'];
           if (rawReqs is List) {
             final updatedRequests =
@@ -477,6 +503,7 @@ class AttendanceStore extends FrameSafeNotifier {
       'approved' => AttendanceRequestStatus.approved,
       'rejected' => AttendanceRequestStatus.rejected,
       'cancelled' => AttendanceRequestStatus.cancelled,
+      'revoked' => AttendanceRequestStatus.revoked,
       _ => AttendanceRequestStatus.pending,
     };
 
@@ -564,12 +591,8 @@ class AttendanceStore extends FrameSafeNotifier {
     );
   }
 
-  Employee _employee(String id) {
-    final employee = EmployeeStore.instance.byId(id);
-    if (employee == null) {
-      throw const FormatException('Employee not found.');
-    }
-    return employee;
+  Employee? _employee(String id) {
+    return EmployeeStore.instance.byId(id);
   }
 
   void _authorize(String actorId, String employeeId, {bool adminOnly = false}) {
@@ -587,7 +610,9 @@ class AttendanceStore extends FrameSafeNotifier {
       throw const FormatException(
           'Attendance access is disabled by your administrator.');
     }
-    if (_employee(actorId).status != 'Active' &&
+    final actor = _employee(actorId);
+    if (actor != null &&
+        actor.status != 'Active' &&
         !DemoSession.instance.isAdmin) {
       throw const FormatException('An active account is required.');
     }
@@ -667,10 +692,25 @@ class AttendanceStore extends FrameSafeNotifier {
           _matchesEmployee(record.employeeId, employeeId) && record.day == day)
       .firstOrNull;
 
-  AttendanceRecord? activeRecord(String employeeId) => _state.records
-      .where((record) =>
-          _matchesEmployee(record.employeeId, employeeId) && record.open)
-      .firstOrNull;
+  AttendanceRecord? activeRecord(String employeeId) {
+    final today = checkInDay;
+    final todayOpen = _state.records
+        .where((record) =>
+            _matchesEmployee(record.employeeId, employeeId) &&
+            record.day == today &&
+            record.open)
+        .firstOrNull;
+    if (todayOpen != null) return todayOpen;
+
+    if (AuthSession.instance.accessToken != null) {
+      return null;
+    }
+
+    return _state.records
+        .where((record) =>
+            _matchesEmployee(record.employeeId, employeeId) && record.open)
+        .firstOrNull;
+  }
 
   List<AttendanceRequest> requestsFor(String employeeId) => _state.requests
       .where((request) => request.employeeId == employeeId)
@@ -738,7 +778,10 @@ class AttendanceStore extends FrameSafeNotifier {
     return LeaveBalance(type, used / 2, pending / 2);
   }
 
-  DateTime _joined(Employee employee) {
+  DateTime _joined(Employee? employee) {
+    if (employee == null) {
+      return DateTime.utc(1900);
+    }
     final iso = DateTime.tryParse(employee.joinedDate);
     if (iso != null) {
       return DateTime.utc(iso.year, iso.month, iso.day);
@@ -831,8 +874,9 @@ class AttendanceStore extends FrameSafeNotifier {
     if (!isWorkingDay(employeeId, day)) {
       return AttendanceDay(day: day, status: AttendanceStatus.offDay);
     }
+    final emp = _employee(employeeId);
     if (day.compareTo(policy.trackingStart) < 0 ||
-        AttendanceClock.date(day).isBefore(_joined(_employee(employeeId)))) {
+        (emp != null && AttendanceClock.date(day).isBefore(_joined(emp)))) {
       return AttendanceDay(day: day, status: AttendanceStatus.notTracked);
     }
     if (day.compareTo(today) > 0) {
@@ -938,8 +982,9 @@ class AttendanceStore extends FrameSafeNotifier {
 
     await _commit(employeeId, employeeId, checkInDay, 'Checked in', (state) {
       final day = checkInDay;
+      final emp = _employee(employeeId);
       if (day.compareTo(policy.trackingStart) < 0 ||
-          AttendanceClock.date(day).isBefore(_joined(_employee(employeeId)))) {
+          (emp != null && AttendanceClock.date(day).isBefore(_joined(emp)))) {
         throw const FormatException(
             'Attendance tracking has not started for this date.');
       }
@@ -970,12 +1015,39 @@ class AttendanceStore extends FrameSafeNotifier {
       if (employeeId != DemoSession.instance.employeeId) {
         throw const FormatException('You can only manage your own attendance.');
       }
-      await _api.checkOut(
+      final outRes = await _api.checkOut(
           token: liveToken,
           context: await AttendanceContext.collect(),
           summary: summary,
           workNotes: workNotes);
       if (liveToken != AuthSession.instance.accessToken) return;
+      final now = AttendanceClock.now;
+      final existing =
+          activeRecord(employeeId) ?? recordFor(employeeId, checkInDay);
+      if (existing != null) {
+        DateTime? serverOut;
+        final data = outRes['data'] is Map ? outRes['data'] as Map : outRes;
+        if (data['check_out_at'] != null) {
+          serverOut = AttendanceClock.parseServerTimestamp(data['check_out_at']);
+        }
+        final updatedBreaks = existing.breaks
+            .map((item) => AttendanceBreak(item.start, item.end ?? now))
+            .toList();
+        final updatedRecord = existing.copyWith(
+          checkOut: serverOut ?? now,
+          serverStatus: 'checked_out',
+          breaks: updatedBreaks,
+        );
+        final updatedRecords = List<AttendanceRecord>.from(_state.records)
+          ..removeWhere((r) =>
+              _matchesEmployee(r.employeeId, employeeId) &&
+              r.day == existing.day)
+          ..add(updatedRecord);
+        _state = _state.copyWith(records: updatedRecords);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_key, jsonEncode(_state.toJson()));
+        notifyListeners();
+      }
       await syncRemote();
       return;
     }
@@ -1095,12 +1167,13 @@ class AttendanceStore extends FrameSafeNotifier {
     if (type == null) {
       throw const FormatException('Leave type is unavailable.');
     }
-    if (_employee(request.employeeId).status != 'Active') {
+    final emp = _employee(request.employeeId);
+    if (emp != null && emp.status != 'Active') {
       throw const FormatException('This employee is inactive.');
     }
     for (final entry in request.leaveUnits.entries) {
-      if (AttendanceClock.date(entry.key)
-          .isBefore(_joined(_employee(request.employeeId)))) {
+      if (emp != null &&
+          AttendanceClock.date(entry.key).isBefore(_joined(emp))) {
         throw const FormatException(
             'Leave cannot be requested before joining.');
       }
@@ -1160,7 +1233,8 @@ class AttendanceStore extends FrameSafeNotifier {
   }
 
   void _validateEmploymentDate(String employeeId, String day) {
-    if (AttendanceClock.date(day).isBefore(_joined(_employee(employeeId)))) {
+    final emp = _employee(employeeId);
+    if (emp != null && AttendanceClock.date(day).isBefore(_joined(emp))) {
       throw const FormatException(
           'Attendance cannot be recorded before the employee joined.');
     }
@@ -1318,7 +1392,8 @@ class AttendanceStore extends FrameSafeNotifier {
         throw const FormatException(
             'Please provide a reason of at least 5 characters.');
       }
-      if (_employee(employeeId).status != 'Active') {
+      final emp = _employee(employeeId);
+      if (emp != null && emp.status != 'Active') {
         throw const FormatException('This employee is inactive.');
       }
       final today = AttendanceClock.key(AttendanceClock.today);
@@ -1489,7 +1564,8 @@ class AttendanceStore extends FrameSafeNotifier {
 
   bool canCancel(AttendanceRequest request) =>
       request.status == AttendanceRequestStatus.pending ||
-      (request.status == AttendanceRequestStatus.approved &&
+      (!AuthSession.instance.signedIn &&
+          request.status == AttendanceRequestStatus.approved &&
           [AttendanceRequestKind.leave, AttendanceRequestKind.offDaySwap]
               .contains(request.kind) &&
           request.day.compareTo(AttendanceClock.key(AttendanceClock.today)) >
@@ -1497,10 +1573,42 @@ class AttendanceStore extends FrameSafeNotifier {
           request.endDay.compareTo(AttendanceClock.key(AttendanceClock.today)) >
               0);
 
+  Future<void> _applyRequestDecision(Map<String, dynamic> response, String id,
+      String token, String actor, String note) async {
+    if (token != AuthSession.instance.accessToken) return;
+    final raw = response['request'];
+    final status = raw is Map ? raw['status']?.toString() : null;
+    final parsed = AttendanceRequestStatus.values
+        .where((v) => v.name == status)
+        .firstOrNull;
+    if (parsed != null) {
+      _state = _state.copyWith(
+          requests: _state.requests
+              .map((r) => r.id == id
+                  ? r.decide(parsed, actor, note, AttendanceClock.now)
+                  : r)
+              .toList());
+      final key = _key, prefs = await SharedPreferences.getInstance();
+      if (token != AuthSession.instance.accessToken) return;
+      await prefs.setString(key, jsonEncode(_state.toJson()));
+      notifyListeners();
+    }
+    await syncRemote();
+  }
+
   Future<void> cancelRequest(String id, {required String actorId}) {
     if (AuthSession.instance.signedIn && id.startsWith('req_api_')) {
-      return Future.error(const FormatException(
-          'This action is awaiting its backend endpoint.'));
+      final token = AuthSession.instance.accessToken!;
+      final request = requestById(id);
+      if (request == null ||
+          request.employeeId != actorId ||
+          request.status != AttendanceRequestStatus.pending) {
+        return Future.error(const FormatException(
+            'Only your pending requests can be cancelled.'));
+      }
+      return _api.cancelRequest(id.substring(8), token: token).then(
+          (response) =>
+              _applyRequestDecision(response, id, token, actorId, 'Cancelled'));
     }
     final request = requestById(id);
     if (request == null) {
@@ -1525,8 +1633,15 @@ class AttendanceStore extends FrameSafeNotifier {
   Future<void> revokeOvertime(String id,
       {required String actorId, required String note}) {
     if (AuthSession.instance.signedIn && id.startsWith('req_api_')) {
-      return Future.error(const FormatException(
-          'This action is awaiting its backend endpoint.'));
+      if (!AuthSession.instance.isAdmin || note.trim().length < 5) {
+        return Future.error(const FormatException(
+            'Administrator access and a reason are required.'));
+      }
+      final token = AuthSession.instance.accessToken!;
+      return _api
+          .revokeOvertime(id.substring(8), note.trim(), token: token)
+          .then((response) =>
+              _applyRequestDecision(response, id, token, actorId, note.trim()));
     }
     final request = requestById(id);
     if (request == null) {
@@ -1653,8 +1768,10 @@ class AttendanceStore extends FrameSafeNotifier {
     notifyListeners();
   }
 
-  Future<void> updatePolicy(AttendancePolicy next, {required String actorId}) =>
-      _commit(
+  Future<void> updatePolicy(AttendancePolicy next,
+      {required String actorId}) async {
+    try {
+      await _commit(
           actorId,
           '',
           AttendanceClock.key(AttendanceClock.today),
@@ -1693,20 +1810,47 @@ class AttendanceStore extends FrameSafeNotifier {
           beforeSave: () async {
             final token = AuthSession.instance.accessToken;
             if (token == null) return;
-            if (policy.holidays.any((old) => !next.holidays
-                .any((h) => h.day == old.day && h.name == old.name))) {
-              throw const FormatException(
-                  'Holiday removal or editing is awaiting its backend endpoint.');
-            }
             await _api.updateAdminSettings(attendancePolicyToApi(next),
                 token: token);
+            final previous = List<AttendanceHoliday>.of(policy.holidays);
+            for (final old in previous) {
+              final replacement = next.holidays
+                  .where((h) =>
+                      h.id == old.id && old.id != null || h.day == old.day)
+                  .firstOrNull;
+              if (replacement == null) {
+                if (old.id == null) {
+                  throw const FormatException(
+                      'Refresh attendance settings to obtain the holiday ID.');
+                }
+                await _api.deleteHoliday(old.id!, token: token);
+              } else if (replacement.day != old.day ||
+                  replacement.name != old.name) {
+                if (old.id == null) {
+                  throw const FormatException(
+                      'Refresh attendance settings to obtain the holiday ID.');
+                }
+                await _api.updateHoliday(old.id!,
+                    {'holiday_date': replacement.day, 'name': replacement.name},
+                    token: token);
+              }
+            }
             for (final holiday in next.holidays) {
-              if (!policy.holidays
-                  .any((h) => h.day == holiday.day && h.name == holiday.name)) {
+              if (!previous.any((old) =>
+                  old.id != null && old.id == holiday.id ||
+                  old.day == holiday.day)) {
                 await _api.addHoliday(
                     {'holiday_date': holiday.day, 'name': holiday.name},
                     token: token);
               }
             }
+            // Reload server IDs/status after the policy transaction completes.
           });
+    } finally {
+      if (AuthSession.instance.signedIn) {
+        await syncRemote();
+        await loadPolicy();
+      }
+    }
+  }
 }

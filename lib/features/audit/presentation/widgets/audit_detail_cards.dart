@@ -79,6 +79,8 @@ class AuditMetadataCard extends StatelessWidget {
       ('Entity', '${entry.entity} (${entry.entityType})'),
       ('Timestamp', auditTimestampLabel(entry.timestamp)),
       ('Category', entry.category.label),
+      if (entry.ipAddress != null) ('IP address', entry.ipAddress!),
+      if (entry.userAgent != null) ('User agent', entry.userAgent!),
     ];
 
     return Material(

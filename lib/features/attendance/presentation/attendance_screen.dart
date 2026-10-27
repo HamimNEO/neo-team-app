@@ -150,19 +150,48 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           width: double.infinity,
                           child: CupertinoSlidingSegmentedControl<int>(
                               groupValue: _tab,
-                              thumbColor: nec.surface,
-                              backgroundColor:
-                                  nec.separator.withValues(alpha: .2),
+                              thumbColor: nec.brand,
+                              backgroundColor: nec.brand.withValues(alpha: .15),
                               children: {
-                                0: Text('Today',
-                                    style: TextStyle(
-                                        color: nec.textPrimary, fontSize: 13)),
-                                1: Text('Monthly',
-                                    style: TextStyle(
-                                        color: nec.textPrimary, fontSize: 13)),
-                                2: Text('Requests',
-                                    style: TextStyle(
-                                        color: nec.textPrimary, fontSize: 13))
+                                0: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text('Today',
+                                      style: TextStyle(
+                                          color: _tab == 0
+                                              ? Colors.white
+                                              : nec.brand,
+                                          fontWeight: _tab == 0
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          fontSize: 13)),
+                                ),
+                                1: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text('Monthly',
+                                      style: TextStyle(
+                                          color: _tab == 1
+                                              ? Colors.white
+                                              : nec.brand,
+                                          fontWeight: _tab == 1
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          fontSize: 13)),
+                                ),
+                                2: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text('Requests',
+                                      style: TextStyle(
+                                          color: _tab == 2
+                                              ? Colors.white
+                                              : nec.brand,
+                                          fontWeight: _tab == 2
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          fontSize: 13)),
+                                )
                               },
                               onValueChanged: (value) {
                                 if (value != null) {

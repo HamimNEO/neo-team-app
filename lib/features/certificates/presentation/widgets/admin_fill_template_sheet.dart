@@ -1,3 +1,5 @@
+import 'package:file_picker/file_picker.dart';
+import '../../../../core/network/api_client.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -31,6 +33,45 @@ class _AdminFillTemplateSheetState extends State<AdminFillTemplateSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _leavingDateController;
   bool _saving = false;
+  late final _numberController =
+      TextEditingController(text: widget.request.certificateNumber);
+  ApiUpload? _seal, _signature;
+
+  Future<void> _pickOfficialImage(bool seal) async {
+    try {
+      final selected = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['png', 'jpg', 'jpeg'],
+          withData: true);
+      if (selected == null || !mounted) return;
+      final file = selected.files.single;
+      if (file.bytes == null ||
+          file.bytes!.isEmpty ||
+          file.size > 10 * 1024 * 1024) {
+        throw const FormatException('Select a PNG or JPEG up to 10 MB.');
+      }
+      setState(() {
+        final upload = ApiUpload(
+            field: seal ? 'official_seal' : 'signature',
+            bytes: file.bytes!,
+            filename: file.name,
+            mimeType: file.extension == 'png' ? 'image/png' : 'image/jpeg');
+        if (seal) {
+          _seal = upload;
+        } else {
+          _signature = upload;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        NecToast.show(context,
+            message: e is FormatException
+                ? e.message
+                : 'The image could not be selected.',
+            type: NecToastType.error);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -49,6 +90,7 @@ class _AdminFillTemplateSheetState extends State<AdminFillTemplateSheet> {
 
   @override
   void dispose() {
+    _numberController.dispose();
     _conductController.dispose();
     _contributionsController.dispose();
     _signatoryController.dispose();
@@ -79,8 +121,11 @@ class _AdminFillTemplateSheetState extends State<AdminFillTemplateSheet> {
     setState(() => _saving = true);
 
     try {
-      CertificateStore.instance.deliverCertificate(
+      await CertificateStore.instance.deliverCertificate(
         widget.request.id,
+        certificateNumber: _numberController.text.trim(),
+        officialSeal: _seal,
+        signature: _signature,
         conduct: _conductController.text.trim(),
         keyContributions: _contributionsController.text.trim(),
         leavingDate: _leavingDateController.text.trim().isNotEmpty
@@ -190,6 +235,23 @@ class _AdminFillTemplateSheetState extends State<AdminFillTemplateSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  TextField(
+                      controller: _numberController,
+                      decoration: const InputDecoration(
+                          labelText: 'Certificate number')),
+                  Wrap(spacing: 12, children: [
+                    TextButton.icon(
+                        onPressed:
+                            _saving ? null : () => _pickOfficialImage(true),
+                        icon: const Icon(CupertinoIcons.checkmark_seal),
+                        label: Text(_seal?.filename ?? 'Upload official seal')),
+                    TextButton.icon(
+                        onPressed:
+                            _saving ? null : () => _pickOfficialImage(false),
+                        icon: const Icon(CupertinoIcons.signature),
+                        label:
+                            Text(_signature?.filename ?? 'Upload signature')),
+                  ]),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(

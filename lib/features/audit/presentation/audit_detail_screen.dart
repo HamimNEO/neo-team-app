@@ -2,19 +2,55 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../core/router/app_navigation.dart';
 import '../../../core/theme/app_theme.dart';
-import '../data/mock_audit_entries.dart';
+import '../data/audit_store.dart';
 import 'widgets/audit_app_bar.dart';
 import 'widgets/audit_detail_cards.dart';
 
-class AuditDetailScreen extends StatelessWidget {
+class AuditDetailScreen extends StatefulWidget {
   final String auditId;
 
   const AuditDetailScreen({super.key, required this.auditId});
 
   @override
+  State<AuditDetailScreen> createState() => _AuditDetailScreenState();
+}
+
+class _AuditDetailScreenState extends State<AuditDetailScreen> {
+  final _store = AuditStore.instance;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_refresh);
+    _load();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() async {
+    try {
+      await _store.detail(widget.auditId);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error =
+            e is FormatException ? e.message : 'Audit record unavailable.');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_refresh);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
-    final entry = findAuditEntry(auditId);
+    final entry = _store.byId(widget.auditId);
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -26,7 +62,7 @@ class AuditDetailScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Audit record not found',
+                    _error ?? 'Loading audit record…',
                     style: TextStyle(fontSize: 17, color: nec.textPrimary),
                   ),
                   CupertinoButton(

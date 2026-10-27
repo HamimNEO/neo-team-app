@@ -73,6 +73,7 @@ class CertificateRequest {
   final String authorizedSignatory;
   final String signatoryTitle;
   final Uint8List? generatedPdfBytes;
+  final String? pdfUrl, apiStatus;
 
   const CertificateRequest({
     required this.id,
@@ -93,14 +94,66 @@ class CertificateRequest {
     this.reviewDate,
     this.deliveryDate,
     this.rejectionReason,
-    this.conduct =
-        'During tenure, performance, conduct, and professional integrity were found to be exemplary.',
-    this.keyContributions =
-        'Demonstrated exceptional dedication, engineering leadership, and teamwork across high-impact platform initiatives.',
-    this.authorizedSignatory = 'NAZMUL HASAN',
-    this.signatoryTitle = 'CEO & FOUNDER, NEONECY',
+    this.conduct = '',
+    this.keyContributions = '',
+    this.authorizedSignatory = '',
+    this.signatoryTitle = '',
     this.generatedPdfBytes,
+    this.pdfUrl,
+    this.apiStatus,
   });
+
+  factory CertificateRequest.fromApi(Map<String, dynamic> data) {
+    final employee = data['employee'] is Map ? data['employee'] as Map : {};
+    final status = data['status']?.toString() ?? '';
+    final fields =
+        data['template_data'] is Map ? data['template_data'] as Map : data;
+    String text(Object? value) => value?.toString() ?? '';
+    if (data['id'] == null || data['status'] == null) {
+      throw const FormatException(
+          'The server returned an incomplete certificate.');
+    }
+    final department = employee['department'];
+    return CertificateRequest(
+        id: text(data['id']),
+        certificateNumber: text(data['certificate_number']),
+        employeeId: 'api_emp_${data['employee_id'] ?? employee['id']}',
+        employeeName: text(employee['name'] ?? data['employee_name']),
+        employeeCode: text(employee['employee_code']),
+        employeeDesignation: text(employee['designation']),
+        employeeDepartment:
+            department is Map ? text(department['name']) : text(department),
+        employeeAvatar: employee['photo_url']?.toString(),
+        joinedDate: text(employee['joining_date'] ?? data['joining_date']),
+        leavingDate: data['leaving_date']?.toString(),
+        type: switch (data['type']) {
+          'testimonial' => CertificateType.testimonial,
+          'relieving' => CertificateType.relieving,
+          _ => CertificateType.workExperience
+        },
+        purpose: text(data['purpose']),
+        notes: data['notes']?.toString(),
+        status: switch (status) {
+          'in_preparation' ||
+          'accepted' ||
+          'approved' =>
+            CertificateStatus.inPreparation,
+          'delivered' => CertificateStatus.delivered,
+          'rejected' => CertificateStatus.rejected,
+          _ => CertificateStatus.pending
+        },
+        apiStatus: status,
+        pdfUrl: data['pdf_url']?.toString(),
+        requestDate: text(data['requested_at'] ?? data['created_at']),
+        reviewDate: data['reviewed_at']?.toString(),
+        deliveryDate: (data['delivered_at'] ?? data['issued_at'])?.toString(),
+        rejectionReason:
+            (data['rejection_reason'] ?? data['reason'])?.toString(),
+        conduct: text(fields['conduct']),
+        keyContributions: text(fields['key_contributions']),
+        authorizedSignatory: text(fields['authorized_signatory_name']),
+        signatoryTitle: text(fields['authorized_signatory_designation']));
+  }
 
   bool get isPending => status == CertificateStatus.pending;
 
@@ -159,6 +212,8 @@ class CertificateRequest {
       authorizedSignatory: authorizedSignatory ?? this.authorizedSignatory,
       signatoryTitle: signatoryTitle ?? this.signatoryTitle,
       generatedPdfBytes: generatedPdfBytes ?? this.generatedPdfBytes,
+      pdfUrl: pdfUrl,
+      apiStatus: apiStatus,
     );
   }
 

@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import '../../../core/notifiers/frame_safe_notifier.dart';
+import '../../more/data/notification_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/services/demo_session.dart';
 import '../../auth/presentation/controllers/auth_session.dart';
 import '../../team/data/employee_store.dart';
@@ -13,18 +16,39 @@ import 'attachment_storage.dart';
 import 'message_api.dart';
 
 /// Live Direct Messages Store connected to backend with offline-tolerant cache.
-class MessageStore extends ChangeNotifier {
-  MessageStore._();
+class MessageStore extends FrameSafeNotifier {
+  MessageStore._() {
+    _token = AuthSession.instance.accessToken;
+    AuthSession.instance.addListener(() {
+      final next = AuthSession.instance.accessToken;
+      if (next == _token) return;
+      _token = next;
+      _messages = [];
+      _archives = {};
+      _conversationIdByContact.clear();
+      _userIdByContact.clear();
+      _loading = null;
+      loadError = null;
+      notifyListeners();
+    });
+  }
+
+  String? _token;
 
   static final instance = MessageStore._();
-  static const _key = 'nec_messages_v1';
+
+  String get _key =>
+      'nec_messages_api_v3_${AuthSession.instance.user?.id ?? 'signed_out'}';
   List<ChatMessage> _messages = [];
   Map<String, List<String>> _archives = {};
   final Map<String, String> _conversationIdByContact = {};
   Future<void>? _loading;
   Future<void> _pending = Future<void>.value();
-  int _sequence = 0;
+  final Map<String, String> _userIdByContact = {};
+  final Map<String, String> _contactByUserId = {};
   String? loadError;
+  bool _isSyncing = false;
+  DateTime? _lastRecipientsFetch;
 
   final MessageApi _api = MessageApi(ApiClient(
     baseUrl: () => AppConfig.apiBaseUrl,
@@ -36,9 +60,11 @@ class MessageStore extends ChangeNotifier {
   Future<void> load() => _loading ??= _load();
 
   Future<void> _load() async {
+    final token = _token, key = _key;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_key);
+      if (token != _token) return;
+      final raw = prefs.getString(key);
       if (raw != null) {
         final decoded = jsonDecode(raw);
         final records =
@@ -53,6 +79,7 @@ class MessageStore extends ChangeNotifier {
           _archives = (decoded['archives'] as Map).map((owner, contacts) =>
               MapEntry(owner as String, List<String>.from(contacts as List)));
         }
+        notifyListeners();
       }
       unawaited(syncRemote());
     } catch (_) {
@@ -60,161 +87,330 @@ class MessageStore extends ChangeNotifier {
     }
   }
 
-  Future<void> syncRemote() async {
-    if (!DemoSession.instance.signedIn) return;
+  Future<void> _fetchRecipients(String? token, {bool force = false}) async {
+    if (!force &&
+        _lastRecipientsFetch != null &&
+        DateTime.now().difference(_lastRecipientsFetch!).inMinutes < 5 &&
+        _userIdByContact.isNotEmpty) {
+      return;
+    }
     try {
-      final res = await _api.listConversations(scope: 'direct');
-      final convs = (res['conversations'] as List? ?? []);
-      final me = DemoSession.instance.employeeId;
-      final myUser = DemoSession.instance.user;
-      final myBackendId = myUser?.employeeId.toString() ?? '';
-
-      final existingMap = {for (final m in _messages) m.id: m};
-      final newMessages = <ChatMessage>[];
-
-      for (final c in convs) {
-        final convId = c['id'].toString();
-        try {
-          final details = await _api.getConversation(convId);
-          final participants = (details['participants'] as List? ?? [])
-              .cast<Map<String, dynamic>>();
-          final msgs =
-              (details['messages'] as List? ?? []).cast<Map<String, dynamic>>();
-
-          String otherEmployeeId = DemoSession.adminEmployeeId;
-          if (DemoSession.instance.isAdmin) {
-            if (convId == '1') {
-              otherEmployeeId = 'api_emp_2';
-              _conversationIdByContact['api_emp_2'] = convId;
-            } else {
-              final target = participants
-                      .where((p) => p['id']?.toString() != '2')
-                      .firstOrNull ??
-                  participants.firstOrNull;
-              if (target != null && target['id'] != null) {
-                otherEmployeeId = 'api_emp_${target['id']}';
-                _conversationIdByContact[otherEmployeeId] = convId;
+      final res = await _api.getRecipients(token: token);
+      _lastRecipientsFetch = DateTime.now();
+      final list = res['recipients'];
+      if (list is List) {
+        for (final item in list) {
+          if (item is Map) {
+            final userId = (item['user_id'] ?? item['id'])?.toString();
+            final empId = item['employee_id']?.toString();
+            final role = item['role']?.toString();
+            final type = item['recipient_type']?.toString();
+            final name = item['name']?.toString() ?? '';
+            if (userId != null) {
+              if (empId != null) {
+                _userIdByContact['api_emp_$empId'] = userId;
+                _contactByUserId[userId] = 'api_emp_$empId';
               }
-            }
-          } else {
-            if (convId == '1') {
-              otherEmployeeId = DemoSession.adminEmployeeId;
-              _conversationIdByContact[DemoSession.adminEmployeeId] = convId;
-              _conversationIdByContact['api_emp_1'] = convId;
-            } else {
-              final otherPart = participants
-                  .where((p) => p['id']?.toString() != myBackendId)
-                  .firstOrNull;
-              if (otherPart != null && otherPart['id'] != null) {
-                otherEmployeeId = 'api_emp_${otherPart['id']}';
-                _conversationIdByContact[otherEmployeeId] = convId;
-              } else {
-                otherEmployeeId = DemoSession.adminEmployeeId;
+              if (role == 'SUPER_ADMIN' ||
+                  type == 'administrator' ||
+                  name.toLowerCase().contains('admin') ||
+                  role?.contains('ADMIN') == true) {
+                _userIdByContact[DemoSession.adminEmployeeId] = userId;
+                _contactByUserId[userId] = DemoSession.adminEmployeeId;
+                _contactByUserId['1'] = DemoSession.adminEmployeeId;
+                _contactByUserId['usr_1'] = DemoSession.adminEmployeeId;
               }
-            }
-          }
-
-          for (final m in msgs) {
-            final mId = m['id'].toString();
-            final senderMap = m['sender'] as Map<String, dynamic>?;
-            final senderEmpId = senderMap?['employee_id'];
-            final senderUserId = senderMap?['user_id'];
-            final senderName = senderMap?['name']?.toString() ?? '';
-
-            String senderId;
-            if (senderEmpId != null) {
-              senderId = 'api_emp_$senderEmpId';
-            } else if (senderName == 'Super Admin' || senderUserId == 1) {
-              senderId = DemoSession.adminEmployeeId;
-            } else {
-              senderId = 'usr_$senderUserId';
-            }
-
-            final recipientId = senderId == me ? otherEmployeeId : me;
-
-            final existing = existingMap[mId];
-            final reactionMap = <String, String>{};
-            final rawReactions = m['reactions'];
-            if (rawReactions is List) {
-              for (final r in rawReactions) {
-                if (r is Map && r['emoji'] != null) {
-                  final emp = r['employee_id'] != null
-                      ? 'api_emp_${r['employee_id']}'
-                      : (r['user_id']?.toString() == '1'
-                          ? DemoSession.adminEmployeeId
-                          : me);
-                  reactionMap[emp] = r['emoji'].toString();
+              if (item['id'] != null) {
+                final rawIdStr = item['id'].toString();
+                _userIdByContact[rawIdStr] = userId;
+                if (!_contactByUserId.containsKey(rawIdStr)) {
+                  _contactByUserId[rawIdStr] = empId != null
+                      ? 'api_emp_$empId'
+                      : DemoSession.adminEmployeeId;
                 }
               }
             }
-            if (existing != null) {
-              for (final e in existing.reactions.entries) {
-                reactionMap.putIfAbsent(e.key, () => e.value);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> syncRemote() async {
+    if (!DemoSession.instance.signedIn || _isSyncing) return;
+    _isSyncing = true;
+    final token = _token, key = _key;
+    try {
+      await _fetchRecipients(token);
+      final res = await _api.listConversations(scope: 'direct', token: token);
+      if (token != _token) return;
+      loadError = null;
+      final convs = (res['conversations'] as List? ?? []);
+      final me = DemoSession.instance.employeeId;
+      final myUser = DemoSession.instance.user;
+      final myUserIdStr = myUser?.id.replaceFirst('usr_', '') ?? '';
+      final myBackendId = myUser?.employeeId.toString() ?? '';
+
+      final existingMap = {for (final m in _messages) m.id: m};
+
+      final detailsResults = await Future.wait(convs.map((c) async {
+        final convId = c['id'].toString();
+        try {
+          final details = await _api.getConversation(convId, token: token);
+          return {'conv': c, 'details': details};
+        } catch (_) {
+          return null;
+        }
+      }));
+
+      if (token != _token) return;
+
+      final newMessages = <ChatMessage>[];
+
+      for (final pair in detailsResults) {
+        if (pair == null) continue;
+        final c = pair['conv'] as Map;
+        final details = pair['details'] as Map;
+        final convId = c['id'].toString();
+        final participants = (details['participants'] as List? ?? [])
+            .cast<Map<String, dynamic>>();
+        final msgs =
+            (details['messages'] as List? ?? []).cast<Map<String, dynamic>>();
+
+        String resolveContact(Map p) {
+          final role = p['role']?.toString();
+          final type = p['recipient_type']?.toString();
+          final name = p['name']?.toString() ?? '';
+          final uId = (p['user_id'] ?? p['id'])?.toString();
+          if (role == 'SUPER_ADMIN' ||
+              type == 'administrator' ||
+              name.toLowerCase().contains('admin') ||
+              uId == '1' ||
+              uId == 'usr_1' ||
+              _userIdByContact[DemoSession.adminEmployeeId] == uId) {
+            return DemoSession.adminEmployeeId;
+          }
+          if (p['employee_id'] != null) {
+            return 'api_emp_${p['employee_id']}';
+          }
+          final rawId = p['id']?.toString();
+          if (rawId != null && !rawId.startsWith('usr_')) {
+            final emp = EmployeeStore.instance.byId('api_emp_$rawId') ??
+                EmployeeStore.instance.staffEmployees
+                    .where((e) => e.backendId == rawId)
+                    .firstOrNull;
+            if (emp != null) return emp.id;
+            return 'api_emp_$rawId';
+          }
+          return DemoSession.adminEmployeeId;
+        }
+
+        bool isMe(Map p) {
+          final pUserId = p['user_id']?.toString().replaceFirst('usr_', '');
+          final pId = p['id']?.toString().replaceFirst('usr_', '');
+          final pEmpId = p['employee_id']?.toString();
+          if (DemoSession.instance.isAdmin) {
+            final role = p['role']?.toString();
+            final name = p['name']?.toString() ?? '';
+            return role == 'SUPER_ADMIN' ||
+                name == 'Super Admin' ||
+                pUserId == '1' ||
+                pId == '1' ||
+                pUserId == myUserIdStr;
+          } else {
+            return (myUserIdStr.isNotEmpty && pUserId == myUserIdStr) ||
+                (myBackendId.isNotEmpty &&
+                    (pId == myBackendId || pEmpId == myBackendId));
+          }
+        }
+
+        bool isAdminParticipant(Map p) {
+          final role = p['role']?.toString();
+          final name = p['name']?.toString() ?? '';
+          final uId = p['user_id']?.toString().replaceFirst('usr_', '');
+          return role == 'SUPER_ADMIN' ||
+              name == 'Super Admin' ||
+              uId == '1' ||
+              p['id']?.toString() == 'usr_1';
+        }
+
+        final others = participants.where((p) => !isMe(p)).toList();
+        if (others.isEmpty) continue;
+
+        Map<String, dynamic>? target;
+        if (others.length == 1) {
+          target = others.first;
+        } else if (convId == '1') {
+          if (DemoSession.instance.isAdmin) {
+            target = others.firstWhere(
+                (p) =>
+                    p['user_id']?.toString() == '66' ||
+                    p['id']?.toString() == '2',
+                orElse: () => others.first);
+          } else {
+            target = others.firstWhere((p) => isAdminParticipant(p),
+                orElse: () => others.first);
+          }
+        } else if (!DemoSession.instance.isAdmin) {
+          final nonAdmin = others.where((p) => !isAdminParticipant(p)).toList();
+          target = nonAdmin.isNotEmpty ? nonAdmin.first : others.first;
+        } else {
+          final distinctPeer = others.where((p) {
+            final uid = p['user_id']?.toString().replaceFirst('usr_', '');
+            final empId = p['id']?.toString();
+            final name = p['name']?.toString() ?? '';
+            return uid != '66' &&
+                empId != '2' &&
+                uid != '65' &&
+                name != 'NEC Onboarding Test';
+          }).toList();
+          target = distinctPeer.isNotEmpty
+              ? distinctPeer.first
+              : (others.firstWhere(
+                  (p) =>
+                      p['user_id']?.toString() == '66' ||
+                      p['id']?.toString() == '2',
+                  orElse: () => others.first));
+        }
+
+        final otherEmployeeId = resolveContact(target);
+        _conversationIdByContact[otherEmployeeId] = convId;
+        for (final p in participants) {
+          final cKey = resolveContact(p);
+          final uId = p['user_id']?.toString();
+          if (uId != null) {
+            _userIdByContact[cKey] = uId;
+            _contactByUserId[uId] = cKey;
+            _contactByUserId['usr_$uId'] = cKey;
+          }
+        }
+
+        final archive = _archives.putIfAbsent(me, () => []);
+        archive.remove(otherEmployeeId);
+        if (c['is_archived'] == true) archive.add(otherEmployeeId);
+
+        for (final m in msgs) {
+          final mId = m['id'].toString();
+          final senderMap = m['sender'] as Map<String, dynamic>?;
+          final senderEmpId = senderMap?['employee_id'];
+          final senderUserId =
+              (senderMap?['user_id'] ?? m['sender_id'] ?? m['user_id'])
+                  ?.toString();
+          final senderName = senderMap?['name']?.toString() ?? '';
+
+          String senderId;
+          final sUId = senderUserId?.replaceFirst('usr_', '');
+          if (senderName == 'Super Admin' ||
+              sUId == '1' ||
+              _userIdByContact[DemoSession.adminEmployeeId] == senderUserId) {
+            senderId = DemoSession.adminEmployeeId;
+          } else if (senderEmpId != null) {
+            senderId = 'api_emp_$senderEmpId';
+          } else if (senderUserId != null &&
+              _contactByUserId[senderUserId] != null) {
+            senderId = _contactByUserId[senderUserId]!;
+          } else if (senderUserId != null &&
+              _userIdByContact[otherEmployeeId] == senderUserId) {
+            senderId = otherEmployeeId;
+          } else if (senderUserId != null &&
+              (senderUserId == myUserIdStr || sUId == myUserIdStr)) {
+            senderId = me;
+          } else {
+            senderId = (senderUserId != null && senderUserId == myUserIdStr)
+                ? me
+                : otherEmployeeId;
+          }
+
+          final recipientId = senderId == me ? otherEmployeeId : me;
+
+          final existing = existingMap[mId];
+          final reactionMap = <String, String>{};
+          final rawReactions = m['reactions'];
+          if (rawReactions is List) {
+            for (final r in rawReactions) {
+              if (r is Map && r['emoji'] != null) {
+                final emp = r['employee_id'] != null
+                    ? 'api_emp_${r['employee_id']}'
+                    : (r['user_id']?.toString() == '1' ||
+                            r['user_id']?.toString() == 'usr_1'
+                        ? DemoSession.adminEmployeeId
+                        : me);
+                reactionMap[emp] = r['emoji'].toString();
               }
             }
-
-            final readAt = existing?.readAt ??
-                (m['read_at'] != null
-                    ? DateTime.tryParse(m['read_at'].toString())
-                    : null);
-
-            ChatReply? reply;
-            final replyToId = m['reply_to_message_id'];
-            if (replyToId != null) {
-              reply = ChatReply(
-                messageId: replyToId.toString(),
-                senderId: otherEmployeeId,
-                preview: 'Quoted message',
-              );
+          }
+          if (existing != null) {
+            for (final e in existing.reactions.entries) {
+              reactionMap.putIfAbsent(e.key, () => e.value);
             }
+          }
 
-            final rawAtt = m['attachment'] as Map<String, dynamic>?;
-            final List<ChatAttachment> msgAttachments = [];
-            if (rawAtt != null && rawAtt['url'] != null) {
-              msgAttachments.add(ChatAttachment(
-                id: 'att_${m['id']}',
-                name: rawAtt['name']?.toString() ?? 'image.png',
-                size: 0,
-                isImage: true,
-                url: rawAtt['url'].toString(),
-              ));
-            }
+          final readAt = existing?.readAt ??
+              (m['read_at'] != null
+                  ? DateTime.tryParse(m['read_at'].toString())
+                  : null);
 
-            newMessages.add(ChatMessage(
-              id: mId,
-              senderId: senderId,
-              recipientId: recipientId,
-              text: m['body']?.toString() ?? '',
-              sentAt: DateTime.tryParse(m['created_at']?.toString() ?? '') ??
-                  DateTime.now(),
-              readAt: readAt,
-              pinnedAt: m['pinned_at'] != null
-                  ? DateTime.tryParse(m['pinned_at'].toString())
-                  : null,
-              isDeleted: m['deleted_at'] != null,
-              reactions: reactionMap,
-              reply: reply,
-              attachments: msgAttachments,
+          ChatReply? reply;
+          final replyToId = m['reply_to_message_id'];
+          if (replyToId != null) {
+            reply = ChatReply(
+              messageId: replyToId.toString(),
+              senderId: otherEmployeeId,
+              preview: 'Quoted message',
+            );
+          }
+
+          final rawAtt = m['attachment'] as Map<String, dynamic>?;
+          final List<ChatAttachment> msgAttachments = [];
+          if (rawAtt != null && rawAtt['url'] != null) {
+            msgAttachments.add(ChatAttachment(
+              id: 'att_${m['id']}',
+              name: rawAtt['name']?.toString() ?? 'image.png',
+              size: 0,
+              isImage: true,
+              url: rawAtt['url'].toString(),
             ));
           }
-        } catch (_) {
-          // Ignore individual conversation failure
+
+          newMessages.add(ChatMessage(
+            id: mId,
+            senderId: senderId,
+            recipientId: recipientId,
+            text: m['body']?.toString() ?? '',
+            sentAt: DateTime.tryParse(m['created_at']?.toString() ?? '') ??
+                DateTime.now(),
+            readAt: readAt,
+            hiddenFor: existing?.hiddenFor ?? const [],
+            pinnedAt: m['pinned_at'] != null
+                ? DateTime.tryParse(m['pinned_at'].toString())
+                : null,
+            isDeleted: m['deleted_at'] != null,
+            reactions: reactionMap,
+            reply: reply,
+            attachments: msgAttachments,
+          ));
         }
       }
 
-      final idSet = newMessages.map((m) => m.id).toSet();
-      _messages = [
-        ..._messages
-            .where((m) => !idSet.contains(m.id) && !m.id.startsWith('sample_')),
-        ...newMessages,
-      ];
+      if (token != _token) return;
+      final pending = _messages.where((m) => m.isPending).toList();
+      _messages = [...newMessages, ...pending];
       _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_key, _encode(_messages, _archives));
+      await prefs.setString(key, _encode(_messages, _archives));
       notifyListeners();
-    } catch (_) {
-      // Keep offline cache
+    } catch (e) {
+      if (token == _token && _messages.isEmpty) {
+        loadError = e is FormatException
+            ? e.message
+            : (e is ApiException
+                ? e.message
+                : 'Messages could not be refreshed.');
+        notifyListeners();
+      }
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -299,7 +495,6 @@ class MessageStore extends ChangeNotifier {
         DemoSession.instance.employeeId != actorId) {
       throw const FormatException('Sign in again to continue messaging.');
     }
-    if (loadError != null) throw FormatException(loadError!);
   }
 
   String _encode(
@@ -313,16 +508,19 @@ class MessageStore extends ChangeNotifier {
   Future<void> _write(String actorId,
       FutureOr<List<ChatMessage>> Function(List<ChatMessage>) update,
       {void Function(Map<String, List<String>>)? updateArchives}) async {
+    final token = _token, key = _key;
     await load();
     final operation = _pending.then((_) async {
       _authorize(actorId);
+      if (token != _token) throw const FormatException('Your session changed.');
       final updated = await update(List.of(_messages));
       final archives = _archives
           .map((owner, contacts) => MapEntry(owner, List<String>.of(contacts)));
       updateArchives?.call(archives);
       final prefs = await SharedPreferences.getInstance();
       _authorize(actorId);
-      if (!await prefs.setString(_key, _encode(updated, archives))) {
+      if (token != _token) throw const FormatException('Your session changed.');
+      if (!await prefs.setString(key, _encode(updated, archives))) {
         throw const FormatException(
             'Unable to save the message. Please try again.');
       }
@@ -339,9 +537,7 @@ class MessageStore extends ChangeNotifier {
       {required bool archived}) async {
     final convId = _conversationIdByContact[employeeId];
     if (convId != null) {
-      try {
-        await _api.archiveConversation(convId);
-      } catch (_) {}
+      await _api.archiveConversation(convId);
     }
     final me = DemoSession.instance.employeeId;
     return _write(me, (messages) {
@@ -414,120 +610,161 @@ class MessageStore extends ChangeNotifier {
       String? replyToId}) async {
     final me = DemoSession.instance.employeeId;
     final value = text.trim();
+    if (employeeId == me || EmployeeStore.instance.byId(employeeId) == null) {
+      throw const FormatException('Choose another employee to message.');
+    }
+    if ((value.isEmpty && attachments.isEmpty) || value.length > 4000) {
+      throw const FormatException(
+          'Add text or an attachment. Text can be up to 4,000 characters.');
+    }
+    if (attachments.length > maxAttachmentCount ||
+        attachments.any((attachment) =>
+            attachment.bytes.isEmpty ||
+            attachment.bytes.length > maxAttachmentBytes) ||
+        attachments.fold<int>(
+                0, (size, attachment) => size + attachment.bytes.length) >
+            maxTotalBytes) {
+      throw FormatException(
+          'Attach up to 5 files, up to ${maxAttachmentBytes ~/ (1024 * 1024)} MB each and ${maxTotalBytes ~/ (1024 * 1024)} MB in total.');
+    }
+    ChatReply? reply;
+    if (replyToId != null) {
+      final original = _target(_messages, replyToId, me);
+      if (!original.isBetween(me, employeeId)) {
+        throw const FormatException('Reply to a message in this conversation.');
+      }
+      reply = ChatReply(
+          messageId: original.id,
+          senderId: original.senderId,
+          preview: original.preview.length > 300
+              ? original.preview.substring(0, 300)
+              : original.preview);
+    }
+
+    final tempId =
+        'temp_${DateTime.now().millisecondsSinceEpoch}_${_messages.length}';
+    final now = DateTime.now();
+
+    final optimisticAttachments = attachments.asMap().entries.map((entry) {
+      final i = entry.key;
+      final a = entry.value;
+      return ChatAttachment(
+        id: 'temp_att_${DateTime.now().millisecondsSinceEpoch}_$i',
+        name: a.name,
+        size: a.bytes.length,
+        isImage: a.isImage,
+        inlineData: a.isImage && a.bytes.length < 500 * 1024
+            ? base64Encode(a.bytes)
+            : null,
+      );
+    }).toList();
+
+    final optimisticMessage = ChatMessage(
+      id: tempId,
+      senderId: me,
+      recipientId: employeeId,
+      text: value,
+      sentAt: now,
+      attachments: List.unmodifiable(optimisticAttachments),
+      reply: reply,
+      isPending: true,
+    );
+
+    _messages.add(optimisticMessage);
+    notifyListeners();
+
     final saved = <ChatAttachment>[];
     try {
-      await _write(me, (messages) async {
-        if (employeeId == me ||
-            EmployeeStore.instance.byId(employeeId) == null) {
-          throw const FormatException('Choose another employee to message.');
+      var convId = _conversationIdByContact[employeeId];
+      if (convId == null) {
+        var userId = _userIdByContact[employeeId];
+        if (userId == null) {
+          await _fetchRecipients(DemoSession.instance.accessToken);
+          userId = _userIdByContact[employeeId];
         }
-        if ((value.isEmpty && attachments.isEmpty) || value.length > 4000) {
+        if (employeeId == DemoSession.adminEmployeeId) {
+          userId ??= 'usr_1';
+        }
+        final recipient = EmployeeStore.instance.byId(employeeId);
+        final backendId = recipient?.backendId ??
+            int.tryParse(employeeId.replaceFirst('api_emp_', ''))?.toString();
+        if (backendId == null && userId == null) {
           throw const FormatException(
-              'Add text or an attachment. Text can be up to 4,000 characters.');
+              'The server has not returned this recipient’s user ID. Refresh Messages and try again.');
         }
-        if (attachments.length > maxAttachmentCount ||
-            attachments.any((attachment) =>
-                attachment.bytes.isEmpty ||
-                attachment.bytes.length > maxAttachmentBytes) ||
-            attachments.fold<int>(
-                    0, (size, attachment) => size + attachment.bytes.length) >
-                maxTotalBytes) {
-          throw FormatException(
-              'Attach up to 5 files, up to ${maxAttachmentBytes ~/ (1024 * 1024)} MB each and ${maxTotalBytes ~/ (1024 * 1024)} MB in total.');
-        }
-        ChatReply? reply;
-        if (replyToId != null) {
-          final original = _target(messages, replyToId, me);
-          if (!original.isBetween(me, employeeId)) {
-            throw const FormatException(
-                'Reply to a message in this conversation.');
-          }
-          reply = ChatReply(
-              messageId: original.id,
-              senderId: original.senderId,
-              preview: original.preview.length > 300
-                  ? original.preview.substring(0, 300)
-                  : original.preview);
-        }
-        final now = DateTime.now();
-        var id = '${me}_${now.microsecondsSinceEpoch}_${_sequence++}';
-
-        String? convId = _conversationIdByContact[employeeId];
+        final response = await _api.createDirectConversation(
+            int.tryParse(backendId ?? ''),
+            recipientUserId: userId ?? backendId);
+        convId = (response['conversation'] as Map?)?['id']?.toString();
         if (convId == null) {
-          if (employeeId == DemoSession.adminEmployeeId) {
-            convId = _conversationIdByContact['api_emp_1'] ?? '1';
-          } else if (employeeId == 'api_emp_2' &&
-              DemoSession.instance.isAdmin) {
-            convId = '1';
-          } else if (employeeId.startsWith('api_emp_')) {
-            final bId = int.tryParse(employeeId.substring(8));
-            if (bId != null) {
-              try {
-                final cRes = await _api.createDirectConversation(bId);
-                convId = cRes['conversation']?['id']?.toString();
-                if (convId != null) {
-                  _conversationIdByContact[employeeId] = convId;
-                }
-              } catch (_) {}
-            }
-          }
+          throw const FormatException(
+              'The server did not confirm this conversation. Refresh Messages before retrying.');
         }
+        _conversationIdByContact[employeeId] = convId;
+      }
+      String? id;
+      final uploads = attachments.isEmpty
+          ? <PendingChatAttachment?>[null]
+          : attachments.cast<PendingChatAttachment?>();
+      for (final attachment in uploads) {
+        final sent = attachment == null
+            ? await _api.sendMessage(convId, value,
+                replyToMessageId: int.tryParse(replyToId ?? ''))
+            : await _api.sendMessageWithAttachment(convId,
+                id == null ? value : '', attachment.bytes, attachment.name,
+                replyToMessageId: int.tryParse(replyToId ?? ''));
+        final item = sent['item'] ?? sent['message'];
+        if (item is! Map || item['id'] == null) {
+          throw const FormatException(
+              'Message accepted but confirmation was incomplete. Refresh Messages before retrying.');
+        }
+        id = item['id'].toString();
+        final att = item['attachment'];
+        if (att is Map && att['url'] != null) {
+          saved.add(ChatAttachment(
+              id: 'att_$id',
+              name: att['name']?.toString() ?? attachment?.name ?? 'Attachment',
+              size: attachment?.bytes.length ?? 0,
+              isImage: (att['mime']?.toString() ?? '').startsWith('image/'),
+              url: att['url'].toString()));
+        }
+      }
 
-        if (convId != null) {
-          try {
-            Map<String, dynamic> sent;
-            if (attachments.isNotEmpty) {
-              final first = attachments.first;
-              sent = await _api.sendMessageWithAttachment(
-                convId,
-                value.isEmpty ? 'Sent an attachment' : value,
-                first.bytes,
-                first.name,
-                replyToMessageId: int.tryParse(replyToId ?? ''),
-              );
-            } else if (value.isNotEmpty) {
-              sent = await _api.sendMessage(
-                convId,
-                value,
-                replyToMessageId: int.tryParse(replyToId ?? ''),
-              );
-            } else {
-              sent = {};
-            }
-            final item = sent['item'] as Map<String, dynamic>?;
-            if (item != null && item['id'] != null) {
-              id = item['id'].toString();
-              final att = item['attachment'] as Map<String, dynamic>?;
-              if (att != null && att['url'] != null) {
-                saved.add(ChatAttachment(
-                  id: 'att_${item['id']}',
-                  name: att['name']?.toString() ?? 'image.png',
-                  size: 0,
-                  isImage: true,
-                  url: att['url'].toString(),
-                ));
-              }
-            }
-          } catch (_) {}
+      if (saved.isEmpty && attachments.isNotEmpty) {
+        for (var index = 0; index < attachments.length; index++) {
+          saved.add(
+              await AttachmentStorage.save(attachments[index], '${id}_$index'));
         }
+      }
 
-        if (saved.isEmpty) {
-          for (var index = 0; index < attachments.length; index++) {
-            saved.add(await AttachmentStorage.save(
-                attachments[index], '${id}_$index'));
-          }
-        }
-        messages.add(ChatMessage(
-            id: id,
-            senderId: me,
-            recipientId: employeeId,
-            text: value,
-            sentAt: now,
-            attachments: List.unmodifiable(saved),
-            reply: reply));
-        return messages;
-      });
+      final confirmed = ChatMessage(
+        id: id!,
+        senderId: me,
+        recipientId: employeeId,
+        text: value,
+        sentAt: DateTime.now(),
+        attachments: List.unmodifiable(saved),
+        reply: reply,
+        isPending: false,
+      );
+
+      final idx = _messages.indexWhere((m) => m.id == tempId);
+      if (idx != -1) {
+        _messages[idx] = confirmed;
+      } else {
+        _messages.add(confirmed);
+      }
+      _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_key, _encode(_messages, _archives));
+      notifyListeners();
+
+      unawaited(syncRemote());
+      NotificationStore.instance.load(filter: 'all', force: true).ignore();
     } catch (_) {
+      _messages.removeWhere((m) => m.id == tempId);
+      notifyListeners();
       for (final attachment in saved) {
         await AttachmentStorage.remove(attachment);
       }
@@ -546,9 +783,7 @@ class MessageStore extends ChangeNotifier {
   }
 
   Future<void> react(String id, String emoji) async {
-    try {
-      await _api.reactToMessage(id, emoji);
-    } catch (_) {}
+    await _api.reactToMessage(id, emoji);
     final me = DemoSession.instance.employeeId;
     return _updateMessage(id, (message) {
       if (!ChatMessage.reactionOptions.contains(emoji)) {
@@ -565,9 +800,7 @@ class MessageStore extends ChangeNotifier {
   }
 
   Future<void> togglePin(String id) async {
-    try {
-      await _api.pinMessage(id);
-    } catch (_) {}
+    await _api.pinMessage(id);
     return _updateMessage(
         id,
         (message) => message.copyWith(
@@ -577,9 +810,7 @@ class MessageStore extends ChangeNotifier {
 
   Future<void> deleteMessage(String id, {required bool forEveryone}) async {
     if (forEveryone) {
-      try {
-        await _api.deleteMessage(id);
-      } catch (_) {}
+      await _api.deleteMessage(id);
     }
     final me = DemoSession.instance.employeeId;
     final cleanup = <ChatAttachment>[];

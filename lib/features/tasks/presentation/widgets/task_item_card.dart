@@ -43,7 +43,7 @@ class TaskItemCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -54,150 +54,179 @@ class TaskItemCard extends StatelessWidget {
                 }
               },
               child: Container(
-                width: 22,
-                height: 22,
-                margin: const EdgeInsets.only(top: 2),
+                width: 19,
+                height: 19,
+                margin: const EdgeInsets.only(top: 1),
                 decoration: BoxDecoration(
-                  color: isCompleted ? AppColors.success : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
+                  shape: BoxShape.circle,
+                  color: isCompleted
+                      ? const Color(0xFF34C759)
+                      : nec.surfaceSecondary.withValues(alpha: 0.5),
                   border: Border.all(
                     color: isCompleted
-                        ? AppColors.success
+                        ? const Color(0xFF34C759)
                         : nec.textTertiary.withValues(alpha: 0.4),
                     width: 1.5,
                   ),
+                  boxShadow: isCompleted
+                      ? [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF34C759).withValues(alpha: 0.35),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: isCompleted
-                    ? const Icon(
-                        CupertinoIcons.checkmark,
-                        size: 14,
-                        color: Colors.white,
+                    ? const Center(
+                        child: Icon(
+                          CupertinoIcons.checkmark,
+                          size: 11,
+                          color: Colors.white,
+                        ),
                       )
-                    : null,
+                    : Center(
+                        child: Container(
+                          width: 4.5,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: nec.textTertiary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                      ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
                       color: isCompleted ? nec.textTertiary : nec.textPrimary,
                       decoration: isCompleted
                           ? TextDecoration.lineThrough
                           : TextDecoration.none,
                       decorationColor: nec.textTertiary,
+                      height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (relatedText?.isNotEmpty == true) ...[
-                        Icon(
-                          CupertinoIcons.person_2,
-                          size: 13,
-                          color: nec.brand,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            relatedText!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                              color: nec.brand,
+                  if (relatedText?.isNotEmpty == true ||
+                      subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2.5),
+                    Row(
+                      children: [
+                        if (relatedText?.isNotEmpty == true) ...[
+                          Icon(
+                            CupertinoIcons.person_2_fill,
+                            size: 10.5,
+                            color: nec.brand,
+                          ),
+                          const SizedBox(width: 3.5),
+                          Flexible(
+                            child: Text(
+                              relatedText!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: nec.brand,
+                              ),
                             ),
                           ),
-                        ),
+                          if (subtitle.isNotEmpty)
+                            Text(' · ',
+                                style: TextStyle(
+                                    fontSize: 10.5, color: nec.textTertiary)),
+                        ],
                         if (subtitle.isNotEmpty)
-                          Text(' · ',
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 12.5, color: nec.textTertiary)),
-                      ],
-                      if (subtitle.isNotEmpty)
-                        Expanded(
-                          child: Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 12.5, color: nec.textTertiary),
+                                  fontSize: 10.5, color: nec.textTertiary),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 5),
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                            horizontal: 6, vertical: 1.5),
                         decoration: BoxDecoration(
-                          color: priorityColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          color: priorityColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           priority,
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
                             color: priorityColor,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       NecAvatar(
                         initials: assigneeInitials,
-                        size: 18,
+                        size: 15,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           assigneeName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: nec.textSecondary,
                           ),
                         ),
                       ),
                       if (status != null) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         if (status == 'to_do' && onStatusChange != null)
                           InkWell(
                             onTap: () => onStatusChange!('in_progress'),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3.5),
+                                  horizontal: 7, vertical: 2.5),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF5856D6)
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
                                   color: const Color(0xFF5856D6)
-                                      .withValues(alpha: 0.35),
-                                  width: 0.8,
+                                      .withValues(alpha: 0.3),
+                                  width: 0.7,
                                 ),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(CupertinoIcons.play_fill,
-                                      size: 9, color: Color(0xFF5856D6)),
-                                  SizedBox(width: 4),
+                                      size: 8, color: Color(0xFF5856D6)),
+                                  SizedBox(width: 3),
                                   Text(
                                     'In Progress',
                                     style: TextStyle(
-                                      fontSize: 10.5,
+                                      fontSize: 9.5,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF5856D6),
                                     ),
@@ -210,30 +239,30 @@ class TaskItemCard extends StatelessWidget {
                             onStatusChange != null)
                           InkWell(
                             onTap: () => onStatusChange!('to_do'),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3.5),
+                                  horizontal: 7, vertical: 2.5),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFF9500)
                                     .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
                                   color: const Color(0xFFFF9500)
-                                      .withValues(alpha: 0.35),
-                                  width: 0.8,
+                                      .withValues(alpha: 0.3),
+                                  width: 0.7,
                                 ),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(CupertinoIcons.flame_fill,
-                                      size: 10, color: Color(0xFFFF9500)),
-                                  SizedBox(width: 4),
+                                      size: 8.5, color: Color(0xFFFF9500)),
+                                  SizedBox(width: 3),
                                   Text(
                                     'In Progress',
                                     style: TextStyle(
-                                      fontSize: 10.5,
+                                      fontSize: 9.5,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFFFF9500),
                                     ),
@@ -245,21 +274,21 @@ class TaskItemCard extends StatelessWidget {
                         else if (isCompleted)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3.5),
+                                horizontal: 7, vertical: 2.5),
                             decoration: BoxDecoration(
                               color: AppColors.success.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(5),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(CupertinoIcons.checkmark_alt,
-                                    size: 11, color: AppColors.success),
-                                SizedBox(width: 3),
+                                    size: 10, color: AppColors.success),
+                                SizedBox(width: 2.5),
                                 Text(
                                   'Done',
                                   style: TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 9.5,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.success,
                                   ),

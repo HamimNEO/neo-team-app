@@ -59,11 +59,13 @@ class EmployeeRepository {
     return Employee.fromJson({
       ...original.toJson(),
       ...mapped.toJson(),
-      'photoBase64': original.photoBase64 ?? mapped.photoBase64,
+      'photoBase64': original.photoUrl == mapped.photoUrl
+          ? original.photoBase64 ?? mapped.photoBase64
+          : mapped.photoBase64,
       'salary':
           detail.containsKey('salary') || detail.containsKey('salary_enabled')
               ? mapped.salary?.toJson()
-              : mapped.salary?.toJson() ?? original.salary?.toJson(),
+              : null,
       'benefitsKnown': original.benefitsKnown,
       'companyMealEnabled': original.companyMealEnabled,
       'totalMealCost': original.totalMealCost,
@@ -72,9 +74,7 @@ class EmployeeRepository {
       'hasRotationalReserve': original.hasRotationalReserve,
       'rotationalReserveAmount': original.rotationalReserveAmount,
       'reportsToId': original.reportsToId,
-      'employmentType': mapped.employmentType != 'permanent'
-          ? mapped.employmentType
-          : original.employmentType,
+      'employmentType': mapped.employmentType,
       'probationStartDate':
           mapped.probationStartDate ?? original.probationStartDate,
       'probationEndDate': mapped.probationEndDate ?? original.probationEndDate,
@@ -130,12 +130,6 @@ class EmployeeRepository {
     final photo = submission.employee.photoBase64;
     employee = Employee.fromJson({
       ...employee.toJson(),
-      'employmentType': submission.employee.employmentType,
-      'probationStartDate': submission.employee.probationStartDate,
-      'probationEndDate': submission.employee.probationEndDate,
-      'agreementPdfName': submission.employee.agreementPdfName,
-      'agreementPdfBase64': submission.employee.agreementPdfBase64,
-      'agreementPdfSizeBytes': submission.employee.agreementPdfSizeBytes,
       if (photo != null) 'photoBase64': photo,
     });
     if (original?.photoUrl == employee.photoUrl &&

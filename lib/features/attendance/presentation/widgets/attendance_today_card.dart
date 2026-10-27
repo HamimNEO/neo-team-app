@@ -46,125 +46,356 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
     final nec = Theme.of(context).extension<NecColors>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final result = await showDialog<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
-      barrierDismissible: true,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: nec.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color:
-                    isDark ? const Color(0xFF382318) : const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(10),
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (sheetCtx) {
+        final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Container(
+            decoration: BoxDecoration(
+              color: nec.surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(
+                color: nec.separator.withValues(alpha: 0.6),
+                width: 1,
               ),
-              child: const Icon(
-                CupertinoIcons.clock_fill,
-                color: Color(0xFFD97706),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Finish Workday?',
-                style: TextStyle(
-                  color: nec.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.14),
+                  blurRadius: 28,
+                  offset: const Offset(0, -6),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-        content: SingleChildScrollView(
-            child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Your check-out time will be recorded. Are you sure you want to end your workday session?',
-              style: TextStyle(
-                color: nec.textSecondary,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-                controller: _summaryController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                    labelText: 'Workday summary (optional)')),
-            TextField(
-                controller: _workNotesController,
-                maxLines: 2,
-                decoration:
-                    const InputDecoration(labelText: 'Work notes (optional)')),
-            if (elapsed.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Time Worked Today:',
-                      style: TextStyle(color: nec.textTertiary, fontSize: 13),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: nec.textTertiary.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                    const Spacer(),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF43F5E), Color(0xFFFB923C)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFF43F5E)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.square_arrow_right,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Finish Workday?',
+                                style: TextStyle(
+                                  color: nec.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Record check-out and complete session',
+                                style: TextStyle(
+                                  color: nec.textSecondary,
+                                  fontSize: 12.5,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(sheetCtx, false),
+                          icon: Icon(
+                            CupertinoIcons.xmark_circle_fill,
+                            color: nec.textTertiary.withValues(alpha: 0.5),
+                            size: 24,
+                          ),
+                          splashRadius: 20,
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (elapsed.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: nec.separator.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE11D48)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: const Icon(
+                                CupertinoIcons.stopwatch,
+                                color: Color(0xFFE11D48),
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'TIME WORKED TODAY',
+                                    style: TextStyle(
+                                      color: nec.textTertiary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    elapsed,
+                                    style: TextStyle(
+                                      color: nec.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE11D48)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 6,
+                                    color: Color(0xFFE11D48),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Clocking Out',
+                                    style: TextStyle(
+                                      color: Color(0xFFE11D48),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Text(
-                      elapsed,
+                      'Workday Summary',
                       style: TextStyle(
                         color: nec.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    const SizedBox(height: 5),
+                    TextField(
+                      controller: _summaryController,
+                      minLines: 1,
+                      maxLines: 2,
+                      style: TextStyle(color: nec.textPrimary, fontSize: 13.5),
+                      decoration: InputDecoration(
+                        hintText: 'Summary (optional)',
+                        hintStyle: TextStyle(
+                          color: nec.textTertiary.withValues(alpha: 0.7),
+                          fontSize: 13,
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.03)
+                            : const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                              color: nec.separator.withValues(alpha: 0.6)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                              color: nec.separator.withValues(alpha: 0.6)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color(0xFFE11D48), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Work Notes / Handover',
+                      style: TextStyle(
+                        color: nec.textPrimary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    TextField(
+                      controller: _workNotesController,
+                      minLines: 1,
+                      maxLines: 2,
+                      style: TextStyle(color: nec.textPrimary, fontSize: 13.5),
+                      decoration: InputDecoration(
+                        hintText: 'Notes (optional)',
+                        hintStyle: TextStyle(
+                          color: nec.textTertiary.withValues(alpha: 0.7),
+                          fontSize: 13,
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.03)
+                            : const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                              color: nec.separator.withValues(alpha: 0.6)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                              color: nec.separator.withValues(alpha: 0.6)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color(0xFFE11D48), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(sheetCtx, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: nec.textPrimary,
+                              side: BorderSide(
+                                  color: nec.separator.withValues(alpha: 0.8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'Keep Working',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(sheetCtx, true),
+                            icon: const Icon(CupertinoIcons.square_arrow_right,
+                                size: 17),
+                            label: const Text(
+                              'Check Out',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE11D48),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ],
-          ],
-        )),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: Text(
-              'Keep Working',
-              style: TextStyle(
-                color: nec.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE11D48),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            child: const Text(
-              'Check Out',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
     return result ?? false;
   }
@@ -189,6 +420,8 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
           await store.checkOut(widget.employeeId,
               summary: _summaryController.text.trim(),
               workNotes: _workNotesController.text.trim());
+          _summaryController.clear();
+          _workNotesController.clear();
         case 'break':
           await store.toggleBreak(widget.employeeId);
       }

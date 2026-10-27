@@ -1,3 +1,6 @@
+import '../../../../core/config/app_config.dart';
+import '../../../../core/network/api_client.dart';
+import '../../auth/presentation/controllers/auth_session.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -374,7 +377,30 @@ class CertificatePdfService {
         type: NecToastType.info,
       );
 
-      final pdfBytes = await generateCertificatePdf(request);
+      final session = AuthSession.instance;
+      final api = ApiClient(
+          baseUrl: () => AppConfig.apiBaseUrl,
+          accessToken: () => session.accessToken,
+          onUnauthorized: session.invalidate);
+      final Uint8List pdfBytes;
+      if (request.isDelivered) {
+        if (request.pdfUrl == null) {
+          throw const FormatException(
+              'The server has not supplied a certificate PDF URL.');
+        }
+        final token = session.accessToken;
+        try {
+          pdfBytes = await api.downloadDocument(request.pdfUrl!, token: token);
+        } finally {
+          api.close();
+        }
+        if (token != session.accessToken) {
+          throw const FormatException('Your account changed.');
+        }
+      } else {
+        api.close();
+        pdfBytes = await generateCertificatePdf(request);
+      }
 
       final safeName = request.employeeName
           .replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_')

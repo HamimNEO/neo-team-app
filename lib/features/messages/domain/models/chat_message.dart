@@ -31,6 +31,7 @@ class ChatMessage {
   final DateTime? pinnedAt;
   final bool isDeleted;
   final List<String> hiddenFor;
+  final bool isPending;
 
   const ChatMessage(
       {required this.id,
@@ -44,7 +45,8 @@ class ChatMessage {
       this.reactions = const {},
       this.pinnedAt,
       this.isDeleted = false,
-      this.hiddenFor = const []});
+      this.hiddenFor = const [],
+      this.isPending = false});
 
   bool involves(String employeeId) =>
       senderId == employeeId || recipientId == employeeId;
@@ -68,9 +70,7 @@ class ChatMessage {
       return cleaned;
     }
     if (attachments.length == 1) {
-      return attachments.first.isImage
-          ? '📷 Photo'
-          : '📎 ${attachments.first.name}';
+      return attachments.first.isImage ? 'Photo' : attachments.first.name;
     }
     if (attachments.length > 1) {
       return '${attachments.length} attachments';
@@ -88,7 +88,8 @@ class ChatMessage {
           DateTime? pinnedAt,
           bool unpin = false,
           bool? isDeleted,
-          List<String>? hiddenFor}) =>
+          List<String>? hiddenFor,
+          bool? isPending}) =>
       ChatMessage(
           id: id,
           senderId: senderId,
@@ -101,7 +102,8 @@ class ChatMessage {
           reactions: reactions ?? this.reactions,
           pinnedAt: unpin ? null : pinnedAt ?? this.pinnedAt,
           isDeleted: isDeleted ?? this.isDeleted,
-          hiddenFor: hiddenFor ?? this.hiddenFor);
+          hiddenFor: hiddenFor ?? this.hiddenFor,
+          isPending: isPending ?? this.isPending);
 
   ChatMessage markRead(DateTime date) => copyWith(readAt: date);
 
@@ -119,6 +121,7 @@ class ChatMessage {
         'pinnedAt': pinnedAt?.toIso8601String(),
         'isDeleted': isDeleted,
         'hiddenFor': hiddenFor,
+        'isPending': isPending,
       };
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -145,6 +148,7 @@ class ChatMessage {
       isDeleted: json['isDeleted'] as bool? ?? false,
       hiddenFor: List.unmodifiable(
           List<String>.from(json['hiddenFor'] as List? ?? [])),
+      isPending: json['isPending'] as bool? ?? false,
     );
     if (message.id.isEmpty ||
         message.senderId.isEmpty ||

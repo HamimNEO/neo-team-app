@@ -1,3 +1,5 @@
+import 'work_sms_options.dart';
+import '../../../settings/data/auto_sms_settings_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -30,6 +32,9 @@ class ScheduleVisitSheet extends StatefulWidget {
 
 class _ScheduleVisitSheetState extends State<ScheduleVisitSheet> {
   bool _saving = false;
+  bool _sendAutoSms = false;
+  String _smsTarget = 'client_contact', _smsTiming = '15_minutes_before';
+  final _meetingLinkController = TextEditingController();
   late String _selectedLead;
   DateTime _selectedDateTime = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _selectedTimeOfDay = const TimeOfDay(hour: 11, minute: 0);
@@ -57,6 +62,10 @@ class _ScheduleVisitSheetState extends State<ScheduleVisitSheet> {
   @override
   void initState() {
     super.initState();
+    final sms = AutoSmsSettingsStore.instance;
+    _sendAutoSms = sms.ready && sms.isAutoSmsEnabled;
+    _smsTarget = sms.targetValue;
+    _smsTiming = sms.timingValue;
     _selectedLead = widget.initialLeadName ?? '';
     _initAssignee();
     if (_selectedLead.isNotEmpty) {
@@ -97,6 +106,7 @@ class _ScheduleVisitSheetState extends State<ScheduleVisitSheet> {
 
   @override
   void dispose() {
+    _meetingLinkController.dispose();
     _locationController.dispose();
     _purposeController.dispose();
     _contactPersonController.dispose();
@@ -245,6 +255,11 @@ class _ScheduleVisitSheetState extends State<ScheduleVisitSheet> {
     try {
       final saved = await WorkItemStore.instance.create({
         'type': 'visit',
+        'send_auto_sms': _sendAutoSms,
+        'sms_target': _smsTarget,
+        'sms_timing': _smsTiming,
+        if (_meetingLinkController.text.trim().isNotEmpty)
+          'meeting_link': _meetingLinkController.text.trim(),
         'title': purpose,
         'purpose': purpose,
         'visit_date': DateFormat('yyyy-MM-dd').format(scheduled),
@@ -838,6 +853,23 @@ class _ScheduleVisitSheetState extends State<ScheduleVisitSheet> {
 
                         const SizedBox(height: 18),
 
+                        TextField(
+                            controller: _meetingLinkController,
+                            keyboardType: TextInputType.url,
+                            decoration: const InputDecoration(
+                                labelText: 'Meeting link (optional)')),
+                        SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Automated SMS reminder'),
+                            value: _sendAutoSms,
+                            onChanged: (v) => setState(() => _sendAutoSms = v)),
+                        if (_sendAutoSms)
+                          WorkSmsOptions(
+                              target: _smsTarget,
+                              timing: _smsTiming,
+                              onTarget: (v) => setState(() => _smsTarget = v),
+                              onTiming: (v) => setState(() => _smsTiming = v)),
+                        const SizedBox(height: 16),
                         // 6. CONTACT AT SITE
                         Text(
                           'SITE CONTACT PERSON',

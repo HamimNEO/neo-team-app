@@ -40,8 +40,13 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
   String _summarySubtitle(String key, String fallback) {
     final response = AdminSettingsStore.instance.summary;
     final counts = response?['summary'] ?? response?['counts'] ?? response;
-    final value = counts is Map ? counts[key] : null;
-    return value is int ? '$value $key · $fallback' : fallback;
+    if (counts is! Map) return fallback;
+    final value = counts[key] ??
+        counts['total_$key'] ??
+        counts['active_$key'] ??
+        counts['${key}_count'];
+    if (value == null) return fallback;
+    return '$value $key · $fallback';
   }
 
   @override
@@ -314,8 +319,31 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
               ],
+              Builder(builder: (context) {
+                final response = AdminSettingsStore.instance.summary;
+                final counts =
+                    response?['summary'] ?? response?['counts'] ?? response;
+                final version =
+                    counts is Map ? counts['system_version']?.toString() : null;
+                if (version == null || version.isEmpty) {
+                  return const SizedBox(height: 24);
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 28),
+                  child: Center(
+                    child: Text(
+                      'System Version: v$version',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: nec.textTertiary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ],
           ),
         ),

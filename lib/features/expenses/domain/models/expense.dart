@@ -20,6 +20,29 @@ enum ExpenseCategory {
 
   const ExpenseCategory(this.label, this.icon, this.color);
 
+  String get shortLabel {
+    switch (this) {
+      case ExpenseCategory.office:
+        return 'Office';
+      case ExpenseCategory.utilities:
+        return 'Utilities';
+      case ExpenseCategory.software:
+        return 'Software';
+      case ExpenseCategory.hardware:
+        return 'Hardware';
+      case ExpenseCategory.food:
+        return 'Food';
+      case ExpenseCategory.travel:
+        return 'Travel';
+      case ExpenseCategory.marketing:
+        return 'Marketing';
+      case ExpenseCategory.payroll:
+        return 'Payroll';
+      case ExpenseCategory.misc:
+        return 'Misc';
+    }
+  }
+
   static ExpenseCategory fromString(String? value) {
     if (value == null) return ExpenseCategory.misc;
     return ExpenseCategory.values.firstWhere(
@@ -42,12 +65,12 @@ enum ExpenseStatus {
   const ExpenseStatus(this.label, this.color);
 
   static ExpenseStatus fromString(String? value) {
-    if (value == null) return ExpenseStatus.paid;
+    if (value == null) return ExpenseStatus.pending;
     return ExpenseStatus.values.firstWhere(
       (s) =>
           s.name.toLowerCase() == value.toLowerCase() ||
           s.label.toLowerCase() == value.toLowerCase(),
-      orElse: () => ExpenseStatus.paid,
+      orElse: () => ExpenseStatus.pending,
     );
   }
 }
@@ -63,7 +86,8 @@ class Expense {
   final String vendor;
   final String paidBy;
   final String notes;
-  final String? receiptName;
+  final String? receiptName, receiptUrl;
+  final String? apiStatus;
 
   const Expense({
     required this.id,
@@ -77,7 +101,50 @@ class Expense {
     this.paidBy = 'Company Account',
     this.notes = '',
     this.receiptName,
+    this.receiptUrl,
+    this.apiStatus,
   });
+
+  String get statusLabel =>
+      apiStatus == null ? status.label : apiStatus!.replaceAll('_', ' ');
+
+  String get paymentMethodLabel {
+    final trimmed = paymentMethod.trim();
+    if (trimmed.isEmpty) return 'Bank Transfer';
+    switch (trimmed.toLowerCase()) {
+      case 'bank_transfer':
+      case 'bank transfer':
+        return 'Bank Transfer';
+      case 'cash':
+        return 'Cash';
+      case 'credit_card':
+      case 'credit card':
+        return 'Credit Card';
+      case 'debit_card':
+      case 'debit card':
+        return 'Debit Card';
+      case 'mobile_banking':
+      case 'mobile banking':
+      case 'bkash':
+        return 'Mobile Banking';
+      default:
+        return trimmed
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((w) => w.isEmpty
+                ? ''
+                : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+            .join(' ');
+    }
+  }
+
+  String get paidByLabel {
+    final trimmed = paidBy.trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'nothing') {
+      return 'Company Account';
+    }
+    return trimmed;
+  }
 
   String get formattedAmount {
     final isInt = amount % 1 == 0;
@@ -100,29 +167,55 @@ class Expense {
         'category': category.name,
         'date': date.toIso8601String(),
         'paymentMethod': paymentMethod,
-        'status': status.name,
+        'status': apiStatus ?? status.name,
         'vendor': vendor,
         'paidBy': paidBy,
         'notes': notes,
         'receiptName': receiptName,
+        'receiptUrl': receiptUrl,
       };
 
-  factory Expense.fromJson(Map<String, dynamic> json) => Expense(
-        id: json['id'] as String? ??
-            'exp_${DateTime.now().millisecondsSinceEpoch}',
-        title: json['title'] as String? ?? 'Expense',
-        amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-        category: ExpenseCategory.fromString(json['category'] as String?),
-        date: json['date'] != null
-            ? DateTime.tryParse(json['date'] as String) ?? DateTime.now()
-            : DateTime.now(),
-        paymentMethod: json['paymentMethod'] as String? ?? 'Bank Transfer',
-        status: ExpenseStatus.fromString(json['status'] as String?),
-        vendor: json['vendor'] as String? ?? '',
-        paidBy: json['paidBy'] as String? ?? 'Company Account',
-        notes: json['notes'] as String? ?? '',
-        receiptName: json['receiptName'] as String?,
-      );
+  factory Expense.fromJson(Map<String, dynamic> json) {
+    final category = {
+      'office_rent': 'office',
+      'contractors': 'payroll',
+      'miscellaneous': 'misc'
+    };
+    final rawCategory = json['category']?.toString();
+    return Expense(
+        id: json['id'].toString(),
+        title: json['title']?.toString() ?? '',
+        amount: num.tryParse(json['amount'].toString())?.toDouble() ?? 0,
+        category:
+            ExpenseCategory.fromString(category[rawCategory] ?? rawCategory),
+        date: DateTime.parse(json['date'].toString()),
+        paymentMethod:
+            (json['payment_method'] ?? json['paymentMethod'])?.toString() ?? '',
+        status: ExpenseStatus.fromString(json['status']?.toString()),
+        apiStatus: json['status']?.toString(),
+        vendor: json['vendor']?.toString() ?? '',
+        paidBy: (json['paid_by'] ?? json['paidBy'])?.toString() ?? '',
+        notes: json['notes']?.toString() ?? '',
+        receiptName: (json['receipt_name'] ?? json['receiptName'])?.toString(),
+        receiptUrl: (json['receipt_url'] ?? json['receiptUrl'])?.toString());
+  }
+
+  Map<String, dynamic> toApi() => {
+        'title': title,
+        'amount': amount,
+        'category': switch (category) {
+          ExpenseCategory.office => 'office_rent',
+          ExpenseCategory.payroll => 'contractors',
+          ExpenseCategory.misc => 'miscellaneous',
+          _ => category.name
+        },
+        'date': date.toIso8601String().split('T').first,
+        'payment_method': paymentMethod.toLowerCase().replaceAll(' ', '_'),
+        'status': apiStatus ?? status.name,
+        'vendor': vendor,
+        'paid_by': paidBy,
+        'notes': notes
+      };
 
   Expense copyWith({
     String? id,
@@ -149,5 +242,7 @@ class Expense {
         paidBy: paidBy ?? this.paidBy,
         notes: notes ?? this.notes,
         receiptName: receiptName ?? this.receiptName,
+        receiptUrl: receiptUrl,
+        apiStatus: status == null ? apiStatus : status.name,
       );
 }

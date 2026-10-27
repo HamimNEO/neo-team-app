@@ -19,7 +19,6 @@ class ApiUpload {
   final Uint8List bytes;
 }
 
-/// Shared JSON and binary transport. Features own endpoint/payload details.
 class ApiClient {
   ApiClient({
     required String Function() baseUrl,
@@ -37,6 +36,66 @@ class ApiClient {
   final String? Function()? _accessToken;
   final Future<void> Function(String rejectedToken)? _onUnauthorized;
   final Duration timeout;
+
+  Future<List<Map<String, dynamic>>> all(String path,
+      {Map<String, String>? queryParameters, String? token}) async {
+    final rows = <Map<String, dynamic>>[];
+    var page = 1, last = 1;
+    do {
+      final result = await get(path, token: token, queryParameters: {
+        ...?queryParameters,
+        'page': '$page',
+        'per_page': '100'
+      });
+      final data = result['data'];
+      if (data is! List || data.any((row) => row is! Map)) {
+        throw const ApiException('The server returned an invalid list.');
+      }
+      rows.addAll(
+          data.whereType<Map>().map((r) => Map<String, dynamic>.from(r)));
+      final perPage = (result['per_page'] as num?)?.toInt() ?? 100;
+      if (perPage < 1) throw const ApiException('Invalid list pagination.');
+      last = (result['last_page'] as num?)?.toInt() ??
+          (((result['total'] as num?)?.toInt() ?? data.length) / perPage)
+              .ceil();
+      if (last > 1000) {
+        throw const ApiException('Please narrow the list filters.');
+      }
+      page++;
+    } while (page <= last);
+    return rows;
+  }
+
+  String protectedPath(String value) {
+    final base = Uri.parse(_baseUrl()), uri = Uri.parse(value);
+    if (uri.hasAuthority && !uri.hasScheme) {
+      throw const ApiException('Unsupported document URL.');
+    }
+    if (uri.hasScheme &&
+        (uri.scheme != 'https' ||
+            uri.origin != base.origin ||
+            uri.userInfo.isNotEmpty)) {
+      throw const ApiException(
+          'The server returned an unsupported document URL.');
+    }
+    final prefix = base.path.replaceFirst(RegExp(r'/+$'), '');
+    final path = uri.path.startsWith('$prefix/')
+        ? uri.path.substring(prefix.length)
+        : uri.path;
+    if (!path.startsWith('/team-operations/') &&
+        !path.startsWith('/super-admin/team-operations/')) {
+      throw const ApiException('The document URL is outside the team API.');
+    }
+    return path;
+  }
+
+  Future<Uint8List> downloadDocument(String value, {String? token}) {
+    final uri = Uri.parse(value);
+    final path = protectedPath(value);
+    return download(path,
+        token: token,
+        queryParameters: uri.hasQuery ? uri.queryParameters : null);
+  }
 
   Future<Map<String, dynamic>> get(String path,
           {Map<String, String>? queryParameters,
@@ -79,12 +138,12 @@ class ApiClient {
     return _send(request, bearer, true, debugBody: fields);
   }
 
-  /// Downloads protected attachments without exposing the bearer to a browser.
-  Future<Uint8List> download(String path, {String? token}) async {
+  Future<Uint8List> download(String path,
+      {String? token, Map<String, String>? queryParameters}) async {
     final bearer = _bearer(token, true);
     final headers = _headers(bearer)..remove('Content-Type');
     headers['Accept'] = '*/*';
-    final request = http.Request('GET', _uri(path, null))
+    final request = http.Request('GET', _uri(path, queryParameters))
       ..followRedirects = false
       ..headers.addAll(headers);
     final response = await _perform(request);

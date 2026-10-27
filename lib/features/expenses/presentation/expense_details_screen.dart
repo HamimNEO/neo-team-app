@@ -1,3 +1,7 @@
+import '../../../core/storage/file_export.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/config/app_config.dart';
+import '../../auth/presentation/controllers/auth_session.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +24,15 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
   void initState() {
     super.initState();
     ExpenseStore.instance.addListener(_refresh);
+    ExpenseStore.instance.loadDetail(widget.expenseId).catchError((Object e) {
+      if (mounted) {
+        NecToast.show(context,
+            message: e is FormatException
+                ? e.message
+                : 'Expense could not be loaded.',
+            type: NecToastType.error);
+      }
+    });
   }
 
   void _refresh() {
@@ -65,7 +78,18 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
     );
 
     if (confirmed == true && mounted) {
-      await ExpenseStore.instance.deleteExpense(widget.expenseId);
+      try {
+        await ExpenseStore.instance.deleteExpense(widget.expenseId);
+      } catch (e) {
+        if (mounted) {
+          NecToast.show(context,
+              message: e is FormatException
+                  ? e.message
+                  : 'Expense could not be deleted.',
+              type: NecToastType.error);
+        }
+        return;
+      }
       if (mounted) {
         NecToast.show(context,
             message: 'Expense deleted', type: NecToastType.info);
@@ -122,76 +146,77 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               decoration: BoxDecoration(
                 color: nec.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: nec.separator),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: nec.separator.withValues(alpha: 0.25)),
               ),
               child: Column(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: expense.category.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(expense.category.icon,
-                        color: expense.category.color, size: 28),
+                        color: expense.category.color, size: 24),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Text(
                     expense.formattedAmount,
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: nec.textPrimary,
                       letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     expense.title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: nec.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 8, vertical: 3.5),
                         decoration: BoxDecoration(
                           color: expense.category.color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           expense.category.label,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: expense.category.color,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 8, vertical: 3.5),
                         decoration: BoxDecoration(
                           color: expense.status.color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -206,9 +231,9 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
                             ),
                             const SizedBox(width: 5),
                             Text(
-                              expense.status.label,
+                              expense.statusLabel,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: expense.status.color,
                               ),
@@ -221,12 +246,46 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            if (expense.receiptUrl != null) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () async {
+                  final session = AuthSession.instance,
+                      token = AuthSession.instance.accessToken;
+                  final api = ApiClient(
+                      baseUrl: () => AppConfig.apiBaseUrl,
+                      accessToken: () => session.accessToken);
+                  try {
+                    final bytes = await api
+                        .downloadDocument(expense.receiptUrl!, token: token);
+                    if (token == session.accessToken) {
+                      await FileExport.save(
+                          expense.receiptName ?? 'receipt', bytes);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      NecToast.show(context,
+                          message: e is FormatException
+                              ? e.message
+                              : 'Receipt could not be opened.',
+                          type: NecToastType.error);
+                    }
+                  } finally {
+                    api.close();
+                  }
+                },
+                icon: const Icon(CupertinoIcons.doc, size: 15),
+                label: const Text('View / save receipt',
+                    style: TextStyle(fontSize: 12.5)),
+              ),
+            ],
+            const SizedBox(height: 14),
             Container(
               decoration: BoxDecoration(
                 color: nec.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: nec.separator),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: nec.separator.withValues(alpha: 0.25)),
               ),
               child: Column(
                 children: [
@@ -242,7 +301,7 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
                     nec,
                     icon: CupertinoIcons.creditcard,
                     label: 'Payment Method',
-                    value: expense.paymentMethod,
+                    value: expense.paymentMethodLabel,
                   ),
                   _divider(nec),
                   _infoRow(
@@ -258,7 +317,7 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
                     nec,
                     icon: CupertinoIcons.person_circle,
                     label: 'Paid By',
-                    value: expense.paidBy,
+                    value: expense.paidByLabel,
                   ),
                   if (expense.notes.isNotEmpty) ...[
                     _divider(nec),
@@ -285,22 +344,30 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
     required String value,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 18, color: nec.textTertiary),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(fontSize: 14, color: nec.textSecondary)),
-          const Spacer(),
-          Flexible(
+          Icon(icon, size: 16, color: nec.textTertiary),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: nec.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Text(
               value,
               textAlign: TextAlign.end,
               style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: nec.textPrimary),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: nec.textPrimary,
+              ),
             ),
           ),
         ],
@@ -308,8 +375,8 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
     );
   }
 
-  Widget _divider(NecColors nec) =>
-      Divider(height: 1, indent: 46, color: nec.separator);
+  Widget _divider(NecColors nec) => Divider(
+      height: 1, indent: 40, color: nec.separator.withValues(alpha: 0.25));
 
   String _monthName(int month) {
     const months = [

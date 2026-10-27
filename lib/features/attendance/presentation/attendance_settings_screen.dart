@@ -540,8 +540,12 @@ class _HolidayEditorState extends State<_HolidayEditor> {
               if (!(_form.currentState?.validate() ?? false)) {
                 return;
               }
-              Navigator.pop(context,
-                  AttendanceHoliday(day: _day, name: _name.text.trim()));
+              Navigator.pop(
+                  context,
+                  AttendanceHoliday(
+                      id: widget.original?.id,
+                      day: _day,
+                      name: _name.text.trim()));
             }),
       ]));
 }

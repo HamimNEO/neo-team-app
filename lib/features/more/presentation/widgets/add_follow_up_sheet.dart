@@ -1,3 +1,5 @@
+import 'work_sms_options.dart';
+import '../../../settings/data/auto_sms_settings_store.dart';
 import 'package:intl/intl.dart';
 import '../../data/work_queue_mapper.dart';
 import 'package:flutter/cupertino.dart';
@@ -33,7 +35,8 @@ class _AddFollowUpSheetState extends State<AddFollowUpSheet> {
   TimeOfDay _selectedTimeOfDay = const TimeOfDay(hour: 16, minute: 0);
   final _purposeController = TextEditingController();
   final _meetingLinkController = TextEditingController();
-  bool _sendAutoSms = true;
+  bool _sendAutoSms = false;
+  String _smsTarget = 'client_contact', _smsTiming = '15_minutes_before';
   int _reminderMinutes = 15;
 
   final methods = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Other'];
@@ -41,6 +44,10 @@ class _AddFollowUpSheetState extends State<AddFollowUpSheet> {
   @override
   void initState() {
     super.initState();
+    final sms = AutoSmsSettingsStore.instance;
+    _sendAutoSms = sms.ready && sms.isAutoSmsEnabled;
+    _smsTarget = sms.targetValue;
+    _smsTiming = sms.timingValue;
     _selectedLead = widget.initialLeadName ?? '';
     final now = DateTime.now();
     _selectedDateTime = DateTime(now.year, now.month, now.day, 16, 0);
@@ -144,22 +151,19 @@ class _AddFollowUpSheetState extends State<AddFollowUpSheet> {
         ? rawContact
         : (_selectedLead.isNotEmpty ? _selectedLead : null);
 
-    final greeting =
-        customerName != null ? 'Dear $customerName,' : 'Dear Sir/Madam,';
-    final dateFormatted = DateFormat('d MMMM yyyy').format(_selectedDateTime);
-    final timeFormatted = _formattedTimeText;
-    final meetingLink = _meetingLinkController.text.trim();
-
-    final buffer = StringBuffer();
-    buffer.writeln(greeting);
-    buffer.writeln(
-        'This is a reminder from BinGi Hotel Management Technology regarding your scheduled follow-up on $dateFormatted at $timeFormatted.');
-    buffer.writeln(
-        'Meeting Link: ${meetingLink.isNotEmpty ? meetingLink : '[Join Meeting]'}');
-    buffer.writeln('Best regards,');
-    buffer.writeln('BinGi Team');
-    buffer.write('For more information: https://technology.bingi.com.bd');
-    return buffer.toString();
+    final settings = AutoSmsSettingsStore.instance;
+    if (!settings.ready || settings.smsTemplate.isEmpty) {
+      return 'The server will generate the reminder using your organization’s SMS template.';
+    }
+    return settings.formatTemplate(
+        clientName: customerName ?? '',
+        date: DateFormat('d MMMM yyyy').format(_selectedDateTime),
+        time: _formattedTimeText,
+        purpose: _purposeController.text.trim(),
+        repName:
+            EmployeeStore.instance.byId(lead?.assignedEmployeeId ?? '')?.name ??
+                '',
+        meetingLink: _meetingLinkController.text.trim());
   }
 
   Future<void> _submitFollowUp() async {
@@ -191,7 +195,6 @@ class _AddFollowUpSheetState extends State<AddFollowUpSheet> {
     final isAdmin = DemoSession.instance.isAdmin;
     final currentEmp = EmployeeStore.instance.currentEmployee;
 
-    // For non-admin employees, ALWAYS assign to the logged-in employee to prevent backend permission error.
     final int? assigneeEmpId = isAdmin
         ? (lead.assignedEmployeeId != null
             ? int.tryParse(
@@ -202,21 +205,20 @@ class _AddFollowUpSheetState extends State<AddFollowUpSheet> {
     setState(() => _saving = true);
     try {
       final meetingLink = _meetingLinkController.text.trim();
-      final smsPreviewText = _buildAutoSmsPreview();
       final saved = await WorkItemStore.instance.create({
         'type': 'followup',
         'title': purpose,
         'purpose': purpose,
         'method': _selectedMethod.toLowerCase(),
         'send_auto_sms': _sendAutoSms,
-        'sms_preview': smsPreviewText,
+        'sms_target': _smsTarget,
+        'sms_timing': _smsTiming,
         if (meetingLink.isNotEmpty) 'meeting_link': meetingLink,
         'reminder_minutes': _reminderMinutes,
         'details': {
           'purpose': purpose,
           'method': _selectedMethod.toLowerCase(),
           'send_auto_sms': _sendAutoSms,
-          'sms_preview': smsPreviewText,
           if (meetingLink.isNotEmpty) 'meeting_link': meetingLink,
           'reminder_minutes': _reminderMinutes,
         },
@@ -847,6 +849,13 @@ class _AddFollowUpSheetState extends State<AddFollowUpSheet> {
                               ],
                             ),
                             if (_sendAutoSms) ...[
+                              WorkSmsOptions(
+                                  target: _smsTarget,
+                                  timing: _smsTiming,
+                                  onTarget: (v) =>
+                                      setState(() => _smsTarget = v),
+                                  onTiming: (v) =>
+                                      setState(() => _smsTiming = v)),
                               const SizedBox(height: 10),
                               Container(
                                 width: double.infinity,

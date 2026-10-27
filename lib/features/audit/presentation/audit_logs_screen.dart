@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../data/mock_audit_entries.dart';
+import '../data/audit_store.dart';
+import '../../../core/widgets/nec_toast.dart';
 import '../domain/models/audit_entry.dart';
 import 'widgets/audit_app_bar.dart';
 import 'widgets/audit_category_chips.dart';
@@ -20,9 +21,84 @@ class AuditLogsScreen extends StatefulWidget {
 class _AuditLogsScreenState extends State<AuditLogsScreen> {
   final _searchController = TextEditingController();
   AuditCategory? _selectedCategory;
+  final _store = AuditStore.instance;
+  DateTimeRange? _range;
+  String? _actorId, _eventType;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_refresh);
+    _store.load(force: true);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _export() async {
+    try {
+      await _store.export(
+          actorId: _actorId,
+          eventType: _eventType,
+          from: _range?.start.toIso8601String().split('T').first,
+          to: _range?.end.toIso8601String().split('T').first);
+    } catch (e) {
+      if (mounted) {
+        NecToast.show(context,
+            message: e is FormatException ? e.message : 'Export failed.',
+            type: NecToastType.error);
+      }
+    }
+  }
+
+  Future<void> _serverFilter() async {
+    final actor = TextEditingController(text: _actorId ?? ''),
+        event = TextEditingController(text: _eventType ?? '');
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+                title: const Text('Audit filters'),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  TextField(
+                      controller: actor,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                          labelText: 'Actor user ID (optional)')),
+                  TextField(
+                      controller: event,
+                      decoration: const InputDecoration(
+                          labelText: 'Event type (optional)'))
+                ]),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      child: const Text('Apply'))
+                ]));
+    if (ok == true && mounted) {
+      _actorId = actor.text.trim();
+      _eventType = event.text.trim();
+      await _loadFiltered();
+    }
+    actor.dispose();
+    event.dispose();
+  }
+
+  Future<void> _loadFiltered() => _store.load(force: true, filters: {
+        if (_actorId?.isNotEmpty == true) 'actor_id': _actorId!,
+        if (_eventType?.isNotEmpty == true) 'event_type': _eventType!,
+        if (_range != null)
+          'from_date': _range!.start.toIso8601String().split('T').first,
+        if (_range != null)
+          'to_date': _range!.end.toIso8601String().split('T').first
+      });
 
   @override
   void dispose() {
+    _store.removeListener(_refresh);
     _searchController.dispose();
     super.dispose();
   }
@@ -48,13 +124,19 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
 
   void _clearFilters() {
     _searchController.clear();
-    setState(() => _selectedCategory = null);
+    setState(() {
+      _selectedCategory = null;
+      _actorId = null;
+      _eventType = null;
+      _range = null;
+    });
+    _loadFiltered();
   }
 
   @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
-    final entries = mockAuditEntries
+    final entries = _store.entries
         .where((entry) =>
             (_selectedCategory == null ||
                 entry.category == _selectedCategory) &&
@@ -77,6 +159,39 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
       ),
       body: Column(
         children: [
+          if (_store.loading) const LinearProgressIndicator(minHeight: 2),
+          if (_store.error != null) ...[
+            Text(_store.error!, style: const TextStyle(color: Colors.red)),
+            TextButton(onPressed: _loadFiltered, child: const Text('Retry'))
+          ],
+          Wrap(spacing: 8, children: [
+            TextButton.icon(
+                onPressed: _store.loading ? null : _loadFiltered,
+                icon: const Icon(CupertinoIcons.refresh),
+                label: const Text('Refresh')),
+            TextButton.icon(
+                onPressed: _serverFilter,
+                icon: const Icon(CupertinoIcons.slider_horizontal_3),
+                label: const Text('Actor / event')),
+            TextButton.icon(
+                onPressed: () async {
+                  final range = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                      initialDateRange: _range);
+                  if (range != null && mounted) {
+                    setState(() => _range = range);
+                    await _loadFiltered();
+                  }
+                },
+                icon: const Icon(CupertinoIcons.calendar),
+                label: const Text('Date range')),
+            TextButton.icon(
+                onPressed: _export,
+                icon: const Icon(CupertinoIcons.arrow_down_doc),
+                label: const Text('Export'))
+          ]),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: SizedBox(

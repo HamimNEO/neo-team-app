@@ -1,3 +1,4 @@
+import 'widgets/work_delivery_details.dart';
 import '../../../core/services/phone_service.dart';
 import 'widgets/reschedule_follow_up_sheet.dart';
 import '../data/work_queue_mapper.dart';
@@ -324,6 +325,7 @@ class _VisitDetailsScreenState extends State<VisitDetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              WorkDeliveryDetails(metadata: item?.metadata ?? const {}),
               Row(
                 children: [
                   Expanded(

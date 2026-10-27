@@ -45,7 +45,7 @@ class ApiEndpoints {
   static const staffWorkItems = '/team-operations/work-items';
   static const overview = '/super-admin/team-operations/overview';
 
-  // Mobile App - Team Operations
+  /// Mobile App - Team Operations
   static const employeeDashboard = '/team-operations/employee-dashboard';
   static const accountSecurity = '/team-operations/account-security';
   static const moreSummary = '/team-operations/more';
@@ -126,7 +126,7 @@ class ApiEndpoints {
   static String adminSettingItem(String category, String key) =>
       '$adminSettings/${Uri.encodeComponent(category)}/${Uri.encodeComponent(key)}';
 
-  // Attendance
+  /// Attendance
   static const attendance = '/team-operations/attendance';
   static const attendanceCheckIn = '/team-operations/attendance/check-in';
   static const attendanceBreakStart = '/team-operations/attendance/break/start';
@@ -155,7 +155,7 @@ class ApiEndpoints {
   static const attendanceAdminHolidays =
       '/team-operations/attendance/admin/holidays';
 
-  // Office Lunch
+  /// Office Lunch
   static const officeLunch = '/team-operations/office-lunch';
   static const lunchToday = '/team-operations/lunch/today';
   static const lunchToggle = '/team-operations/lunch/toggle';
@@ -171,7 +171,7 @@ class ApiEndpoints {
   static String employeeLifecycle(String id, String action) =>
       '${employee(id)}/$action';
 
-  // Messages & Conversations
+  /// Messages & Conversations
   static const messages = '/team-operations/messages';
 
   static String conversation(String id) =>
@@ -191,5 +191,9 @@ class ApiEndpoints {
 
   static String messageItem(String messageId) =>
       '$messages/items/${Uri.encodeComponent(messageId)}';
+  static const messageRecipients = '$messages/recipients';
+
+  static String removeGroupMember(String conversationId, String userId) =>
+      '$messages/${Uri.encodeComponent(conversationId)}/members/${Uri.encodeComponent(userId)}';
   static const pushDeliveries = '/team-operations/push-deliveries';
 }

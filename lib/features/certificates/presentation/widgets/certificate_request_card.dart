@@ -48,11 +48,24 @@ class CertificateRequestCard extends StatelessWidget {
           CupertinoDialogAction(
             isDestructiveAction: true,
             child: const Text('Reject'),
-            onPressed: () {
+            onPressed: () async {
               final reason = controller.text.trim();
               if (reason.isEmpty) return;
               Navigator.pop(ctx);
-              CertificateStore.instance.rejectRequest(request.id, reason);
+              try {
+                await CertificateStore.instance
+                    .rejectRequest(request.id, reason);
+              } catch (error) {
+                if (context.mounted) {
+                  NecToast.show(context,
+                      message: error is FormatException
+                          ? error.message
+                          : 'Unable to reject request.',
+                      type: NecToastType.error);
+                }
+                return;
+              }
+              if (!context.mounted) return;
               NecToast.show(
                 context,
                 message: 'Certificate request rejected',
@@ -131,7 +144,8 @@ class CertificateRequestCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                CertificateStatusBadge(status: request.status),
+                CertificateStatusBadge(
+                    status: request.status, apiStatus: request.apiStatus),
               ],
             ),
           ),
@@ -315,8 +329,21 @@ class CertificateRequestCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          CertificateStore.instance.acceptRequest(request.id);
+                        onPressed: () async {
+                          try {
+                            await CertificateStore.instance
+                                .acceptRequest(request.id);
+                          } catch (error) {
+                            if (context.mounted) {
+                              NecToast.show(context,
+                                  message: error is FormatException
+                                      ? error.message
+                                      : 'Unable to accept request.',
+                                  type: NecToastType.error);
+                            }
+                            return;
+                          }
+                          if (!context.mounted) return;
                           NecToast.show(
                             context,
                             message:

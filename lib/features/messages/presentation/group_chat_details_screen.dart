@@ -2,10 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/demo_session.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/nec_avatar.dart';
 import '../../../core/widgets/nec_toast.dart';
 import '../../team/domain/models/employee.dart';
+import '../../team/data/employee_store.dart';
 import '../data/group_chat_store.dart';
 import '../domain/models/group_chat.dart';
 import 'widgets/group_chat_editor_sheet.dart';
@@ -24,7 +26,7 @@ class GroupChatDetailsScreen extends StatelessWidget {
         builder: (c) => CupertinoAlertDialog(
                 title: const Text('Delete Group?'),
                 content: const Text(
-                    'The group and its message history will be removed from this demo device for all participants.'),
+                    'The group and its message history will be permanently deleted for all participants.'),
                 actions: [
                   CupertinoDialogAction(
                       onPressed: () => Navigator.pop(c, false),
@@ -72,7 +74,7 @@ class GroupChatDetailsScreen extends StatelessWidget {
                       'The group was deleted or your membership changed.'));
         }
         final manageable = store.canManage(scope),
-            members = store.members(scope);
+            members = store.conversationMembers(group);
         return Scaffold(
             backgroundColor: nec.bg,
             appBar: messagesAppBar(context, 'Group Info', actions: [
@@ -120,11 +122,40 @@ class GroupChatDetailsScreen extends StatelessWidget {
                   Text('PARTICIPANTS',
                       style: TextStyle(color: nec.textTertiary, fontSize: 12)),
                   const SizedBox(height: 8),
-                  Text(
-                      'Everyone currently assigned to ${scope.name}, its lead, and admins can chat here. The directory below shows the staff visible to your account.',
+                  Text('Conversation participants returned by the server.',
                       style: TextStyle(
                           color: nec.textSecondary, fontSize: 12, height: 1.4)),
                   const SizedBox(height: 10),
+                  if (manageable)
+                    TextButton.icon(
+                        onPressed: () async {
+                          final member = await showModalBottomSheet<Employee>(
+                              context: context,
+                              builder: (sheet) => SafeArea(
+                                      child:
+                                          ListView(shrinkWrap: true, children: [
+                                    const ListTile(
+                                        title: Text('Add participant')),
+                                    for (final employee in EmployeeStore
+                                        .instance.staffEmployees
+                                        .where((e) =>
+                                            e.status == 'Active' &&
+                                            !members.any((m) => m.id == e.id)))
+                                      ListTile(
+                                          title: Text(employee.name),
+                                          subtitle: Text(employee.designation),
+                                          onTap: () =>
+                                              Navigator.pop(sheet, employee)),
+                                  ])));
+                          if (member == null) return;
+                          try {
+                            await store.addMember(group.id, member);
+                          } catch (e) {
+                            if (context.mounted) _error(context, e);
+                          }
+                        },
+                        icon: const Icon(CupertinoIcons.person_add),
+                        label: const Text('Add participant')),
                   for (final member in members)
                     ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -136,9 +167,59 @@ class GroupChatDetailsScreen extends StatelessWidget {
                         title: Text(member.name,
                             style: TextStyle(
                                 color: nec.textPrimary, fontSize: 14)),
-                        subtitle: Text(member.designation,
+                        subtitle: Text(
+                            member.id == group.createdBy
+                                ? '${member.designation} · Creator'
+                                : member.designation,
                             style: TextStyle(
-                                color: nec.textTertiary, fontSize: 12))),
+                                color: nec.textTertiary, fontSize: 12)),
+                        trailing: manageable &&
+                                member.id != group.createdBy &&
+                                member.id != DemoSession.instance.employeeId
+                            ? IconButton(
+                                icon: const Icon(CupertinoIcons.minus_circle,
+                                    color: AppColors.error, size: 20),
+                                tooltip: 'Remove participant',
+                                onPressed: () async {
+                                  final confirm =
+                                      await showCupertinoDialog<bool>(
+                                    context: context,
+                                    builder: (c) => CupertinoAlertDialog(
+                                      title: const Text('Remove Participant?'),
+                                      content: Text(
+                                          'Remove ${member.name} from ${group.name}?'),
+                                      actions: [
+                                        CupertinoDialogAction(
+                                          onPressed: () =>
+                                              Navigator.pop(c, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        CupertinoDialogAction(
+                                          isDestructiveAction: true,
+                                          onPressed: () =>
+                                              Navigator.pop(c, true),
+                                          child: const Text('Remove'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    try {
+                                      await store.removeMember(
+                                          group.id, member);
+                                      if (context.mounted) {
+                                        NecToast.show(context,
+                                            message:
+                                                '${member.name} was removed from the group.',
+                                            type: NecToastType.success);
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) _error(context, e);
+                                    }
+                                  }
+                                },
+                              )
+                            : null),
                   ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(CupertinoIcons.shield, color: nec.brand),

@@ -30,11 +30,6 @@ class EmployeeSubmission {
           'probation_start_date': employee.probationStartDate,
           'probation_end_date': employee.probationEndDate,
         },
-        if (employee.hasAgreementPdf) ...{
-          'agreement_pdf_name': employee.agreementPdfName,
-          if (employee.agreementPdfBase64 != null)
-            'agreement_pdf_base64': employee.agreementPdfBase64,
-        },
         'address': employee.address,
         'date_of_birth':
             employee.dateOfBirth.isEmpty ? null : employee.dateOfBirth,

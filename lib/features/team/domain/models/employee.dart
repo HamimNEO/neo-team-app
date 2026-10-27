@@ -37,6 +37,7 @@ class Employee {
   final int totalMealCost;
   final bool hasRotationalReserve;
   final int rotationalReserveAmount;
+  final Map<String, dynamic> probationMetrics;
   final String employmentType;
   final String? probationStartDate;
   final String? probationEndDate;
@@ -46,10 +47,16 @@ class Employee {
   final int? agreementPdfSizeBytes;
 
   bool get isProbation => employmentType.toLowerCase() == 'probation';
+
   bool get isPermanent => !isProbation;
 
   double get probationProgress {
-    if (!isProbation || probationStartDate == null || probationEndDate == null) {
+    final value = num.tryParse(
+        '${probationMetrics['probation_progress_percent'] ?? probationMetrics['progress_percent']}');
+    if (value != null) return (value / 100).clamp(0.0, 1.0);
+    if (!isProbation ||
+        probationStartDate == null ||
+        probationEndDate == null) {
       return 0.0;
     }
     final start = DateTime.tryParse(probationStartDate!);
@@ -65,6 +72,9 @@ class Employee {
   }
 
   int get probationRemainingDays {
+    final value = int.tryParse(
+        '${probationMetrics['probation_days_remaining'] ?? probationMetrics['days_remaining']}');
+    if (value != null) return value < 0 ? 0 : value;
     if (probationEndDate == null) return 0;
     final end = DateTime.tryParse(probationEndDate!);
     if (end == null) return 0;
@@ -76,6 +86,9 @@ class Employee {
   }
 
   int get probationTotalDays {
+    final value = int.tryParse(
+        '${probationMetrics['probation_days_total'] ?? probationMetrics['days_total']}');
+    if (value != null) return value < 0 ? 0 : value;
     if (probationStartDate == null || probationEndDate == null) return 0;
     final start = DateTime.tryParse(probationStartDate!);
     final end = DateTime.tryParse(probationEndDate!);
@@ -84,6 +97,9 @@ class Employee {
   }
 
   int get probationElapsedDays {
+    final value = int.tryParse(
+        '${probationMetrics['probation_days_completed'] ?? probationMetrics['days_completed']}');
+    if (value != null) return value < 0 ? 0 : value;
     if (probationStartDate == null) return 0;
     final start = DateTime.tryParse(probationStartDate!);
     if (start == null) return 0;
@@ -176,6 +192,7 @@ class Employee {
     this.totalMealCost = 300000,
     this.hasRotationalReserve = false,
     this.rotationalReserveAmount = 0,
+    this.probationMetrics = const {},
     this.employmentType = 'permanent',
     this.probationStartDate,
     this.probationEndDate,
@@ -265,18 +282,17 @@ class Employee {
         accessModules: accessModules ?? this.accessModules,
         address: address ?? this.address,
         dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-        emergencyContactName:
-            emergencyContactName ?? this.emergencyContactName,
+        emergencyContactName: emergencyContactName ?? this.emergencyContactName,
         emergencyContactPhone:
             emergencyContactPhone ?? this.emergencyContactPhone,
         salary: salary ?? this.salary,
         isMealFree: isMealFree ?? this.isMealFree,
         mealCoPayPercent: mealCoPayPercent ?? this.mealCoPayPercent,
         totalMealCost: totalMealCost ?? this.totalMealCost,
-        hasRotationalReserve:
-            hasRotationalReserve ?? this.hasRotationalReserve,
+        hasRotationalReserve: hasRotationalReserve ?? this.hasRotationalReserve,
         rotationalReserveAmount:
             rotationalReserveAmount ?? this.rotationalReserveAmount,
+        probationMetrics: probationMetrics,
         employmentType: employmentType ?? this.employmentType,
         probationStartDate: probationStartDate ?? this.probationStartDate,
         probationEndDate: probationEndDate ?? this.probationEndDate,
@@ -347,6 +363,7 @@ class Employee {
         'totalMealCost': totalMealCost,
         'hasRotationalReserve': hasRotationalReserve,
         'rotationalReserveAmount': rotationalReserveAmount,
+        'probationMetrics': probationMetrics,
         'employmentType': employmentType,
         'probationStartDate': probationStartDate,
         'probationEndDate': probationEndDate,
@@ -404,6 +421,8 @@ class Employee {
         totalMealCost: json['totalMealCost'] as int? ?? 300000,
         hasRotationalReserve: json['hasRotationalReserve'] as bool? ?? false,
         rotationalReserveAmount: json['rotationalReserveAmount'] as int? ?? 0,
+        probationMetrics:
+            Map<String, dynamic>.from(json['probationMetrics'] as Map? ?? {}),
         employmentType: json['employmentType'] as String? ??
             json['employment_type'] as String? ??
             'permanent',

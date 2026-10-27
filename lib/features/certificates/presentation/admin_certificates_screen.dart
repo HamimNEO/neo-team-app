@@ -17,6 +17,12 @@ class AdminCertificatesScreen extends StatefulWidget {
 class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
   String _selectedFilter = 'All';
 
+  @override
+  void initState() {
+    super.initState();
+    CertificateStore.instance.load(force: true);
+  }
+
   final List<String> _filters = [
     'All',
     'Pending',
@@ -63,6 +69,12 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
             color: nec.textPrimary,
           ),
         ),
+        actions: [
+          IconButton(
+              onPressed: () => CertificateStore.instance.load(force: true),
+              icon: const Icon(CupertinoIcons.refresh),
+              tooltip: 'Refresh certificates')
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(color: nec.separator.withValues(alpha: 0.3)),
@@ -85,6 +97,15 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
 
           return Column(
             children: [
+              if (CertificateStore.instance.loading)
+                const LinearProgressIndicator(),
+              if (CertificateStore.instance.error != null)
+                ListTile(
+                    title: Text(CertificateStore.instance.error!),
+                    trailing: TextButton(
+                        onPressed: () =>
+                            CertificateStore.instance.load(force: true),
+                        child: const Text('Retry'))),
               Container(
                 color: nec.surface,
                 padding: const EdgeInsets.symmetric(vertical: 10),

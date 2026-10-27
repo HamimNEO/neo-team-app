@@ -54,7 +54,15 @@ class LeadCard extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '${lead.location} · ${lead.type}',
+                [
+                  if (lead.contactName != null &&
+                      lead.contactName!.trim().isNotEmpty)
+                    lead.contactName!.trim(),
+                  if (lead.location.isNotEmpty) lead.location,
+                  if (lead.type.isNotEmpty) lead.type,
+                  if (lead.phone != null && lead.phone!.trim().isNotEmpty)
+                    lead.phone!.trim(),
+                ].join(' · '),
                 style: TextStyle(fontSize: 12, color: nec.textTertiary),
               ),
               const SizedBox(height: 4),

@@ -7,15 +7,28 @@ import '../data/certificate_store.dart';
 import 'widgets/certificate_request_card.dart';
 import 'widgets/new_certificate_request_sheet.dart';
 
-class EmployeeCertificatesScreen extends StatelessWidget {
+class EmployeeCertificatesScreen extends StatefulWidget {
   final String? employeeId;
 
   const EmployeeCertificatesScreen({super.key, this.employeeId});
 
   @override
+  State<EmployeeCertificatesScreen> createState() =>
+      _EmployeeCertificatesScreenState();
+}
+
+class _EmployeeCertificatesScreenState
+    extends State<EmployeeCertificatesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    CertificateStore.instance.load(force: true);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final nec = Theme.of(context).extension<NecColors>()!;
-    final empId = employeeId ?? DemoSession.instance.employeeId;
+    final empId = widget.employeeId ?? DemoSession.instance.employeeId;
 
     return Scaffold(
       backgroundColor: nec.bg,
@@ -53,6 +66,10 @@ class EmployeeCertificatesScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
+              onPressed: () => CertificateStore.instance.load(force: true),
+              icon: const Icon(CupertinoIcons.refresh),
+              tooltip: 'Refresh certificates'),
+          IconButton(
             icon: Icon(CupertinoIcons.plus_circle_fill,
                 color: nec.brand, size: 24),
             tooltip: 'Request Certificate',
@@ -71,6 +88,18 @@ class EmployeeCertificatesScreen extends StatelessWidget {
         builder: (context, _) {
           final requests = CertificateStore.instance.requestsForEmployee(empId);
 
+          if (CertificateStore.instance.loading && requests.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (CertificateStore.instance.error != null && requests.isEmpty) {
+            return Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(CertificateStore.instance.error!),
+              TextButton(
+                  onPressed: () => CertificateStore.instance.load(force: true),
+                  child: const Text('Retry'))
+            ]));
+          }
           if (requests.isEmpty) {
             return Center(
               child: Padding(

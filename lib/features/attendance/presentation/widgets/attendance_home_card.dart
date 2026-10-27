@@ -49,6 +49,7 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: Listenable.merge([
           AttendanceStore.instance,
+          EmployeeStore.instance,
           SystemSettingsStore.instance,
           _pulseController,
         ]),
@@ -56,9 +57,10 @@ class _AttendanceHomeCardState extends State<AttendanceHomeCard>
           final nec = Theme.of(context).extension<NecColors>()!;
           final isDark = Theme.of(context).brightness == Brightness.dark;
           final store = AttendanceStore.instance;
-          final active = store.activeRecord(EmployeeStore.currentEmployeeId);
+          final empId = EmployeeStore.currentEmployeeId;
+          final active = store.activeRecord(empId);
           final facts = store.dayFor(
-            EmployeeStore.currentEmployeeId,
+            empId,
             active?.day ?? store.checkInDay,
           );
           final record = facts.record;

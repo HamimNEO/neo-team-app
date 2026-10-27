@@ -1,6 +1,6 @@
 import 'models/group_chat.dart';
 
-/// The server must enforce the same policy when chat APIs become available.
+/// The server must enforce the same policy alongside client-side action visibility.
 class GroupChatAccess {
   static String employeeKey(String id) => id.replaceFirst('api_emp_', '');
 
@@ -8,7 +8,10 @@ class GroupChatAccess {
           {required bool signedIn,
           required bool admin,
           required String employeeId}) =>
-      signedIn && admin;
+      signedIn &&
+      (admin ||
+          (scope.leadEmployeeId != null &&
+              employeeKey(scope.leadEmployeeId!) == employeeKey(employeeId)));
 
   static bool canParticipate(ChatScope scope,
       {required bool signedIn,

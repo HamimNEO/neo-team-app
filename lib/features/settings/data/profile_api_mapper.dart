@@ -1,5 +1,4 @@
 import '../../team/data/employee_api_mapper.dart';
-import '../../team/data/employee_store.dart';
 import '../../team/domain/models/employee.dart';
 import '../domain/models/account_profile.dart';
 
@@ -55,25 +54,10 @@ AccountProfile accountProfileFromApi(
       if (response['salary'] is Map) 'salary': response['salary'],
       'activity': response['activity'] ?? [],
     }, baseUrl);
-    final existing = EmployeeStore.instance.byId(mapped.id);
-    final isProbation = (existing?.isProbation ?? false) || mapped.isProbation;
     employee = Employee.fromJson({
       ...mapped.toJson(),
       'activeLeadsCount': AccountProfile.workCount(work['leads']),
       'activeTasksCount': AccountProfile.workCount(work['tasks']),
-      'employmentType': isProbation ? 'probation' : mapped.employmentType,
-      'probationStartDate':
-          existing?.probationStartDate ?? mapped.probationStartDate,
-      'probationEndDate':
-          existing?.probationEndDate ?? mapped.probationEndDate,
-      'agreementPdfName':
-          existing?.agreementPdfName ?? mapped.agreementPdfName,
-      'agreementPdfUrl':
-          existing?.agreementPdfUrl ?? mapped.agreementPdfUrl,
-      'agreementPdfBase64':
-          existing?.agreementPdfBase64 ?? mapped.agreementPdfBase64,
-      'agreementPdfSizeBytes':
-          existing?.agreementPdfSizeBytes ?? mapped.agreementPdfSizeBytes,
     });
   }
   if (raw is Map) {

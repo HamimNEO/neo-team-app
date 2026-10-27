@@ -19,8 +19,19 @@ class AttendanceClock {
 
   static DateTime get now => DateTime.now().toUtc();
 
-  static DateTime wallTime(DateTime utc, [int? offset]) =>
-      utc.toUtc().add(Duration(minutes: offset ?? offsetMinutes));
+  static DateTime wallTime(DateTime utc, [int? offset]) {
+    final effectiveOffset = offset ?? offsetMinutes;
+    var target = utc.toUtc();
+    if (target
+        .isAfter(DateTime.now().toUtc().add(const Duration(minutes: 5)))) {
+      final adjusted = target.subtract(Duration(minutes: effectiveOffset));
+      if (!adjusted
+          .isAfter(DateTime.now().toUtc().add(const Duration(minutes: 5)))) {
+        target = adjusted;
+      }
+    }
+    return target.add(Duration(minutes: effectiveOffset));
+  }
 
   static DateTime get today => date(key(wallTime(now)));
 
@@ -53,7 +64,9 @@ class AttendanceClock {
     final str = raw.toString().trim();
     if (str.isEmpty || str == 'null') return null;
 
-    if (RegExp(r'(Z|[+-]\d{2}(?::?\d{2})?)$').hasMatch(str)) {
+    final explicitNonzeroTz =
+        RegExp(r'([+-](?!00(?::?00)?$)\d{2}(?::?\d{2})?)$').hasMatch(str);
+    if (explicitNonzeroTz) {
       final parsed = DateTime.tryParse(str);
       if (parsed != null) return parsed.toUtc();
     }
