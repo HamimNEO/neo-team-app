@@ -152,7 +152,7 @@ jobs:
           serviceAccountJson: ${{ runner.temp }}/service_account.json
           packageName: com.neonecy.necteam
           releaseFiles: build/app/outputs/bundle/release/*.aab
-          tracks: [internal]
+          tracks: internal
           status: completed
           inAppUpdatePriority: 2
           mappingFile: build/app/outputs/mapping/release/mapping.txt
