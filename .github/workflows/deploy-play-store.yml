@@ -101,6 +101,7 @@ jobs:
           # 6. Prepare Google Play Service Account JSON file safely
           if [ -n "$PLAY_STORE_SECRET" ]; then
             echo "$PLAY_STORE_SECRET" > "$RUNNER_TEMP/service_account.json"
+            echo "HAS_PLAY_KEY=true" >> $GITHUB_ENV
             echo "✅ Google Play service_account.json written safely to runner temp"
           fi
 
@@ -145,7 +146,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🌐 Deploy to Google Play Console
-        if: ${{ hashFiles(format('{0}/service_account.json', runner.temp)) != '' }}
+        if: env.HAS_PLAY_KEY == 'true'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJson: ${{ runner.temp }}/service_account.json
