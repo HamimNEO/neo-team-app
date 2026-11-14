@@ -112,12 +112,13 @@ class _OrganizationInformationScreenState
         title: 'Organization Information',
         fallbackPath: '/system-settings',
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          children: [
+      body: ResponsiveCenter.form(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            children: [
             _label(nec, 'ORGANIZATION NAME'),
             TextFormField(
               controller: _nameController,
@@ -179,6 +180,7 @@ class _OrganizationInformationScreenState
             ),
           ],
         ),
+      ),
       ),
     );
   }

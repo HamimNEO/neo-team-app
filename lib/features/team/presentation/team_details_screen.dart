@@ -233,7 +233,9 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-            onRefresh: _load,
+          onRefresh: _load,
+          child: ResponsiveCenter(
+            maxWidth: 820,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -445,7 +447,9 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                   const SizedBox(height: 32),
                 ],
               ),
-            )),
+            ),
+          ),
+        ),
       ),
     );
   }

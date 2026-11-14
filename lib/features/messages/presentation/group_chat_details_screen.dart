@@ -86,7 +86,9 @@ class GroupChatDetailsScreen extends StatelessWidget {
             ]),
             body: SafeArea(
                 top: false,
-                child: ListView(padding: const EdgeInsets.all(20), children: [
+                child: ResponsiveCenter(
+                    maxWidth: 760,
+                    child: ListView(padding: const EdgeInsets.all(20), children: [
                   Center(
                       child: NecAvatar(
                           initials: Employee.initialsFor(group.name),
@@ -284,6 +286,6 @@ class GroupChatDetailsScreen extends StatelessWidget {
                         child: const Text('Leave Group',
                             style:
                                 TextStyle(color: CupertinoColors.systemRed))),
-                ])));
+                ]))));
       });
 }

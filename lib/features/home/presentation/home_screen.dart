@@ -136,60 +136,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ResponsiveCenter.dashboard(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppResponsive.horizontalPadding(context),
+                        ),
                         child: DemoSession.instance.isAdmin
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 6),
-                                  const AttendanceAdminHomeCard(),
-                                  const SizedBox(height: 14),
-                                  const LunchEntry(administrator: true),
-                                  const SizedBox(height: 14),
-                                  SectionHeader(
-                                    title: 'LEADS',
-                                    actionTitle: 'All Leads',
-                                    onActionTap: () => context.go('/leads'),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const LeadSnapshotGrid(),
-                                  const SizedBox(height: 14),
-                                  const SectionHeader(title: 'NEEDS ATTENTION'),
-                                  const SizedBox(height: 6),
-                                  const NeedsAttentionSection(),
-                                  const SizedBox(height: 14),
-                                  SectionHeader(
-                                    title: 'TODAY',
-                                    actionTitle: 'See All',
-                                    onActionTap: () => context.go('/tasks'),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const TodayScheduleSection(),
-                                  const SizedBox(height: 14),
-                                  SectionHeader(
-                                    title: 'LEADS NEEDING ACTION',
-                                    actionTitle: 'View All',
-                                    onActionTap: () => context.go('/leads'),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const LeadsNeedingActionSection(),
-                                  const SizedBox(height: 14),
-                                  const SectionHeader(title: 'TEAM WORK'),
-                                  const SizedBox(height: 6),
-                                  const MyWorkSection(),
-                                  const SizedBox(height: 14),
-                                  SectionHeader(
-                                    title: 'RECENT ACTIVITY',
-                                    actionTitle: 'View All',
-                                    onActionTap: () =>
-                                        context.push('/activity'),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const RecentActivitySection(),
-                                  const SizedBox(height: 96),
-                                ],
-                              )
+                            ? _buildAdminDashboard(context)
                             : const StaffHomeContent(),
                       ),
                     ),
@@ -197,6 +149,126 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAdminDashboard(BuildContext context) {
+    final isTablet = AppResponsive.isTablet(context);
+    final isWide = AppResponsive.isWideTablet(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 6),
+        if (isTablet)
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: AttendanceAdminHomeCard()),
+              SizedBox(width: 14),
+              Expanded(child: LunchEntry(administrator: true)),
+            ],
+          )
+        else ...[
+          const AttendanceAdminHomeCard(),
+          const SizedBox(height: 14),
+          const LunchEntry(administrator: true),
+        ],
+        const SizedBox(height: 14),
+        SectionHeader(
+          title: 'LEADS',
+          actionTitle: 'All Leads',
+          onActionTap: () => context.go('/leads'),
+        ),
+        const SizedBox(height: 6),
+        const LeadSnapshotGrid(),
+        const SizedBox(height: 14),
+        if (isWide) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'NEEDS ATTENTION'),
+                    const SizedBox(height: 6),
+                    const NeedsAttentionSection(),
+                    const SizedBox(height: 14),
+                    SectionHeader(
+                      title: 'LEADS NEEDING ACTION',
+                      actionTitle: 'View All',
+                      onActionTap: () => context.go('/leads'),
+                    ),
+                    const SizedBox(height: 6),
+                    const LeadsNeedingActionSection(),
+                    const SizedBox(height: 14),
+                    SectionHeader(
+                      title: 'RECENT ACTIVITY',
+                      actionTitle: 'View All',
+                      onActionTap: () => context.push('/activity'),
+                    ),
+                    const SizedBox(height: 6),
+                    const RecentActivitySection(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionHeader(
+                      title: 'TODAY',
+                      actionTitle: 'See All',
+                      onActionTap: () => context.go('/tasks'),
+                    ),
+                    const SizedBox(height: 6),
+                    const TodayScheduleSection(),
+                    const SizedBox(height: 14),
+                    const SectionHeader(title: 'TEAM WORK'),
+                    const SizedBox(height: 6),
+                    const MyWorkSection(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          const SectionHeader(title: 'NEEDS ATTENTION'),
+          const SizedBox(height: 6),
+          const NeedsAttentionSection(),
+          const SizedBox(height: 14),
+          SectionHeader(
+            title: 'TODAY',
+            actionTitle: 'See All',
+            onActionTap: () => context.go('/tasks'),
+          ),
+          const SizedBox(height: 6),
+          const TodayScheduleSection(),
+          const SizedBox(height: 14),
+          SectionHeader(
+            title: 'LEADS NEEDING ACTION',
+            actionTitle: 'View All',
+            onActionTap: () => context.go('/leads'),
+          ),
+          const SizedBox(height: 6),
+          const LeadsNeedingActionSection(),
+          const SizedBox(height: 14),
+          const SectionHeader(title: 'TEAM WORK'),
+          const SizedBox(height: 6),
+          const MyWorkSection(),
+          const SizedBox(height: 14),
+          SectionHeader(
+            title: 'RECENT ACTIVITY',
+            actionTitle: 'View All',
+            onActionTap: () => context.push('/activity'),
+          ),
+          const SizedBox(height: 6),
+          const RecentActivitySection(),
+        ],
+        const SizedBox(height: 96),
+      ],
     );
   }
 }

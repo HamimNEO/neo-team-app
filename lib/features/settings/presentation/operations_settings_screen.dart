@@ -14,9 +14,11 @@ class OperationsSettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: nec.bg,
       appBar: const OperationsSettingsAppBar(title: 'Operations Settings'),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-        children: [
+      body: ResponsiveCenter(
+        maxWidth: 720,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+          children: [
           Text(
             'Configure operational options for each module. Changes affect '
             "what’s available to employees in their daily workflows.",
@@ -58,6 +60,7 @@ class OperationsSettingsScreen extends StatelessWidget {
                 TextStyle(fontSize: 12, height: 1.5, color: nec.textTertiary),
           ),
         ],
+      ),
       ),
     );
   }

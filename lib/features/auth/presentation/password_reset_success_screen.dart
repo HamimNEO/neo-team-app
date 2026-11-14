@@ -70,54 +70,56 @@ class PasswordResetSuccessScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(
-                    CupertinoIcons.checkmark,
-                    color: AppColors.success,
-                    size: 36,
+        child: ResponsiveCenter.auth(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      CupertinoIcons.checkmark,
+                      color: AppColors.success,
+                      size: 36,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 28),
-              Text(
-                'Password reset!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  color: nec.textPrimary,
+                const SizedBox(height: 28),
+                Text(
+                  'Password reset!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: nec.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Your password has been updated successfully.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: nec.textSecondary,
-                  height: 1.4,
+                const SizedBox(height: 10),
+                Text(
+                  'Your password has been updated successfully.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: nec.textSecondary,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
-              NecButton(
-                label: 'Return to Sign In',
-                onPressed: () => context.go('/login'),
-                fullWidth: true,
-              ),
-            ],
+                const SizedBox(height: 40),
+                NecButton(
+                  label: 'Return to Sign In',
+                  onPressed: () => context.go('/login'),
+                  fullWidth: true,
+                ),
+              ],
+            ),
           ),
         ),
       ),

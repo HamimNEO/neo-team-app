@@ -163,8 +163,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
+        child: ResponsiveCenter(
+          maxWidth: 820,
+          child: SingleChildScrollView(
+            child: Column(
             children: [
               if (_loading) const LinearProgressIndicator(minHeight: 2),
               if (_loadError != null)
@@ -216,6 +218,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

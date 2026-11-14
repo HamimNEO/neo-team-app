@@ -151,10 +151,12 @@ class _DepartmentsScreenState extends State<DepartmentsScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _store.load,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          child: ResponsiveCenter(
+            maxWidth: 840,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -269,8 +271,9 @@ class _DepartmentsScreenState extends State<DepartmentsScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildStatCard(
     NecColors nec,

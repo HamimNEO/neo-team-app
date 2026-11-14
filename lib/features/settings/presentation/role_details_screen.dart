@@ -146,8 +146,10 @@ class _RoleDetailsScreenState extends State<RoleDetailsScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
+        child: ResponsiveCenter(
+          maxWidth: 820,
+          child: Column(
+            children: [
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -259,6 +261,7 @@ class _RoleDetailsScreenState extends State<RoleDetailsScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

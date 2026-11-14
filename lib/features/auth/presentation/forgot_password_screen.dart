@@ -108,13 +108,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-          child: ForgotPasswordForm(
-            emailController: _emailController,
-            onSubmit: _handleResetPassword,
-            isLoading: _isLoading,
-            errorMessage: _errorMessage,
+        child: ResponsiveCenter.auth(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: ForgotPasswordForm(
+              emailController: _emailController,
+              onSubmit: _handleResetPassword,
+              isLoading: _isLoading,
+              errorMessage: _errorMessage,
+            ),
           ),
         ),
       ),

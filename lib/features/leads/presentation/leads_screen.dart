@@ -538,118 +538,162 @@ class _LeadsScreenState extends State<LeadsScreen> {
                 )
               else
                 SliverToBoxAdapter(
-                    child: Column(children: [
-                  if (isFollowUpTab) ...[
-                    _buildLeadGroup(
-                      context: context,
-                      title: 'OVERDUE',
-                      titleColor: AppColors.error,
-                      showWarningIcon: true,
-                      leads: filteredLeads
-                          .where((x) => x['group'] == 'OVERDUE')
-                          .toList(),
+                  child: ResponsiveCenter.dashboard(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppResponsive.horizontalPadding(context),
                     ),
-                    _buildLeadGroup(
-                      context: context,
-                      title: 'TOMORROW',
-                      leads: filteredLeads
-                          .where((x) => x['group'] == 'TOMORROW')
-                          .toList(),
-                    ),
-                    _buildLeadGroup(
-                        context: context,
-                        title: 'TODAY',
-                        leads: filteredLeads
-                            .where((x) => x['group'] == 'TODAY')
-                            .toList()),
-                    _buildLeadGroup(
-                        context: context,
-                        title: 'UPCOMING',
-                        leads: filteredLeads
-                            .where((x) => x['group'] == 'UPCOMING')
-                            .toList()),
-                    _buildLeadGroup(
-                        context: context,
-                        title: 'NO ACTION SCHEDULED',
-                        leads: filteredLeads
-                            .where((x) => x['group'] == 'UNSCHEDULED')
-                            .toList()),
-                  ] else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: filteredLeads.map((item) {
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF1E1E26)
-                                  : nec.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.12)
-                                    : nec.separator.withValues(alpha: 0.22),
-                                width: 0.8,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black
-                                      .withValues(alpha: isDark ? 0.30 : 0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
+                    child: Column(
+                      children: [
+                        if (isFollowUpTab) ...[
+                          _buildLeadGroup(
+                            context: context,
+                            title: 'OVERDUE',
+                            titleColor: AppColors.error,
+                            showWarningIcon: true,
+                            leads: filteredLeads
+                                .where((x) => x['group'] == 'OVERDUE')
+                                .toList(),
+                          ),
+                          _buildLeadGroup(
+                            context: context,
+                            title: 'TOMORROW',
+                            leads: filteredLeads
+                                .where((x) => x['group'] == 'TOMORROW')
+                                .toList(),
+                          ),
+                          _buildLeadGroup(
+                            context: context,
+                            title: 'TODAY',
+                            leads: filteredLeads
+                                .where((x) => x['group'] == 'TODAY')
+                                .toList(),
+                          ),
+                          _buildLeadGroup(
+                            context: context,
+                            title: 'UPCOMING',
+                            leads: filteredLeads
+                                .where((x) => x['group'] == 'UPCOMING')
+                                .toList(),
+                          ),
+                          _buildLeadGroup(
+                            context: context,
+                            title: 'NO ACTION SCHEDULED',
+                            leads: filteredLeads
+                                .where((x) => x['group'] == 'UNSCHEDULED')
+                                .toList(),
+                          ),
+                        ] else
+                          _buildLeadCardsList(context, filteredLeads, isDark, nec),
+                        const SizedBox(height: 28),
+                        Center(
+                          child: Text(
+                            'SYNCED · JUST NOW',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                              color: nec.textTertiary,
                             ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: LeadCardItem(
-                                company: item['company'] as String,
-                                subtitle: item['subtitle'] as String,
-                                status: item['status'] as String,
-                                statusColor:
-                                    _getStatusColor(item['status'] as String),
-                                scheduleNote: item['scheduleNote'] as String?,
-                                isOverdue: item['isOverdue'] as bool,
-                                assigneeInitials:
-                                    item['assigneeInitials'] as String,
-                                assigneeName: item['assigneeName'] as String,
-                                photoBase64: item['photoBase64'] as String?,
-                                photoUrl: item['photoUrl'] as String?,
-                                avatarAsset: item['avatarAsset'] as String?,
-                                phone: item['phone'] as String?,
-                                onCall: (item['phone'] != null &&
-                                        (item['phone'] as String)
-                                            .trim()
-                                            .isNotEmpty)
-                                    ? () => PhoneService.call(
-                                        context, item['phone'] as String)
-                                    : null,
-                                onTap: () =>
-                                    context.push('/leads/${item['id']}'),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 28),
-                  Center(
-                    child: Text(
-                      'SYNCED · JUST NOW',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                        color: nec.textTertiary,
-                      ),
+                          ),
+                        ),
+                        const SizedBox(height: 120),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 120),
-                ])),
+                ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeadCardsList(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+    bool isDark,
+    NecColors nec,
+  ) {
+    final isTablet = AppResponsive.isTablet(context);
+    if (!isTablet) {
+      return Column(
+        children: items.map((item) => _buildSingleLeadCard(context, item, isDark, nec)).toList(),
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i += 2) {
+      final first = items[i];
+      final second = (i + 1 < items.length) ? items[i + 1] : null;
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildSingleLeadCard(context, first, isDark, nec, margin: EdgeInsets.zero),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: second != null
+                    ? _buildSingleLeadCard(context, second, isDark, nec, margin: EdgeInsets.zero)
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(children: rows);
+  }
+
+  Widget _buildSingleLeadCard(
+    BuildContext context,
+    Map<String, dynamic> item,
+    bool isDark,
+    NecColors nec, {
+    EdgeInsetsGeometry margin = const EdgeInsets.only(bottom: 12),
+  }) {
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E26) : nec.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : nec.separator.withValues(alpha: 0.22),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: LeadCardItem(
+          company: item['company'] as String,
+          subtitle: item['subtitle'] as String,
+          status: item['status'] as String,
+          statusColor: _getStatusColor(item['status'] as String),
+          scheduleNote: item['scheduleNote'] as String?,
+          isOverdue: item['isOverdue'] as bool,
+          assigneeInitials: item['assigneeInitials'] as String,
+          assigneeName: item['assigneeName'] as String,
+          photoBase64: item['photoBase64'] as String?,
+          photoUrl: item['photoUrl'] as String?,
+          avatarAsset: item['avatarAsset'] as String?,
+          phone: item['phone'] as String?,
+          onCall: (item['phone'] != null && (item['phone'] as String).trim().isNotEmpty)
+              ? () => PhoneService.call(context, item['phone'] as String)
+              : null,
+          onTap: () => context.push('/leads/${item['id']}'),
         ),
       ),
     );
@@ -669,7 +713,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
     final headerColor = titleColor ?? nec.textSecondary;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -695,55 +739,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Column(
-            children: leads.map((item) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E26) : nec.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : nec.separator.withValues(alpha: 0.22),
-                    width: 0.8,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          Colors.black.withValues(alpha: isDark ? 0.30 : 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Material(
-                  color: Colors.transparent,
-                  child: LeadCardItem(
-                    company: item['company'] as String,
-                    subtitle: item['subtitle'] as String,
-                    status: item['status'] as String,
-                    statusColor: _getStatusColor(item['status'] as String),
-                    scheduleNote: item['scheduleNote'] as String?,
-                    isOverdue: item['isOverdue'] as bool,
-                    assigneeInitials: item['assigneeInitials'] as String,
-                    assigneeName: item['assigneeName'] as String,
-                    photoBase64: item['photoBase64'] as String?,
-                    photoUrl: item['photoUrl'] as String?,
-                    avatarAsset: item['avatarAsset'] as String?,
-                    phone: item['phone'] as String?,
-                    onCall: (item['phone'] != null &&
-                            (item['phone'] as String).trim().isNotEmpty)
-                        ? () =>
-                            PhoneService.call(context, item['phone'] as String)
-                        : null,
-                    onTap: () => context.push('/leads/${item['id']}'),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+          _buildLeadCardsList(context, leads, isDark, nec),
         ],
       ),
     );

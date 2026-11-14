@@ -157,8 +157,10 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         onFilter: _openFilter,
         filtered: _selectedCategory != null,
       ),
-      body: Column(
-        children: [
+      body: ResponsiveCenter(
+        maxWidth: 820,
+        child: Column(
+          children: [
           if (_store.loading) const LinearProgressIndicator(minHeight: 2),
           if (_store.error != null) ...[
             Text(_store.error!, style: const TextStyle(color: Colors.red)),
@@ -323,6 +325,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

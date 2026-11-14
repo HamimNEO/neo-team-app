@@ -185,8 +185,10 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CupertinoActivityIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+            : ResponsiveCenter(
+                maxWidth: 720,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -407,6 +409,7 @@ class _AppPermissionsScreenState extends State<AppPermissionsScreen>
                     const SizedBox(height: 40),
                   ],
                 ),
+              ),
               ),
       ),
     );

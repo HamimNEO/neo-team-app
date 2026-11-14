@@ -205,8 +205,10 @@ class FollowUpDetailsScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+        child: ResponsiveCenter(
+          maxWidth: 820,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1017,6 +1019,7 @@ class FollowUpDetailsScreen extends StatelessWidget {
               const SizedBox(height: 32),
             ],
           ),
+        ),
         ),
       ),
     );

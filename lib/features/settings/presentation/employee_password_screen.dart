@@ -143,7 +143,8 @@ class _EmployeePasswordScreenState extends State<EmployeePasswordScreen> {
                   child: Text(
                       'Administrator access to a staff account is required.'))
               : SafeArea(
-                  child: SingleChildScrollView(
+                  child: ResponsiveCenter.form(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
                       child: AbsorbPointer(
                           absorbing: _saving,
@@ -226,7 +227,9 @@ class _EmployeePasswordScreenState extends State<EmployeePasswordScreen> {
                                         fullWidth: true,
                                         loading: _saving,
                                         onPressed: _save),
-                                  ]))))),
+                                  ]))),
+                    ),
+                  )),
         ));
   }
 }

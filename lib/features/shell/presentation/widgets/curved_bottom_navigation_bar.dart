@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/responsive.dart';
 import 'nav_tab_item.dart';
 
 class CurvedBottomNavigationBar extends StatelessWidget {
@@ -28,68 +29,76 @@ class CurvedBottomNavigationBar extends StatelessWidget {
         ? (bottomPadding > 0 ? 16.0 : 12.0)
         : (bottomPadding > 0 ? bottomPadding + 8 : 22.0);
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        bottomMargin,
-      ),
-      child: SizedBox(
-        height: 52,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.50)
-                          : Colors.black.withValues(alpha: 0.10),
-                      blurRadius: 20,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 5),
-                    ),
-                    if (!isDark)
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 2),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: AppResponsive.kMaxNavBarWidth,
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            bottomMargin,
+          ),
+          child: SizedBox(
+            height: 52,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDark
+                              ? Colors.black.withValues(alpha: 0.50)
+                              : Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 20,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 5),
+                        ),
+                        if (!isDark)
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 6,
+                            spreadRadius: 0,
+                            offset: const Offset(0, 2),
+                          ),
+                      ],
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.10)
+                            : Colors.black.withValues(alpha: 0.06),
+                        width: 1,
                       ),
-                  ],
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.10)
-                        : Colors.black.withValues(alpha: 0.06),
-                    width: 1,
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              top: -12,
-              child: CustomPaint(
-                size: const Size(58, 28),
-                painter: _CenterArchPainter(
-                  fillColor: containerColor,
-                  strokeColor: archStrokeColor,
-                  isDark: isDark,
+                Positioned(
+                  top: -12,
+                  child: CustomPaint(
+                    size: const Size(58, 28),
+                    painter: _CenterArchPainter(
+                      fillColor: containerColor,
+                      strokeColor: archStrokeColor,
+                      isDark: isDark,
+                    ),
+                  ),
                 ),
-              ),
+                Positioned.fill(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: items,
+                  ),
+                ),
+              ],
             ),
-            Positioned.fill(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: items,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

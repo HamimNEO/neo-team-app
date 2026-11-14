@@ -318,8 +318,10 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
+        child: ResponsiveCenter(
+          maxWidth: 880,
+          child: Column(
+            children: [
             Container(
               decoration: BoxDecoration(
                 border: Border(
@@ -418,7 +420,8 @@ class _LeadDetailsScreenState extends State<LeadDetailsScreen>
                   fullWidth: true,
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );

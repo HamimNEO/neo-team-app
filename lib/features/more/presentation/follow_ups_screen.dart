@@ -308,9 +308,11 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
                 ),
         ),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 12),
+      body: ResponsiveCenter(
+        maxWidth: 880,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -351,6 +353,7 @@ class _FollowUpsScreenState extends State<FollowUpsScreen> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

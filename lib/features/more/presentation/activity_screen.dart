@@ -157,9 +157,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 ? const ActivitySkeleton()
                 : RefreshIndicator(
                     onRefresh: () => ActivityStore.instance.load(),
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
+                    child: ResponsiveCenter(
+                      maxWidth: 780,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -329,6 +331,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                             ),
                         ],
                       ),
+                    ),
                     ),
                   ),
           ),

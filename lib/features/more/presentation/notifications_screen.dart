@@ -241,7 +241,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           ),
           body: SafeArea(
-            child: Column(
+            child: ResponsiveCenter(
+              maxWidth: 780,
+              child: Column(
               children: [
                 const SizedBox(height: 12),
                 SizedBox(
@@ -349,6 +351,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );

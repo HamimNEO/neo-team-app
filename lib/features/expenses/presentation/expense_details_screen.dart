@@ -145,9 +145,11 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
+      body: ResponsiveCenter(
+        maxWidth: 760,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
           children: [
             Container(
               width: double.infinity,
@@ -334,8 +336,9 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _infoRow(
     NecColors nec, {

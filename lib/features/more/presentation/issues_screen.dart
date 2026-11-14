@@ -344,9 +344,11 @@ class _IssuesScreenState extends State<IssuesScreen> {
                 ),
         ),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 8),
+      body: ResponsiveCenter(
+        maxWidth: 880,
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -446,6 +448,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
             ),
           ),
         ],
+      ),
       ),
       floatingActionButton:
           !StaffAccessStore.instance.allows(StaffPermission.reportIssue)

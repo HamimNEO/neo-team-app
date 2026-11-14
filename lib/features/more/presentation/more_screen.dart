@@ -112,10 +112,12 @@ class _MoreScreenState extends State<MoreScreen> {
                 ),
               ),
               SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const WorkspaceHeroCard(),
+                child: ResponsiveCenter(
+                  maxWidth: 780,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const WorkspaceHeroCard(),
                     GroupedSection(
                       title: 'Work',
                       children: [
@@ -426,6 +428,7 @@ class _MoreScreenState extends State<MoreScreen> {
                     ),
                     const SizedBox(height: 120),
                   ],
+                ),
                 ),
               ),
             ],

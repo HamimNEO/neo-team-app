@@ -97,30 +97,46 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: nec.surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
+                child: Align(
+                  alignment: AppResponsive.isTablet(context)
+                      ? Alignment.topCenter
+                      : Alignment.center,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: AppResponsive.isTablet(context)
+                          ? 480
+                          : double.infinity,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, -4),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: nec.surface,
+                        borderRadius: BorderRadius.vertical(
+                          top: const Radius.circular(28),
+                          bottom: AppResponsive.isTablet(context)
+                              ? const Radius.circular(28)
+                              : Radius.zero,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 16,
+                            offset: const Offset(0, -4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.vertical(
+                          top: const Radius.circular(28),
+                          bottom: AppResponsive.isTablet(context)
+                              ? const Radius.circular(28)
+                              : Radius.zero,
+                        ),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                           Text(
                             'Welcome back',
                             style: TextStyle(
@@ -213,6 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+            ),
+          ),
             ],
           ),
         ],

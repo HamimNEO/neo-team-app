@@ -110,6 +110,8 @@ class HomeGreetingBar extends StatelessWidget {
 
         final topPadding = MediaQuery.of(context).padding.top;
 
+        final hPadding = AppResponsive.horizontalPadding(context);
+
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           child: CustomPaint(
@@ -118,12 +120,13 @@ class HomeGreetingBar extends StatelessWidget {
               isDark: isDark,
               bgColor: nec.bg,
             ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, topPadding + 10, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
+            child: ResponsiveCenter.dashboard(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(hPadding, topPadding + 10, hPadding, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -254,7 +257,8 @@ class HomeGreetingBar extends StatelessWidget {
               ),
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }

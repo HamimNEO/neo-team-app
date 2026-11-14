@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'theme_provider.dart';
+import 'responsive.dart';
+
+export 'responsive.dart';
 
 class AppTheme {
   static TextTheme _buildTextTheme(Color primary, Color secondary) {
@@ -57,6 +60,11 @@ class AppTheme {
           color: nec.textPrimary,
         ),
       ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.transparent,
+        modalBackgroundColor: Colors.transparent,
+        constraints: BoxConstraints(maxWidth: AppResponsive.kMaxSheetWidth),
+      ),
       extensions: [nec],
     );
   }
@@ -91,6 +99,11 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           color: nec.textPrimary,
         ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.transparent,
+        modalBackgroundColor: Colors.transparent,
+        constraints: BoxConstraints(maxWidth: AppResponsive.kMaxSheetWidth),
       ),
       extensions: [nec],
     );

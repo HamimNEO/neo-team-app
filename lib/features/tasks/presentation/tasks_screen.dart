@@ -169,86 +169,119 @@ class _TasksScreenState extends State<TasksScreen> {
     final filtered = _getFilteredList(items);
     if (filtered.isEmpty) return const SizedBox.shrink();
 
+    final isTablet = AppResponsive.isTablet(context);
+
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: filtered.map((task) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 5),
-            child: Material(
-              color: nec.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: BorderSide(color: nec.separator.withValues(alpha: 0.2)),
+        children: [
+          if (!isTablet)
+            ...filtered.map((task) => _buildSingleTaskCard(context, task, nec))
+          else ...[
+            for (var i = 0; i < filtered.length; i += 2) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildSingleTaskCard(context, filtered[i], nec, margin: EdgeInsets.zero),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: (i + 1 < filtered.length)
+                          ? _buildSingleTaskCard(context, filtered[i + 1], nec, margin: EdgeInsets.zero)
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: TaskItemCard(
-                title: task['title'] as String,
-                relatedText: task['relatedText'] as String?,
-                subtitle: task['subtitle'] as String,
-                priority: task['priority'] as String,
-                priorityColor: task['priorityColor'] as Color,
-                assigneeInitials: task['assigneeInitials'] as String,
-                assigneeName: task['assigneeName'] as String,
-                isCompleted: task['isCompleted'] as bool,
-                status: task['status'] as String?,
-                onStatusChange: (newStatus) async {
-                  try {
-                    await WorkItemStore.instance.update(
-                      task['id'].toString(),
-                      {'status': newStatus},
-                    );
-                    if (!context.mounted) return;
-                    NecToast.show(
-                      context,
-                      message: newStatus == 'in_progress'
-                          ? 'Task moved to In Progress'
-                          : 'Task moved to To Do',
-                      type: NecToastType.success,
-                    );
-                  } catch (error) {
-                    if (!context.mounted) return;
-                    NecToast.show(context,
-                        message: WorkItemStore.messageFor(error),
-                        type: NecToastType.error);
-                  }
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleTaskCard(
+    BuildContext context,
+    Map<String, dynamic> task,
+    NecColors nec, {
+    EdgeInsetsGeometry margin = const EdgeInsets.only(bottom: 5),
+  }) {
+    return Container(
+      margin: margin,
+      child: Material(
+        color: nec.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: nec.separator.withValues(alpha: 0.2)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: TaskItemCard(
+          title: task['title'] as String,
+          relatedText: task['relatedText'] as String?,
+          subtitle: task['subtitle'] as String,
+          priority: task['priority'] as String,
+          priorityColor: task['priorityColor'] as Color,
+          assigneeInitials: task['assigneeInitials'] as String,
+          assigneeName: task['assigneeName'] as String,
+          isCompleted: task['isCompleted'] as bool,
+          status: task['status'] as String?,
+          onStatusChange: (newStatus) async {
+            try {
+              await WorkItemStore.instance.update(
+                task['id'].toString(),
+                {'status': newStatus},
+              );
+              if (!context.mounted) return;
+              NecToast.show(
+                context,
+                message: newStatus == 'in_progress'
+                    ? 'Task moved to In Progress'
+                    : 'Task moved to To Do',
+                type: NecToastType.success,
+              );
+            } catch (error) {
+              if (!context.mounted) return;
+              NecToast.show(context,
+                  message: WorkItemStore.messageFor(error),
+                  type: NecToastType.error);
+            }
+          },
+          onToggle: (val) async {
+            if (val == true) {
+              await TaskCompletionDialog.show(
+                context,
+                taskTitle: task['title'] as String,
+                onConfirm: () async {
+                  await WorkItemStore.instance.update(
+                    task['id'].toString(),
+                    {'status': 'completed'},
+                  );
                 },
-                onToggle: (val) async {
-                  if (val == true) {
-                    await TaskCompletionDialog.show(
-                      context,
-                      taskTitle: task['title'] as String,
-                      onConfirm: () async {
-                        await WorkItemStore.instance.update(
-                          task['id'].toString(),
-                          {'status': 'completed'},
-                        );
-                      },
-                    );
-                  } else {
-                    try {
-                      await WorkItemStore.instance.update(
-                        task['id'].toString(),
-                        {'status': 'to_do'},
-                      );
-                      if (!context.mounted) return;
-                      NecToast.show(context,
-                          message: 'Task moved back to To Do',
-                          type: NecToastType.info);
-                    } catch (error) {
-                      if (!context.mounted) return;
-                      NecToast.show(context,
-                          message: WorkItemStore.messageFor(error),
-                          type: NecToastType.error);
-                    }
-                  }
-                },
-                onTap: () => context.push('/tasks/${task['id']}'),
-              ),
-            ),
-          );
-        }).toList(),
+              );
+            } else {
+              try {
+                await WorkItemStore.instance.update(
+                  task['id'].toString(),
+                  {'status': 'to_do'},
+                );
+                if (!context.mounted) return;
+                NecToast.show(context,
+                    message: 'Task moved back to To Do',
+                    type: NecToastType.info);
+              } catch (error) {
+                if (!context.mounted) return;
+                NecToast.show(context,
+                    message: WorkItemStore.messageFor(error),
+                    type: NecToastType.error);
+              }
+            }
+          },
+          onTap: () => context.push('/tasks/${task['id']}'),
+        ),
       ),
     );
   }
@@ -415,8 +448,9 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
+        child: ResponsiveCenter.dashboard(
+          child: Column(
+            children: [
             if (!_isSearching) ...[
               const SizedBox(height: 12),
               Padding(
@@ -650,6 +684,7 @@ class _TasksScreenState extends State<TasksScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -135,21 +135,23 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-          child: SetPasswordForm(
-            newPasswordController: _newPasswordController,
-            confirmPasswordController: _confirmPasswordController,
-            obscureNew: _obscureNew,
-            obscureConfirm: _obscureConfirm,
-            onToggleObscureNew: () =>
-                setState(() => _obscureNew = !_obscureNew),
-            onToggleObscureConfirm: () =>
-                setState(() => _obscureConfirm = !_obscureConfirm),
-            onSubmit: _handleSetPassword,
-            isLoading: _isLoading,
-            errorMessage: _errorMessage,
-            hasError: _hasError,
+        child: ResponsiveCenter.auth(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: SetPasswordForm(
+              newPasswordController: _newPasswordController,
+              confirmPasswordController: _confirmPasswordController,
+              obscureNew: _obscureNew,
+              obscureConfirm: _obscureConfirm,
+              onToggleObscureNew: () =>
+                  setState(() => _obscureNew = !_obscureNew),
+              onToggleObscureConfirm: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
+              onSubmit: _handleSetPassword,
+              isLoading: _isLoading,
+              errorMessage: _errorMessage,
+              hasError: _hasError,
+            ),
           ),
         ),
       ),

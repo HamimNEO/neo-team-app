@@ -286,9 +286,11 @@ class _VisitsScreenState extends State<VisitsScreen> {
                 ),
         ),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 12),
+      body: ResponsiveCenter(
+        maxWidth: 880,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -326,6 +328,7 @@ class _VisitsScreenState extends State<VisitsScreen> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -522,18 +525,52 @@ class _VisitsScreenState extends State<VisitsScreen> {
         ),
       );
 
-      for (final item in gItems) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: VisitCardItem(
-              visit: item,
-              onTap: () {
-                context.push('/visit-details/${item.id}');
-              },
+      if (AppResponsive.isTablet(context)) {
+        for (var i = 0; i < gItems.length; i += 2) {
+          final first = gItems[i];
+          final hasSecond = i + 1 < gItems.length;
+          final second = hasSecond ? gItems[i + 1] : null;
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: VisitCardItem(
+                      visit: first,
+                      onTap: () => context.push('/visit-details/${first.id}'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: second != null
+                        ? VisitCardItem(
+                            visit: second,
+                            onTap: () =>
+                                context.push('/visit-details/${second.id}'),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
+          );
+        }
+      } else {
+        for (final item in gItems) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: VisitCardItem(
+                visit: item,
+                onTap: () {
+                  context.push('/visit-details/${item.id}');
+                },
+              ),
+            ),
+          );
+        }
       }
       widgets.add(const SizedBox(height: 8));
     }

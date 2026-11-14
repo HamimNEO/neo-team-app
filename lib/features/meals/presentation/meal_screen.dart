@@ -242,8 +242,9 @@ class _MealScreenState extends State<MealScreen> {
                     : null),
             body: SafeArea(
               bottom: false,
-              child: RefreshIndicator(
-                onRefresh: () async {
+              child: ResponsiveCenter.dashboard(
+                child: RefreshIndicator(
+                  onRefresh: () async {
                   await _loadDay();
                   await store.loadMonthly(_day.substring(0, 7), force: true);
                 },
@@ -632,6 +633,7 @@ class _MealScreenState extends State<MealScreen> {
                                   color: nec.textTertiary, fontSize: 12)),
                       ],
                     ],
+                  ),
                   ),
                 ),
               ),

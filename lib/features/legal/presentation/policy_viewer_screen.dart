@@ -189,10 +189,12 @@ class _PolicyViewerScreenState extends State<PolicyViewerScreen> {
       body: SafeArea(
         child: RefreshIndicator.adaptive(
           onRefresh: () => _loadPolicy(forceRefresh: true),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            child: Column(
+          child: ResponsiveCenter(
+            maxWidth: 760,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -376,6 +378,7 @@ class _PolicyViewerScreenState extends State<PolicyViewerScreen> {
                 const SizedBox(height: 40),
               ],
             ),
+          ),
           ),
         ),
       ),

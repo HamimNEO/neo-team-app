@@ -28,6 +28,25 @@ class LeadMetricSummaryRow extends StatelessWidget {
       {'count': negotiationCount, 'label': 'Negotiation'},
     ];
 
+    final isTablet = AppResponsive.isTablet(context);
+
+    if (isTablet) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(
+          height: 82,
+          child: Row(
+            children: [
+              for (var i = 0; i < metrics.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: _buildCardItem(context, metrics[i], nec, isExpanded: true)),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 82,
       child: ListView.separated(
@@ -35,62 +54,68 @@ class LeadMetricSummaryRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemCount: metrics.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final item = metrics[index];
-          final count = item['count'] as int;
-          final label = item['label'] as String;
-
-          final card = Container(
-            width: 104,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: nec.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: nec.separator.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _AnimatedCounterText(
-                  count: count,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: nec.textPrimary,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: nec.textSecondary,
-                    fontWeight: FontWeight.w500,
-                    height: 1.1,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          );
-
-          if (onMetricTap != null) {
-            return InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => onMetricTap!(label),
-              child: card,
-            );
-          }
-          return card;
-        },
+        itemBuilder: (context, index) => _buildCardItem(context, metrics[index], nec, isExpanded: false),
       ),
     );
+  }
+
+  Widget _buildCardItem(
+    BuildContext context,
+    Map<String, Object> item,
+    NecColors nec, {
+    required bool isExpanded,
+  }) {
+    final count = item['count'] as int;
+    final label = item['label'] as String;
+
+    final card = Container(
+      width: isExpanded ? null : 104,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: nec.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: nec.separator.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _AnimatedCounterText(
+            count: count,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: nec.textPrimary,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: nec.textSecondary,
+              fontWeight: FontWeight.w500,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+
+    if (onMetricTap != null) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => onMetricTap!(label),
+        child: card,
+      );
+    }
+    return card;
   }
 }
 

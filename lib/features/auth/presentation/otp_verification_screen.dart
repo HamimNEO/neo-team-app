@@ -133,16 +133,18 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-          child: OtpVerificationForm(
-            email: widget.email,
-            codeController: _codeController,
-            onVerify: _handleVerifyCode,
-            onResend: _handleResendCode,
-            isLoading: _isLoading,
-            errorMessage: _errorMessage,
-            hasError: _hasError,
+        child: ResponsiveCenter.auth(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: OtpVerificationForm(
+              email: widget.email,
+              codeController: _codeController,
+              onVerify: _handleVerifyCode,
+              onResend: _handleResendCode,
+              isLoading: _isLoading,
+              errorMessage: _errorMessage,
+              hasError: _hasError,
+            ),
           ),
         ),
       ),

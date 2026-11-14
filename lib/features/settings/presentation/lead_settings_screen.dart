@@ -75,8 +75,10 @@ class LeadSettingsScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+        child: ResponsiveCenter(
+          maxWidth: 780,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -396,6 +398,7 @@ class LeadSettingsScreen extends StatelessWidget {
               const SizedBox(height: 32),
             ],
           ),
+        ),
         ),
       ),
     );

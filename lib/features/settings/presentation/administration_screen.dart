@@ -115,8 +115,10 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+        child: ResponsiveCenter(
+          maxWidth: 800,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -346,6 +348,7 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
               }),
             ],
           ),
+        ),
         ),
       ),
     );

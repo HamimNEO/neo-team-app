@@ -494,8 +494,10 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+        child: ResponsiveCenter(
+          maxWidth: 840,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -816,12 +818,12 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 const SizedBox(height: 12),
                 GridView.count(
-                  crossAxisCount: 2,
+                  crossAxisCount: AppResponsive.isTablet(context) ? 4 : 2,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  childAspectRatio: 2.2,
+                  childAspectRatio: AppResponsive.isTablet(context) ? 2.5 : 2.2,
                   children: [
                     if (StaffAccessStore.instance.canOpen('/leads'))
                       _buildBrowseCard(
@@ -876,6 +878,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             ],
           ),
+        ),
         ),
       ),
     );

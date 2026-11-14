@@ -290,9 +290,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
                 SafeArea(
                   top: false,
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: bottomInsets),
-                    child: Column(
+                  child: ResponsiveCenter(
+                    maxWidth: 820,
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: bottomInsets),
+                      child: Column(
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -413,6 +415,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       ],
                     ),
                   ),
+                ),
                 ),
               ],
             ),

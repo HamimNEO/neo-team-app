@@ -74,8 +74,10 @@ class _AuditDetailScreenState extends State<AuditDetailScreen> {
                 ],
               ),
             )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          : ResponsiveCenter(
+              maxWidth: 780,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               children: [
                 AuditSummaryCard(entry: entry),
                 const SizedBox(height: 16),
@@ -113,6 +115,7 @@ class _AuditDetailScreenState extends State<AuditDetailScreen> {
                   ),
                 ),
               ],
+            ),
             ),
     );
   }

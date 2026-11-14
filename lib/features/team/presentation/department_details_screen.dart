@@ -313,10 +313,12 @@ class _DepartmentDetailsScreenState extends State<DepartmentDetailsScreen> {
       body: SafeArea(
           child: RefreshIndicator(
               onRefresh: _load,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
+              child: ResponsiveCenter(
+                maxWidth: 820,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DepartmentLoadStatus(
@@ -551,6 +553,7 @@ class _DepartmentDetailsScreenState extends State<DepartmentDetailsScreen> {
                       ],
                       const SizedBox(height: 32),
                     ]),
+                ),
               ))),
     );
   }

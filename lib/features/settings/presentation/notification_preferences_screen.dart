@@ -254,8 +254,10 @@ class _NotificationPreferencesScreenState
                       onPressed: _loadPreferences, child: const Text('Retry'))
                 ]))
               : SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                  child: ResponsiveCenter(
+                    maxWidth: 720,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -545,6 +547,7 @@ class _NotificationPreferencesScreenState
                         const SizedBox(height: 32),
                       ],
                     ),
+                  ),
                   ),
                 ),
     );

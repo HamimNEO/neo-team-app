@@ -307,7 +307,9 @@ class _GroupConversationScreenState extends State<GroupConversationScreen>
             ]),
         body: SafeArea(
             top: false,
-            child: Column(children: [
+            child: ResponsiveCenter(
+              maxWidth: 820,
+              child: Column(children: [
               Padding(
                   padding: const EdgeInsets.all(10),
                   child: Text('${scope.label} discussion · ${group.name}',
@@ -368,6 +370,7 @@ class _GroupConversationScreenState extends State<GroupConversationScreen>
                   onCancelReply: () => setState(() => _replyId = null),
                   onRemoveAttachment: (i) =>
                       setState(() => _attachments.removeAt(i))),
-            ])));
+            ]),
+          )));
   }
 }

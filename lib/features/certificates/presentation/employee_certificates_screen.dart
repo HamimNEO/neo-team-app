@@ -159,13 +159,16 @@ class _EmployeeCertificatesScreenState
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: requests.length,
-            itemBuilder: (context, index) {
-              final req = requests[index];
-              return CertificateRequestCard(request: req, isAdmin: false);
-            },
+          return ResponsiveCenter(
+            maxWidth: 820,
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: requests.length,
+              itemBuilder: (context, index) {
+                final req = requests[index];
+                return CertificateRequestCard(request: req, isAdmin: false);
+              },
+            ),
           );
         },
       ),

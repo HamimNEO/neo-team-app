@@ -46,7 +46,9 @@ class _PermissionCatalogScreenState extends State<PermissionCatalogScreen> {
             title: const Text('Permission Catalog'), backgroundColor: nec.bg),
         body: RefreshIndicator(
             onRefresh: _load,
-            child: ListView(
+            child: ResponsiveCenter(
+              maxWidth: 780,
+              child: ListView(
                 padding: const EdgeInsets.all(16),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
@@ -69,6 +71,7 @@ class _PermissionCatalogScreenState extends State<PermissionCatalogScreen> {
                                     title: Text('${permission['label']}'),
                                     subtitle: Text('${permission['key']}'))
                             ])),
-                ])));
+                ]),
+              )));
   }
 }

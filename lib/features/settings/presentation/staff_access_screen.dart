@@ -65,7 +65,9 @@ class _StaffAccessScreenState extends State<StaffAccessScreen> {
             backgroundColor: nec.bg,
             appBar: attendanceAppBar(
                 context, editing ? 'Staff Access' : 'My Workspace'),
-            body: ListView(
+            body: ResponsiveCenter(
+              maxWidth: 780,
+              child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                 children: [
                   Text(
@@ -128,7 +130,8 @@ class _StaffAccessScreenState extends State<StaffAccessScreen> {
                           .toList(),
                       editing,
                       nec),
-                ]));
+                ]),
+            ));
       });
 
   Widget _buildWorkspaceUnitCard({

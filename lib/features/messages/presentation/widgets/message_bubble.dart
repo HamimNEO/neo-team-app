@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -49,8 +50,8 @@ class MessageBubble extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
         child: ConstrainedBox(
-          constraints:
-              BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
+          constraints: BoxConstraints(
+              maxWidth: math.min(MediaQuery.sizeOf(context).width * .78, 520.0)),
           child: Column(
               crossAxisAlignment:
                   mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,

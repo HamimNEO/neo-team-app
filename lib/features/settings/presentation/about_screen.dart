@@ -81,8 +81,10 @@ class AboutScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+        child: ResponsiveCenter(
+          maxWidth: 620,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
           child: Column(
             children: [
               const SizedBox(height: 12),
@@ -194,6 +196,7 @@ class AboutScreen extends StatelessWidget {
               const SizedBox(height: 20),
             ],
           ),
+        ),
         ),
       ),
     );

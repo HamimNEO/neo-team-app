@@ -388,8 +388,9 @@ class _TeamScreenState extends State<TeamScreen> {
                 ),
         ),
       ),
-      body: Column(
-        children: [
+      body: ResponsiveCenter.dashboard(
+        child: Column(
+          children: [
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -465,8 +466,9 @@ class _TeamScreenState extends State<TeamScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildStatCard(
     NecColors nec,

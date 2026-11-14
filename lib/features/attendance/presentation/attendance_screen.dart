@@ -107,7 +107,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 context, _own ? 'My Attendance' : 'Employee Attendance'),
             body: SafeArea(
                 bottom: false,
-                child: Column(children: [
+                child: ResponsiveCenter.dashboard(
+                  child: Column(children: [
                   Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
                       child: Row(children: [
@@ -345,7 +346,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                             'Your submitted requests and administrator decisions will appear here.'),
                                 ],
                               ]))),
-                ])));
+                ]),
+              )));
       });
 
   Widget _actions(NecColors nec) => AttendanceCard(

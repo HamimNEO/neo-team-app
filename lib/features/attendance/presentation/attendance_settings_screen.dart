@@ -180,7 +180,9 @@ class _AttendanceSettingsScreenState extends State<AttendanceSettingsScreen> {
                 bottom: false,
                 child: AbsorbPointer(
                   absorbing: _saving,
-                  child: SingleChildScrollView(
+                  child: ResponsiveCenter.form(
+                    maxWidth: 820,
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                       child: Form(
                           key: _form,
@@ -401,6 +403,7 @@ class _AttendanceSettingsScreenState extends State<AttendanceSettingsScreen> {
                                     onPressed: _save),
                                 const AttendancePolicyHistory(),
                               ]))),
+                    ),
                 ))));
   }
 }

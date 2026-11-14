@@ -107,18 +107,19 @@ class StaffSnapshotGrid extends StatelessWidget {
                 )),
         ];
 
+        final isTablet = AppResponsive.isTablet(context);
         const double tileHeight = 110.0;
         final rows = <Widget>[];
-        for (var i = 0; i < tiles.length; i += 2) {
+        final sliceSize = isTablet ? 4 : 2;
+        for (var i = 0; i < tiles.length; i += sliceSize) {
           if (i > 0) rows.add(const SizedBox(height: 10));
-          final pair = tiles.skip(i).take(2).toList();
+          final slice = tiles.skip(i).take(sliceSize).toList();
           rows.add(SizedBox(
             height: tileHeight,
             child: Row(children: [
-              Expanded(child: pair[0]),
-              if (pair.length > 1) ...[
-                const SizedBox(width: 10),
-                Expanded(child: pair[1]),
+              for (var j = 0; j < slice.length; j++) ...[
+                if (j > 0) const SizedBox(width: 10),
+                Expanded(child: slice[j]),
               ],
             ]),
           ));
@@ -237,14 +238,16 @@ class LeadSnapshotGrid extends StatelessWidget {
                 ? work.todayVisits.toString()
                 : '—';
 
+        final isTablet = AppResponsive.isTablet(context);
+
         return GridView.count(
-          crossAxisCount: 2,
+          crossAxisCount: isTablet ? 4 : 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           padding: EdgeInsets.zero,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: 1.6,
+          childAspectRatio: isTablet ? 1.85 : 1.6,
           children: [
             LeadMetricTile(
               value: newCount,

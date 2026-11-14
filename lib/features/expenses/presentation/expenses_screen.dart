@@ -186,8 +186,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         child: const Text('Retry'))),
             ])),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+              child: ResponsiveCenter.dashboard(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -356,6 +357,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   ),
                 ),
               ),
+            ),
             ),
             SliverToBoxAdapter(
               child: Padding(
@@ -552,20 +554,46 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = filtered[index];
-                      return _ExpenseCard(
-                        expense: item,
-                        onTap: () =>
-                            context.push('/expense-details/${item.id}'),
-                      );
-                    },
-                    childCount: filtered.length,
-                  ),
+                padding: EdgeInsets.fromLTRB(
+                  AppResponsive.horizontalPadding(context),
+                  4,
+                  AppResponsive.horizontalPadding(context),
+                  96,
                 ),
+                sliver: AppResponsive.isTablet(context)
+                    ? SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 4,
+                          mainAxisExtent: 108,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final item = filtered[index];
+                            return _ExpenseCard(
+                              expense: item,
+                              onTap: () =>
+                                  context.push('/expense-details/${item.id}'),
+                            );
+                          },
+                          childCount: filtered.length,
+                        ),
+                      )
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final item = filtered[index];
+                            return _ExpenseCard(
+                              expense: item,
+                              onTap: () =>
+                                  context.push('/expense-details/${item.id}'),
+                            );
+                          },
+                          childCount: filtered.length,
+                        ),
+                      ),
               ),
           ],
         ),

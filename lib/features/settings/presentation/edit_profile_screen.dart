@@ -175,8 +175,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ))
                     : AbsorbPointer(
                         absorbing: _saving,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
+                        child: ResponsiveCenter.form(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
                           child: Form(
                               key: _formKey,
                               child: Column(children: [
@@ -213,6 +214,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     onPressed:
                                         _saving || _photoBusy ? null : _save),
                               ])),
+                        ),
                         )),
           ),
         ));

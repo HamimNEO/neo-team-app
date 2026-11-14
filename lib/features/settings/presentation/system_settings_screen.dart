@@ -83,9 +83,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           final value = _settings.value;
           final ready = _settings.ready;
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 28, 16, 100),
-            children: [
+          return ResponsiveCenter(
+            maxWidth: 760,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 28, 16, 100),
+              children: [
               _heading(nec, 'ORGANIZATION'),
               SystemSettingsGroup(
                 children: [
@@ -295,6 +297,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 ),
               ),
             ],
+          ),
           );
         },
       ),

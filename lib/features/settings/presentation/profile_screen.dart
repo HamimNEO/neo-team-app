@@ -197,9 +197,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadProfileData,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
+          child: ResponsiveCenter(
+            maxWidth: 820,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
               children: [
                 if (ProfileStore.instance.loading)
                   const LinearProgressIndicator(minHeight: 2),
@@ -234,6 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 pages[_selectedTabIndex < pages.length ? _selectedTabIndex : 0],
               ],
             ),
+          ),
           ),
         ),
       ),

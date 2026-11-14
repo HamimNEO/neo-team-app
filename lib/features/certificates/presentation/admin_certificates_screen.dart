@@ -95,8 +95,10 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
             return true;
           }).toList();
 
-          return Column(
-            children: [
+          return ResponsiveCenter(
+            maxWidth: 820,
+            child: Column(
+              children: [
               if (CertificateStore.instance.loading)
                 const LinearProgressIndicator(),
               if (CertificateStore.instance.error != null)
@@ -218,6 +220,7 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
                       ),
               ),
             ],
+          ),
           );
         },
       ),

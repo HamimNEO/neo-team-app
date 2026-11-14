@@ -78,8 +78,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               child: Icon(CupertinoIcons.back, color: nec.brand)),
         ),
         body: SafeArea(
-            child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+            child: ResponsiveCenter.form(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
           child: AbsorbPointer(
               absorbing: _saving,
               child: Form(
@@ -129,6 +130,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           onPressed: _save),
                     ]),
               )),
+        ),
         )),
       ),
     );

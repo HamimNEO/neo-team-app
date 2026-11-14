@@ -63,9 +63,11 @@ class AppearanceScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 32),
-        child: Column(
+      body: ResponsiveCenter(
+        maxWidth: 700,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 32),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
@@ -195,6 +197,7 @@ class AppearanceScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

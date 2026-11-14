@@ -97,8 +97,10 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
         builder: (context, _) => !DemoSession.instance.signedIn
             ? const SizedBox.shrink()
             : SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                child: ResponsiveCenter(
+                  maxWidth: 720,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -140,6 +142,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                       const SizedBox(height: 40),
                     ],
                   ),
+                ),
                 ),
               ),
       ),

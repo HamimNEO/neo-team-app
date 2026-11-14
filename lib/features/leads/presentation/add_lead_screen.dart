@@ -292,8 +292,9 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
         ),
       ),
       body: SafeArea(
-        child: IndexedStack(
-          index: _currentStep,
+        child: ResponsiveCenter.form(
+          child: IndexedStack(
+            index: _currentStep,
           children: [
             AddLeadStep1(
               companyController: _companyController,
@@ -398,6 +399,7 @@ class _AddLeadScreenState extends State<AddLeadScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

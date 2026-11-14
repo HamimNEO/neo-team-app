@@ -101,51 +101,135 @@ class StaffHomeContent extends StatelessWidget {
               ),
             );
 
+        final isTablet = AppResponsive.isTablet(context);
+        final isWide = AppResponsive.isWideTablet(context);
+
+        final attendanceEnabled = can(StaffPermission.attendance);
+        final mealsEnabled = can(StaffPermission.meals);
+
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (can(StaffPermission.attendance)) ...[
+          if (isTablet && attendanceEnabled && mealsEnabled) ...[
             const SizedBox(height: 6),
-            const AttendanceHomeCard(),
-          ],
-          if (can(StaffPermission.meals)) ...[
-            const SizedBox(height: 14),
-            const LunchEntry(administrator: false),
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: AttendanceHomeCard()),
+                SizedBox(width: 14),
+                Expanded(child: LunchEntry(administrator: false)),
+              ],
+            ),
+          ] else ...[
+            if (attendanceEnabled) ...[
+              const SizedBox(height: 6),
+              const AttendanceHomeCard(),
+            ],
+            if (mealsEnabled) ...[
+              const SizedBox(height: 14),
+              const LunchEntry(administrator: false),
+            ],
           ],
           if (showSnapshot)
             const Padding(
               padding: EdgeInsets.only(top: 14),
               child: StaffSnapshotGrid(),
             ),
-          if (showAttention)
-            section(
-              'NEEDS ATTENTION',
-              const NeedsAttentionSection(staff: true),
-              icon: CupertinoIcons.shield_fill,
+          if (isWide) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showAttention)
+                        section(
+                          'NEEDS ATTENTION',
+                          const NeedsAttentionSection(staff: true),
+                          icon: CupertinoIcons.shield_fill,
+                        ),
+                      if (showLeadActions)
+                        section(
+                          'LEADS NEEDING ACTION',
+                          const LeadsNeedingActionSection(),
+                          icon: CupertinoIcons.person_2_fill,
+                          action: 'View All',
+                          onTap: () => context.go('/leads'),
+                        ),
+                      if (showActivity)
+                        section(
+                          'RECENT ACTIVITY',
+                          const RecentActivitySection(),
+                          action: 'View All',
+                          onTap: () => context.push('/activity'),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showToday)
+                        section(
+                          'TODAY',
+                          const TodayScheduleSection(staff: true),
+                          icon: CupertinoIcons.calendar,
+                          action: can(StaffPermission.tasks) ? 'See All' : null,
+                          onTap: () => context.go('/tasks'),
+                        ),
+                      if (showWork)
+                        section(
+                          'MY WORK',
+                          MyWorkSection(
+                            showTasks: can(StaffPermission.tasks),
+                            showIssues: can(StaffPermission.issues),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          if (showToday)
-            section(
-              'TODAY',
-              const TodayScheduleSection(staff: true),
-              icon: CupertinoIcons.calendar,
-              action: can(StaffPermission.tasks) ? 'See All' : null,
-              onTap: () => context.go('/tasks'),
-            ),
-          if (showLeadActions)
-            section(
-              'LEADS NEEDING ACTION',
-              const LeadsNeedingActionSection(),
-              icon: CupertinoIcons.person_2_fill,
-              action: 'View All',
-              onTap: () => context.go('/leads'),
-            ),
-          if (showWork)
-            section(
+          ] else ...[
+            if (showAttention)
+              section(
+                'NEEDS ATTENTION',
+                const NeedsAttentionSection(staff: true),
+                icon: CupertinoIcons.shield_fill,
+              ),
+            if (showToday)
+              section(
+                'TODAY',
+                const TodayScheduleSection(staff: true),
+                icon: CupertinoIcons.calendar,
+                action: can(StaffPermission.tasks) ? 'See All' : null,
+                onTap: () => context.go('/tasks'),
+              ),
+            if (showLeadActions)
+              section(
+                'LEADS NEEDING ACTION',
+                const LeadsNeedingActionSection(),
+                icon: CupertinoIcons.person_2_fill,
+                action: 'View All',
+                onTap: () => context.go('/leads'),
+              ),
+            if (showWork)
+              section(
                 'MY WORK',
                 MyWorkSection(
-                    showTasks: can(StaffPermission.tasks),
-                    showIssues: can(StaffPermission.issues))),
-          if (showActivity)
-            section('RECENT ACTIVITY', const RecentActivitySection(),
-                action: 'View All', onTap: () => context.push('/activity')),
+                  showTasks: can(StaffPermission.tasks),
+                  showIssues: can(StaffPermission.issues),
+                ),
+              ),
+            if (showActivity)
+              section(
+                'RECENT ACTIVITY',
+                const RecentActivitySection(),
+                action: 'View All',
+                onTap: () => context.push('/activity'),
+              ),
+          ],
           if (!hasAnything)
             const Padding(
               padding: EdgeInsets.only(top: _gap),

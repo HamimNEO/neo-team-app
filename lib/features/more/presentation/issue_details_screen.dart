@@ -107,7 +107,9 @@ class _IssueDetailsScreenState extends State<IssueDetailsScreen> {
                 ]))
               : item == null
                   ? const Center(child: Text('Issue unavailable'))
-                  : ListView(padding: const EdgeInsets.all(16), children: [
+                  : ResponsiveCenter(
+                      maxWidth: 760,
+                      child: ListView(padding: const EdgeInsets.all(16), children: [
                       card(Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -154,6 +156,7 @@ class _IssueDetailsScreenState extends State<IssueDetailsScreen> {
                             fullWidth: true),
                       ],
                     ]),
+                    ),
     );
   }
 }

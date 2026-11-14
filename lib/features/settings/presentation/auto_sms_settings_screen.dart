@@ -119,9 +119,11 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
               ? 'The server preview will appear after the template is saved.'
               : _store.preview;
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
-            children: [
+          return ResponsiveCenter(
+            maxWidth: 780,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
+              children: [
               if (_store.loading || _store.saving)
                 const LinearProgressIndicator(minHeight: 2),
               if (_store.error != null) ...[
@@ -1037,6 +1039,7 @@ class _AutoSmsSettingsScreenState extends State<AutoSmsSettingsScreen> {
                 ),
               ),
             ],
+          ),
           );
         },
       ),

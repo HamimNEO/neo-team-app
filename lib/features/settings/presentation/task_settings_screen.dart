@@ -118,9 +118,11 @@ class _TaskSettingsScreenState extends State<TaskSettingsScreen> {
     return Scaffold(
       backgroundColor: nec.bg,
       appBar: const OperationsSettingsAppBar(title: 'Task Settings'),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 100),
-        children: [
+      body: ResponsiveCenter(
+        maxWidth: 760,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 100),
+          children: [
           _buildHeading(nec, 'WORKFLOW'),
           Material(
             color: nec.surface,
@@ -226,6 +228,7 @@ class _TaskSettingsScreenState extends State<TaskSettingsScreen> {
           ),
           const SizedBox(height: 32),
         ],
+      ),
       ),
     );
   }

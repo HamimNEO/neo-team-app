@@ -320,8 +320,10 @@ class _VisitDetailsScreenState extends State<VisitDetailsScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+        child: ResponsiveCenter(
+          maxWidth: 820,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -876,6 +878,7 @@ class _VisitDetailsScreenState extends State<VisitDetailsScreen> {
               const SizedBox(height: 32),
             ],
           ),
+        ),
         ),
       ),
     );

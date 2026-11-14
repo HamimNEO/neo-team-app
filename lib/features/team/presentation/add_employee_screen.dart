@@ -469,7 +469,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             ),
           ),
           body: SafeArea(
-            child: AbsorbPointer(
+            child: ResponsiveCenter.form(
+              child: AbsorbPointer(
                 absorbing: _isLoading,
                 child: IndexedStack(
                   index: _currentStep - 1,
@@ -570,7 +571,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                       isEditMode: isEdit,
                     ),
                   ],
-                )),
+                ),
+              ),
+            ),
           ),
         ));
   }

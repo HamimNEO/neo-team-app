@@ -146,7 +146,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
             ]),
             body: SafeArea(
                 bottom: false,
-                child: Column(children: [
+                child: ResponsiveCenter.dashboard(
+                  child: Column(children: [
                   Padding(
                       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                       child: SizedBox(
@@ -465,7 +466,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                   ],
                                 ],
                               ]))),
-                ])));
+                ]),
+              )));
       });
 
   Widget _filters(NecColors nec) => Column(children: [

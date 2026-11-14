@@ -331,8 +331,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
+        child: ResponsiveCenter.form(
+          child: Column(
+            children: [
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -754,6 +755,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

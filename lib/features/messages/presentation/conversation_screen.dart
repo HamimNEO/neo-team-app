@@ -489,7 +489,9 @@ class _ConversationScreenState extends State<ConversationScreen>
       ),
       body: SafeArea(
           top: false,
-          child: Column(children: [
+          child: ResponsiveCenter(
+            maxWidth: 820,
+            child: Column(children: [
             if (store.loadError != null && messages.isEmpty)
               Padding(
                   padding: const EdgeInsets.all(16),
@@ -566,7 +568,9 @@ class _ConversationScreenState extends State<ConversationScreen>
               onRemoveAttachment: (index) =>
                   setState(() => _attachments.removeAt(index)),
             ),
-          ])),
+          ]),
+        ),
+      ),
     );
   }
 }

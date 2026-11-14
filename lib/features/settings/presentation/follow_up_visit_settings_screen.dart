@@ -64,9 +64,11 @@ class _FollowUpVisitSettingsScreenState
       ),
       body: AnimatedBuilder(
         animation: _settings,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 100),
-          children: [
+        builder: (context, _) => ResponsiveCenter(
+          maxWidth: 760,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 100),
+            children: [
             _heading(nec, 'FOLLOW-UPS'),
             OperationOptionsCard(
               settings: _settings,
@@ -202,6 +204,7 @@ class _FollowUpVisitSettingsScreenState
                   TextStyle(fontSize: 12, height: 1.5, color: nec.textTertiary),
             ),
           ],
+        ),
         ),
       ),
     );
