@@ -79,11 +79,22 @@ Employee employeeFromApi(Map<String, dynamic> record, String baseUrl) {
     systemRole: role is Map ? text(role['name']) : '',
     roleKey: role is Map ? nullable(role['key']) : null,
     accessScope: nullable(record['access_scope']),
-    status: (record['employment_status'] != null
-        ? (record['employment_status'] == 'suspended'
-            ? 'Suspended'
-            : (record['employment_status'] == 'active' ? 'Active' : 'Inactive'))
-        : (record['is_active'] == true ? 'Active' : 'Inactive')),
+    status: () {
+      final rawStatus = record['employment_status']?.toString().toLowerCase().trim();
+      if (rawStatus == 'suspended') return 'Suspended';
+      if (rawStatus == 'inactive') return 'Inactive';
+      if (rawStatus == 'active' || rawStatus == 'probation' || rawStatus == 'permanent') {
+        return 'Active';
+      }
+      final rawActive = record['is_active'];
+      if (rawActive == true || rawActive == 1 || rawActive == '1' || rawActive == 'true') {
+        return 'Active';
+      }
+      if (rawActive == false || rawActive == 0 || rawActive == '0' || rawActive == 'false') {
+        return 'Inactive';
+      }
+      return 'Active';
+    }(),
     email: text(record['email']),
     phone: text(record['phone']),
     photoUrl: apiMediaUrl(

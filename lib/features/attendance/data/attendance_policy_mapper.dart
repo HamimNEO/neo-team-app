@@ -2,6 +2,20 @@ import '../domain/models/attendance_models.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+int? _parseWeekday(dynamic value) {
+  if (value == null) return null;
+  if (value is int && value >= 1 && value <= 7) return value;
+  final str = value.toString().trim().toLowerCase();
+  final intVal = int.tryParse(str);
+  if (intVal != null && intVal >= 1 && intVal <= 7) return intVal;
+  for (var i = 0; i < _weekdays.length; i++) {
+    if (str.startsWith(_weekdays[i].toLowerCase())) {
+      return i + 1;
+    }
+  }
+  return null;
+}
+
 AttendancePolicy attendancePolicyFromApi(
     Map response, AttendancePolicy current) {
   final raw = response['settings'] is Map
@@ -29,10 +43,13 @@ AttendancePolicy attendancePolicyFromApi(
     overtimeApprovalRequired: raw['require_overtime_approval'] as bool?,
     trackingStart: raw['attendance_tracking_begins_on']?.toString(),
     offWeekdays: raw['weekly_off_days'] is List
-        ? [
-            for (final day in raw['weekly_off_days'] as List)
-              if (_weekdays.contains(day)) _weekdays.indexOf(day) + 1
-          ]
+        ? () {
+            final parsed = {
+              for (final day in raw['weekly_off_days'] as List)
+                if (_parseWeekday(day) != null) _parseWeekday(day)!
+            }.toList();
+            return parsed.isNotEmpty ? parsed : current.offWeekdays;
+          }()
         : null,
     leaveTypes: types is Map
         ? [

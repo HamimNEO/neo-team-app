@@ -38,7 +38,8 @@ class AttendanceClock {
   static String key(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  static DateTime date(String key) => DateTime.parse('${key}T00:00:00Z');
+  static DateTime date(String key) =>
+      DateTime.tryParse('${key}T00:00:00Z') ?? DateTime.now().toUtc();
 
   static DateTime instant(String day, int minute, [int? offset]) =>
       date(day).add(Duration(minutes: minute - (offset ?? offsetMinutes)));

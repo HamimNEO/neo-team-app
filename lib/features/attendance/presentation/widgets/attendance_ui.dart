@@ -326,17 +326,29 @@ class AttendancePickerRow extends StatelessWidget {
   }
 }
 
-Future<T?> showAttendanceSheet<T>(BuildContext context, Widget child) =>
-    showModalBottomSheet<T>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Theme.of(context).extension<NecColors>()!.surface,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        clipBehavior: Clip.antiAlias,
-        builder: (_) => SizedBox(
-            height: MediaQuery.sizeOf(context).height * .9, child: child));
+Future<T?> showAttendanceSheet<T>(BuildContext context, Widget child) {
+  final nec = Theme.of(context).extension<NecColors>();
+  return showModalBottomSheet<T>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: nec?.surface ?? Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      clipBehavior: Clip.antiAlias,
+      builder: (sheetContext) {
+        final sheetNec =
+            Theme.of(sheetContext).extension<NecColors>() ?? nec;
+        return Material(
+          color: sheetNec?.surface ?? Colors.white,
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * .9,
+            child: child,
+          ),
+        );
+      });
+}
 
 class AttendanceSheetBody extends StatelessWidget {
   final String title;

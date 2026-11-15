@@ -30,14 +30,14 @@ class _AttendanceRequestFormState extends State<AttendanceRequestForm> {
   final _reason = TextEditingController();
   final _overtime = TextEditingController();
   final _store = AttendanceStore.instance;
-  late String _day;
-  late String _endDay;
+  String _day = AttendanceClock.key(AttendanceClock.today);
+  String _endDay = AttendanceClock.key(AttendanceClock.today);
   String? _typeId;
   bool _halfDay = false;
   String _halfPart = 'First half';
   bool _nextDay = false;
-  late int _inMinutes;
-  late int _outMinutes;
+  int _inMinutes = 600;
+  int _outMinutes = 1080;
   bool _saving = false;
   bool _completed = false;
   String? _error;
@@ -45,67 +45,82 @@ class _AttendanceRequestFormState extends State<AttendanceRequestForm> {
   @override
   void initState() {
     super.initState();
-    _day = widget.day ?? AttendanceClock.key(AttendanceClock.today);
-    _endDay = _day;
-    _typeId =
-        _store.policy.leaveTypes.where((type) => type.enabled).firstOrNull?.id;
-    if (widget.kind == AttendanceRequestKind.offDaySwap && widget.day == null) {
-      var date = AttendanceClock.today;
-      for (var index = 0; index < 7; index++) {
-        if (_store.policy.offWeekdays.contains(date.weekday)) {
-          break;
-        }
-        date = date.add(const Duration(days: 1));
-      }
-      _day = AttendanceClock.key(date);
-      do {
-        date = date.add(const Duration(days: 1));
-      } while (
-          !_store.isWorkingDay(widget.employeeId, AttendanceClock.key(date)) &&
-              date.difference(AttendanceClock.today).inDays < 14);
-      _endDay = AttendanceClock.key(date);
-    }
-    if (widget.kind == AttendanceRequestKind.overtime && widget.day == null) {
-      final eligible = _store.state.records
-          .where((record) =>
-              record.employeeId == widget.employeeId &&
-              record.checkOut != null &&
-              _store.dayFor(widget.employeeId, record.day).overtimeMinutes >
-                  0 &&
-              !_store.requestsFor(widget.employeeId).any((request) =>
-                  request.kind == AttendanceRequestKind.overtime &&
-                  request.day == record.day &&
-                  request.reserves))
-          .toList()
-        ..sort((a, b) => b.day.compareTo(a.day));
-      if (eligible.isNotEmpty) {
-        _day = eligible.first.day;
-      }
+    try {
+      _day = widget.day ?? AttendanceClock.key(AttendanceClock.today);
       _endDay = _day;
+      _typeId = _store.policy.leaveTypes
+          .where((type) => type.enabled)
+          .firstOrNull
+          ?.id;
+      final offDays = _store.policy.offWeekdays.isNotEmpty
+          ? _store.policy.offWeekdays
+          : const [5];
+      if (widget.kind == AttendanceRequestKind.offDaySwap && widget.day == null) {
+        var date = AttendanceClock.today;
+        for (var index = 0; index < 7; index++) {
+          if (offDays.contains(date.weekday)) {
+            break;
+          }
+          date = date.add(const Duration(days: 1));
+        }
+        _day = AttendanceClock.key(date);
+        do {
+          date = date.add(const Duration(days: 1));
+        } while (
+            !_store.isWorkingDay(widget.employeeId, AttendanceClock.key(date)) &&
+                date.difference(AttendanceClock.today).inDays < 14);
+        _endDay = AttendanceClock.key(date);
+      }
+      if (widget.kind == AttendanceRequestKind.overtime && widget.day == null) {
+        final eligible = _store.state.records
+            .where((record) =>
+                record.employeeId == widget.employeeId &&
+                record.checkOut != null &&
+                _store.dayFor(widget.employeeId, record.day).overtimeMinutes >
+                    0 &&
+                !_store.requestsFor(widget.employeeId).any((request) =>
+                    request.kind == AttendanceRequestKind.overtime &&
+                    request.day == record.day &&
+                    request.reserves))
+            .toList()
+          ..sort((a, b) => b.day.compareTo(a.day));
+        if (eligible.isNotEmpty) {
+          _day = eligible.first.day;
+        }
+        _endDay = _day;
+      }
+      _resetTimes();
+      _overtime.text =
+          _store.dayFor(widget.employeeId, _day).overtimeMinutes.toString();
+    } catch (e) {
+      debugPrint('Error in AttendanceRequestForm.initState: $e');
     }
-    _resetTimes();
-    _overtime.text =
-        _store.dayFor(widget.employeeId, _day).overtimeMinutes.toString();
   }
 
   void _resetTimes() {
-    final record = _store.recordFor(widget.employeeId, _day);
-    final offset = record?.offsetMinutes ?? AttendanceClock.offsetMinutes;
-    final storedIn = record?.checkIn;
-    final storedOut = record?.checkOut;
-    final checkIn =
-        storedIn == null ? null : AttendanceClock.wallTime(storedIn, offset);
-    final checkOut =
-        storedOut == null ? null : AttendanceClock.wallTime(storedOut, offset);
-    _inMinutes = checkIn == null
-        ? _store.policy.startMinutes
-        : checkIn.hour * 60 + checkIn.minute;
-    _outMinutes = checkOut == null
-        ? _store.policy.endMinutes
-        : checkOut.hour * 60 + checkOut.minute;
-    _nextDay = checkOut == null
-        ? _store.policy.overnight
-        : AttendanceClock.key(checkOut) != _day;
+    try {
+      final record = _store.recordFor(widget.employeeId, _day);
+      final offset = record?.offsetMinutes ?? AttendanceClock.offsetMinutes;
+      final storedIn = record?.checkIn;
+      final storedOut = record?.checkOut;
+      final checkIn =
+          storedIn == null ? null : AttendanceClock.wallTime(storedIn, offset);
+      final checkOut =
+          storedOut == null ? null : AttendanceClock.wallTime(storedOut, offset);
+      _inMinutes = checkIn == null
+          ? _store.policy.startMinutes
+          : checkIn.hour * 60 + checkIn.minute;
+      _outMinutes = checkOut == null
+          ? _store.policy.endMinutes
+          : checkOut.hour * 60 + checkOut.minute;
+      _nextDay = checkOut == null
+          ? _store.policy.overnight
+          : AttendanceClock.key(checkOut) != _day;
+    } catch (_) {
+      _inMinutes = _store.policy.startMinutes;
+      _outMinutes = _store.policy.endMinutes;
+      _nextDay = false;
+    }
   }
 
   @override
@@ -208,8 +223,10 @@ class _AttendanceRequestFormState extends State<AttendanceRequestForm> {
         final days = units.values.fold(0, (sum, value) => sum + value) / 2;
         leaveSummary =
             '$days working day${days == 1 ? '' : 's'} · weekly off days and holidays excluded';
-      } on FormatException catch (error) {
-        leaveSummary = error.message;
+      } catch (error) {
+        leaveSummary = error is FormatException
+            ? error.message
+            : 'Invalid leave duration';
       }
     }
     return PopScope(

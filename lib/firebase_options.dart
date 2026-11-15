@@ -40,58 +40,58 @@ class DefaultFirebaseOptions {
     if (dotenv.isInitialized) {
       final value = dotenv.env[key];
       if (value != null && value.isNotEmpty) {
-        return value;
+        return value.trim();
       }
     }
     return fallback;
   }
 
   static FirebaseOptions get web => FirebaseOptions(
-        apiKey: _get('FIREBASE_WEB_API_KEY'),
-        appId: _get('FIREBASE_WEB_APP_ID'),
+        apiKey: _get('FIREBASE_WEB_API_KEY', 'AIzaSyCN2vDqlJ-yq5vrpepV6E-W2Yc1asWWiNs'),
+        appId: _get('FIREBASE_WEB_APP_ID', '1:215635656090:web:3dcfc7d822a0ba76db8e23'),
         messagingSenderId: _get('FIREBASE_WEB_MESSAGING_SENDER_ID',
-            _get('FIREBASE_MESSAGING_SENDER_ID')),
-        projectId: _get('FIREBASE_WEB_PROJECT_ID', _get('FIREBASE_PROJECT_ID')),
-        authDomain: _get('FIREBASE_WEB_AUTH_DOMAIN'),
+            _get('FIREBASE_MESSAGING_SENDER_ID', '215635656090')),
+        projectId: _get('FIREBASE_WEB_PROJECT_ID', _get('FIREBASE_PROJECT_ID', 'bingi-official-bd')),
+        authDomain: _get('FIREBASE_WEB_AUTH_DOMAIN', 'bingi-official-bd.firebaseapp.com'),
         storageBucket: _get(
-            'FIREBASE_WEB_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET')),
-        measurementId: _get('FIREBASE_WEB_MEASUREMENT_ID'),
+            'FIREBASE_WEB_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET', 'bingi-official-bd.firebasestorage.app')),
+        measurementId: _get('FIREBASE_WEB_MEASUREMENT_ID', 'G-7RG2N3DMNZ'),
       );
 
   static FirebaseOptions get android => FirebaseOptions(
-        apiKey: _get('FIREBASE_ANDROID_API_KEY'),
-        appId: _get('FIREBASE_ANDROID_APP_ID'),
+        apiKey: _get('FIREBASE_ANDROID_API_KEY', 'AIzaSyAaLILuaQtKQHkvVbyGlZJ8Ob2VOYVX2LE'),
+        appId: _get('FIREBASE_ANDROID_APP_ID', '1:215635656090:android:dd0ab56334d724cbdb8e23'),
         messagingSenderId: _get('FIREBASE_ANDROID_MESSAGING_SENDER_ID',
-            _get('FIREBASE_MESSAGING_SENDER_ID')),
+            _get('FIREBASE_MESSAGING_SENDER_ID', '215635656090')),
         projectId:
-            _get('FIREBASE_ANDROID_PROJECT_ID', _get('FIREBASE_PROJECT_ID')),
+            _get('FIREBASE_ANDROID_PROJECT_ID', _get('FIREBASE_PROJECT_ID', 'bingi-official-bd')),
         storageBucket: _get(
-            'FIREBASE_ANDROID_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET')),
+            'FIREBASE_ANDROID_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET', 'bingi-official-bd.firebasestorage.app')),
       );
 
   static FirebaseOptions get ios => FirebaseOptions(
-        apiKey: _get('FIREBASE_IOS_API_KEY'),
-        appId: _get('FIREBASE_IOS_APP_ID'),
+        apiKey: _get('FIREBASE_IOS_API_KEY', 'AIzaSyCds9HaxR1WyYhiAIVZoxZHdhN19DdtujA'),
+        appId: _get('FIREBASE_IOS_APP_ID', '1:215635656090:ios:26ae19cedc59c07fdb8e23'),
         messagingSenderId: _get('FIREBASE_IOS_MESSAGING_SENDER_ID',
-            _get('FIREBASE_MESSAGING_SENDER_ID')),
-        projectId: _get('FIREBASE_IOS_PROJECT_ID', _get('FIREBASE_PROJECT_ID')),
+            _get('FIREBASE_MESSAGING_SENDER_ID', '215635656090')),
+        projectId: _get('FIREBASE_IOS_PROJECT_ID', _get('FIREBASE_PROJECT_ID', 'bingi-official-bd')),
         storageBucket: _get(
-            'FIREBASE_IOS_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET')),
-        androidClientId: _get('FIREBASE_IOS_ANDROID_CLIENT_ID'),
-        iosClientId: _get('FIREBASE_IOS_CLIENT_ID'),
+            'FIREBASE_IOS_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET', 'bingi-official-bd.firebasestorage.app')),
+        androidClientId: _get('FIREBASE_IOS_ANDROID_CLIENT_ID', '215635656090-0akscrger6sph0tegejb7gife6qbjklf.apps.googleusercontent.com'),
+        iosClientId: _get('FIREBASE_IOS_CLIENT_ID', '215635656090-hegutbiomlseq22qadbmnl92it2ls3pc.apps.googleusercontent.com'),
         iosBundleId: _get('FIREBASE_IOS_BUNDLE_ID', 'com.neonecy.necteam'),
       );
 
   static FirebaseOptions get macos => FirebaseOptions(
-        apiKey: _get('FIREBASE_IOS_API_KEY'),
-        appId: _get('FIREBASE_IOS_APP_ID'),
+        apiKey: _get('FIREBASE_IOS_API_KEY', 'AIzaSyCds9HaxR1WyYhiAIVZoxZHdhN19DdtujA'),
+        appId: _get('FIREBASE_IOS_APP_ID', '1:215635656090:ios:26ae19cedc59c07fdb8e23'),
         messagingSenderId: _get('FIREBASE_IOS_MESSAGING_SENDER_ID',
-            _get('FIREBASE_MESSAGING_SENDER_ID')),
-        projectId: _get('FIREBASE_IOS_PROJECT_ID', _get('FIREBASE_PROJECT_ID')),
+            _get('FIREBASE_MESSAGING_SENDER_ID', '215635656090')),
+        projectId: _get('FIREBASE_IOS_PROJECT_ID', _get('FIREBASE_PROJECT_ID', 'bingi-official-bd')),
         storageBucket: _get(
-            'FIREBASE_IOS_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET')),
-        androidClientId: _get('FIREBASE_IOS_ANDROID_CLIENT_ID'),
-        iosClientId: _get('FIREBASE_IOS_CLIENT_ID'),
+            'FIREBASE_IOS_STORAGE_BUCKET', _get('FIREBASE_STORAGE_BUCKET', 'bingi-official-bd.firebasestorage.app')),
+        androidClientId: _get('FIREBASE_IOS_ANDROID_CLIENT_ID', '215635656090-0akscrger6sph0tegejb7gife6qbjklf.apps.googleusercontent.com'),
+        iosClientId: _get('FIREBASE_IOS_CLIENT_ID', '215635656090-hegutbiomlseq22qadbmnl92it2ls3pc.apps.googleusercontent.com'),
         iosBundleId: _get('FIREBASE_IOS_BUNDLE_ID', 'com.neonecy.necteam'),
       );
 }

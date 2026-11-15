@@ -46,6 +46,11 @@ AccountProfile accountProfileFromApi(
       'date_of_birth': employment['date_of_birth'] ?? raw['date_of_birth'],
       'emergency_contact':
           employment['emergency_contact'] ?? raw['emergency_contact'],
+      'employment_status': employment['employment_status'] ??
+          employment['status'] ??
+          raw['employment_status'] ??
+          raw['status'],
+      'is_active': employment['is_active'] ?? raw['is_active'],
       'role': {
         'key': identity['role'],
         'name': employment['system_role'] ?? identity['role']

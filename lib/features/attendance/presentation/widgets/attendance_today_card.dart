@@ -460,11 +460,27 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
     final target =
         record == null ? store.policy.requiredMinutes : facts.requiredMinutes;
     final employee = EmployeeStore.instance.byId(widget.employeeId);
+    final isAllowedEmployee = employee == null ||
+        (employee.status.toLowerCase() != 'inactive' &&
+            employee.status.toLowerCase() != 'suspended');
+    final isWorkingDay = store.isWorkingDay(widget.employeeId, today);
     final canCheckIn = record == null &&
-        employee?.status == 'Active' &&
+        isAllowedEmployee &&
         facts.leaveDays < 1 &&
-        (store.policy.allowOffDayWork ||
-            store.isWorkingDay(widget.employeeId, today));
+        (store.policy.allowOffDayWork || isWorkingDay);
+
+    String? checkInBlockReason;
+    if (record == null) {
+      if (!isAllowedEmployee) {
+        checkInBlockReason =
+            'Account status is ${employee.status}. Please contact administrator.';
+      } else if (facts.leaveDays >= 1) {
+        checkInBlockReason = 'You are on approved leave today.';
+      } else if (!store.policy.allowOffDayWork && !isWorkingDay) {
+        checkInBlockReason =
+            'Today is an off-day (${facts.status.label}). Work on days off is disabled by administrator.';
+      }
+    }
     return Column(children: [
       Container(
           width: double.infinity,
@@ -562,7 +578,7 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
                       ? null
                       : () => _act('out', elapsed: elapsed)))
         ])
-      else
+      else ...[
         NecButton(
             label: record?.checkOut != null
                 ? 'Workday Completed'
@@ -573,10 +589,30 @@ class _AttendanceTodayCardState extends State<AttendanceTodayCard> {
                         : 'Check In',
             fullWidth: true,
             loading: _activeAction == 'in',
-            onPressed:
-                canCheckIn && _activeAction == null ? () => _act('in') : null,
+            onPressed: canCheckIn && _activeAction == null
+                ? () => _act('in')
+                : checkInBlockReason != null && _activeAction == null
+                    ? () => NecToast.show(context,
+                        message: checkInBlockReason!, type: NecToastType.error)
+                    : null,
             icon: const Icon(CupertinoIcons.arrow_right_circle,
                 size: 20, color: Colors.white)),
+        if (checkInBlockReason != null) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              checkInBlockReason,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFF59E0B),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
       const SizedBox(height: 10),
       Text(
           '${AttendanceClock.minutesTime(store.policy.startMinutes)} – ${AttendanceClock.minutesTime(store.policy.endMinutes)} · ${AttendanceClock.timezone}',

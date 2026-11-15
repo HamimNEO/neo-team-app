@@ -5,39 +5,42 @@ import '../../data/attendance_clock.dart';
 
 Future<int?> pickAttendanceTime(BuildContext context, int initial) {
   var minutes = initial;
-  final nec = Theme.of(context).extension<NecColors>()!;
   return showCupertinoModalPopup<int>(
       context: context,
-      builder: (sheetContext) => CupertinoTheme(
-          data: CupertinoThemeData(
-              brightness: Theme.of(context).brightness,
-              primaryColor: nec.brand),
-          child: Material(
-              color: nec.surface,
-              child: SafeArea(
-                  top: false,
-                  child: SizedBox(
-                      height: 300,
-                      child: Column(children: [
-                        Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              CupertinoButton(
-                                  onPressed: () => Navigator.pop(sheetContext),
-                                  child: const Text('Cancel')),
-                              CupertinoButton(
-                                  onPressed: () =>
-                                      Navigator.pop(sheetContext, minutes),
-                                  child: const Text('Done')),
-                            ]),
-                        Expanded(
-                            child: CupertinoDatePicker(
-                                mode: CupertinoDatePickerMode.time,
-                                initialDateTime: DateTime(
-                                    2000, 1, 1, initial ~/ 60, initial % 60),
-                                onDateTimeChanged: (date) =>
-                                    minutes = date.hour * 60 + date.minute)),
-                      ]))))));
+      builder: (sheetContext) {
+        final nec = Theme.of(sheetContext).extension<NecColors>() ??
+            const NecColors.light();
+        return CupertinoTheme(
+            data: CupertinoThemeData(
+                brightness: Theme.of(sheetContext).brightness,
+                primaryColor: nec.brand),
+            child: Material(
+                color: nec.surface,
+                child: SafeArea(
+                    top: false,
+                    child: SizedBox(
+                        height: 300,
+                        child: Column(children: [
+                          Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                CupertinoButton(
+                                    onPressed: () => Navigator.pop(sheetContext),
+                                    child: const Text('Cancel')),
+                                CupertinoButton(
+                                    onPressed: () =>
+                                        Navigator.pop(sheetContext, minutes),
+                                    child: const Text('Done')),
+                              ]),
+                          Expanded(
+                              child: CupertinoDatePicker(
+                                  mode: CupertinoDatePickerMode.time,
+                                  initialDateTime: DateTime(
+                                      2000, 1, 1, initial ~/ 60, initial % 60),
+                                  onDateTimeChanged: (date) =>
+                                      minutes = date.hour * 60 + date.minute)),
+                        ])))));
+      });
 }
 
 Future<String?> chooseAttendanceOption(

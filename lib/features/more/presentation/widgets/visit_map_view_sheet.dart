@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../../core/config/app_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -103,7 +103,7 @@ class _VisitMapViewSheetState extends State<VisitMapViewSheet>
 
   /// Attempts to fetch live road navigation polyline from Google Directions API if enabled
   Future<void> _tryFetchDirectionsPolyline() async {
-    final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+    final apiKey = AppConfig.googleMapsApiKey;
     if (apiKey.isEmpty) return;
 
     try {
@@ -261,7 +261,7 @@ class _VisitMapViewSheetState extends State<VisitMapViewSheet>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetHeight = MediaQuery.of(context).size.height * 0.86;
 
-    final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+    final apiKey = AppConfig.googleMapsApiKey;
 
     final centerLat = (_userLat + _lat) / 2;
     final centerLng = (_userLng + _lng) / 2;

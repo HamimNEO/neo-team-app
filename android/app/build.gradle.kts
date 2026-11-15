@@ -53,6 +53,11 @@ android {
             isShrinkResources = true
         }
     }
+
+    androidResources {
+        noCompress += listOf("env", ".env")
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
 }
 
 // Fail before packaging rather than producing a debug-signed Play upload.
